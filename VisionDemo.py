@@ -37,10 +37,8 @@ while True:
     d = cv2.getTrackbarPos("UpperH", "Window")
     e = cv2.getTrackbarPos("UpperS", "Window")
     f = cv2.getTrackbarPos("UpperV", "Window")
-    h = [a, b, c]
-    i = [d, e, f]
-    lowerBlue = np.array(h)
-    upperBlue = np.array(i)
+    lowerBlue = np.array([a, b, c])
+    upperBlue = np.array([d, e, f])
     _, frame = vid.read()
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
