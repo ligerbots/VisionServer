@@ -11,11 +11,15 @@
 
 import cv2
 import numpy as np
+import time
 
-from cscore import CameraServer
+import cscore
+from networktables import NetworkTables
+
+from MJPegSource import MJPegSource
 
 def main():
-    cs = CameraServer.getInstance()
+    cs = cscore.CameraServer.getInstance()
     cs.enableLogging()
     
     camera = cs.startAutomaticCapture()
@@ -25,9 +29,9 @@ def main():
     # Get a CvSink. This will capture images from the camera
     cvSink = cs.getVideo()
     
-    # (optional) Setup a CvSource. This will send images back to the Dashboard
-    outputStream = cs.putVideo("Rectangle", 640, 480)
-    
+    # Setup a CvSource. This will send images back to the Dashboard
+    outputStream = MJPegSource( "Rectangle", 640, 480, fps=15 )
+
     # Allocating new images is very expensive, always try to preallocate
     img = np.zeros(shape=(480, 640, 3), dtype=np.uint8)    
 
@@ -54,8 +58,9 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     
     # You should uncomment these to connect to the RoboRIO
-    #import networktables
-    #networktables.initialize(server='10.xx.xx.2')
-    
+    # FOR TESTING, set this box as the server
+    NetworkTables.enableVerboseLogging()
+    NetworkTables.initialize()
+
     main()
     
