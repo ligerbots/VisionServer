@@ -25,6 +25,7 @@ class BaseVisionServer( object ):
     def __init__( self ):
         # for processing stored files and no camera
         self.file_mode = False
+        self.camera_device = 0
         
         self.cameraServer = cscore.CameraServer.getInstance()
         self.cameraServer.enableLogging()
@@ -43,8 +44,8 @@ class BaseVisionServer( object ):
     # Methods meant to be overridden by a subclass
     
     def addCameras( self ):
-        # add a single camera at /dev/video0
-        self.addCamera( 'main', 0, True )
+        # add a single camera at /dev/videoN, N=camera_device
+        self.addCamera( 'main', self.camera_device, True )
         return
     
     def preallocateArrays( self ):
@@ -86,7 +87,7 @@ class BaseVisionServer( object ):
         camera = cscore.UsbCamera( name, device )
         self.cameraServer.startAutomaticCapture( camera=camera )
         camera.setResolution( self.image_width, self.image_height )
-
+        
         sink = self.cameraServer.getVideo( camera=camera )
         self.cameraFeeds[ name ] = sink
         if active:
@@ -172,6 +173,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser( description='Base Vision Server' )
     parser.add_argument( '--files', action='store_true', help='Process input files instead of camera' )
+    parser.add_argument( '--camera', '-c', type=int, default=0, help='Device number of main camera (default=0)' )
     parser.add_argument( 'input_files', nargs='*', help='input files' )
 
     args = parser.parse_args()
@@ -185,6 +187,7 @@ if __name__ == '__main__':
     NetworkTables.initialize()
 
     server = BaseVisionServer()
+    server.camera_device = args.camera
     if args.files:
         server.run_files( args.input_files )
     else:
