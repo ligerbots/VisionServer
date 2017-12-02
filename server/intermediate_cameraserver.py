@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+g#!/usr/bin/env python3
 #
 # This is a demo program showing CameraServer usage with OpenCV to do image
 # processing. The image is acquired from the USB camera, then a rectangle
@@ -16,24 +16,23 @@ import time
 import cscore
 from networktables import NetworkTables
 
-from MJPegSource import MJPegSource
-
 def main():
     cs = cscore.CameraServer.getInstance()
     cs.enableLogging()
-    
-    camera = cs.startAutomaticCapture()
-    
+
+    cam = cscore.UsbCamera("foo", 0)
+    camera = cs.startAutomaticCapture(camera=cam)
+
     camera.setResolution(640, 480)
-    
+
     # Get a CvSink. This will capture images from the camera
     cvSink = cs.getVideo()
-    
+
     # Setup a CvSource. This will send images back to the Dashboard
-    outputStream = MJPegSource( "Rectangle", 640, 480, fps=15 )
+    outputStream = cs.putVideo("Rectangle", 640, 480)
 
     # Allocating new images is very expensive, always try to preallocate
-    img = np.zeros(shape=(480, 640, 3), dtype=np.uint8)    
+    img = np.zeros(shape=(480, 640, 3), dtype=np.uint8)
 
     while True:
         # Tell the CvSink to grab a frame from the camera and put it
@@ -41,26 +40,25 @@ def main():
         time, img = cvSink.grabFrame(img)
         if time == 0:
             # Send the output the error.
-            outputStream.notifyError(cvSink.getError());
+            outputStream.notifyError(cvSink.getError())
             # skip the rest of the current iteration
             continue
-        
+
         # Put a rectangle on the image
         cv2.rectangle(img, (100, 100), (400, 400), (0, 255, 0), 5)
-        
+
         # Give the output stream a new image to display
-        outputStream.putFrame(img)    
+        outputStream.putFrame(img)
 
 if __name__ == '__main__':
-    
+
     # To see messages from networktables, you must setup logging
     import logging
     logging.basicConfig(level=logging.DEBUG)
-    
+
     # You should uncomment these to connect to the RoboRIO
     # FOR TESTING, set this box as the server
     NetworkTables.enableVerboseLogging()
     NetworkTables.initialize()
 
     main()
-    
