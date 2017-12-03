@@ -22,7 +22,7 @@ __all__ = ( 'bgrtohsv_inrange', 'bgrtohsv_inrange_table', 'bgrtohsv_inrange_prep
 @cython.cdivision(True)
 @cython.wraparound(False)
 cpdef void bgrtohsv_inrange( unsigned char[:,:,:] image,
-                             np.ndarray[DTYPE_t, ndim=1] low_limit, np.ndarray[DTYPE_t, ndim=1] high_limit,
+                             unsigned char[:] low_limit, unsigned char[:] high_limit,
                              unsigned char[:,:] output ):
     '''Perform BGR2HSV and thresholding in one pass'''
     
@@ -104,6 +104,7 @@ cpdef bgrtohsv_inrange_preparetable( np.ndarray low_limit, np.ndarray high_limit
 
     hsv = cv2.cvtColor( bgr, cv2.COLOR_BGR2HSV )
 
+    # don't know why, but this seems to be a *little* faster, at least on my laptop
     lowLimitHSV = np.array( low_limit ) 
     highLimitHSV = np.array( high_limit )
 
