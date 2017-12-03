@@ -1,3 +1,3 @@
-# VisionStuff
+# VisionServer
 
-Stuff having to do with vision
+This is the LigerBots Python vision server, intended to run on a coprocessor on the robot.
