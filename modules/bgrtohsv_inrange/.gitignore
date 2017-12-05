@@ -1,2 +1,3 @@
 build
 cbgrtohsv_inrange.c
+*.so

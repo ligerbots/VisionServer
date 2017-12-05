@@ -1,4 +1,4 @@
-g#!/usr/bin/env python3
+#!/usr/bin/env python3
 #
 # This is a demo program showing CameraServer usage with OpenCV to do image
 # processing. The image is acquired from the USB camera, then a rectangle
@@ -20,7 +20,8 @@ def main():
     cs = cscore.CameraServer.getInstance()
     cs.enableLogging()
 
-    cam = cscore.UsbCamera("foo", 0)
+    # camera at /dev/video0
+    cam = cscore.UsbCamera("main", 0)
     camera = cs.startAutomaticCapture(camera=cam)
 
     camera.setResolution(640, 480)
