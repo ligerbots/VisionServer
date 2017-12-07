@@ -21,8 +21,8 @@ class VisionServer2017(object):
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
     # fix the port for the main output, so it does not change with multiple cameras
-    outputPort = ntproperty('/vision/outputPort', 1190,
-                            doc='TCP port for main image output')
+    output_port = ntproperty('/vision/output_port', 1190,
+                             doc='TCP port for main image output')
 
     # Operation modes. Force the value on startup.
     tuning = ntproperty('/vision/tuning', False, writeDefault=True,
@@ -30,28 +30,28 @@ class VisionServer2017(object):
     restart = ntproperty('/vision/restart', False, writeDefault=True,
                          doc='Restart algorithm. Needed after certain param changes.')
 
-    imageWidth = ntproperty('/vision/width', 640, writeDefault=False,
-                            doc='Image width')
-    imageHeight = ntproperty('/vision/height', 480, writeDefault=False,
-                             doc='Image height')
-    cameraFPS = ntproperty('/vision/fps', 30, writeDefault=False,
-                           doc='FPS from camera')
+    image_width = ntproperty('/vision/width', 640, writeDefault=False,
+                             doc='Image width')
+    image_height = ntproperty('/vision/height', 480, writeDefault=False,
+                              doc='Image height')
+    camera_fps = ntproperty('/vision/fps', 30, writeDefault=False,
+                            doc='FPS from camera')
 
     # Color threshold values, in HSV space
-    hueLowLimit = ntproperty('/vision/hueLowLimit', 70,
-                             doc='Hue low limit for thresholding')
-    hueHighLimit = ntproperty('/vision/hueHighLimit', 100,
-                              doc='Hue high limit for thresholding')
+    hue_low_limit = ntproperty('/vision/hue_low_limit', 70,
+                               doc='Hue low limit for thresholding')
+    hue_high_limit = ntproperty('/vision/hue_high_limit', 100,
+                                doc='Hue high limit for thresholding')
 
-    saturationLowLimit = ntproperty('/vision/saturationLowLimit', 60,
-                                    doc='Saturation low limit for thresholding')
-    saturationHighLimit = ntproperty('/vision/saturationHighLimit', 255,
-                                     doc='Saturation high limit for thresholding')
+    saturation_low_limit = ntproperty('/vision/saturation_low_limit', 60,
+                                      doc='Saturation low limit for thresholding')
+    saturation_high_limit = ntproperty('/vision/saturation_high_limit', 255,
+                                       doc='Saturation high limit for thresholding')
 
-    valueLowLimit = ntproperty('/vision/valueLowLimit', 30,
-                               doc='Value low limit for thresholding')
-    valueHighLimit = ntproperty('/vision/valueHighLimit', 255,
-                                doc='Value high limit for thresholding')
+    value_low_limit = ntproperty('/vision/value_low_limit', 30,
+                                 doc='Value low limit for thresholding')
+    value_high_limit = ntproperty('/vision/value_high_limit', 255,
+                                  doc='Value high limit for thresholding')
 
     # distance between the two target bars, in units of the width of a bar
     peg_target_separation = ntproperty('/vision/peg/target_separation', 3.5,
@@ -111,7 +111,7 @@ class VisionServer2017(object):
         '''Preallocate the intermediate result image arrays'''
 
         # NOTE: shape is (height, width, #bytes)
-        self.camera_frame = numpy.zeros(shape=(self.imageHeight, self.imageWidth, 3),
+        self.camera_frame = numpy.zeros(shape=(self.image_height, self.image_width, 3),
                                         dtype=numpy.uint8)
         self.output_frame = self.camera_frame
         return
@@ -135,12 +135,16 @@ class VisionServer2017(object):
         '''Create the main image MJPEG server'''
 
         # Output server
-        # TODO set the TCP port
+        # Need to do this the hard way to set the TCP port
         self.output_stream = cscore.CvSource(
             'camera', cscore.VideoMode.PixelFormat.kMJPEG,
-            self.imageWidth, self.imageHeight,
-            min(self.cameraFPS, self.output_fps_limit))
-        self.camera_server.startAutomaticCapture(camera=self.output_stream)
+            self.image_width, self.image_height,
+            min(self.camera_fps, self.output_fps_limit))
+        self.camera_server.addCamera(self.output_stream)
+        server = self.camera_server.addServer(name='camera',
+                                              port=self.output_port)
+        server.setSource(self.output_stream)
+
         return
 
     def add_camera(self, name, device, active=True):
@@ -149,8 +153,8 @@ class VisionServer2017(object):
 
         camera = cscore.UsbCamera(name, device)
         self.camera_server.startAutomaticCapture(camera=camera)
-        camera.setResolution(self.imageWidth, self.imageHeight)
-        camera.setFPS(self.cameraFPS)
+        camera.setResolution(self.image_width, self.image_height)
+        camera.setFPS(self.camera_fps)
 
         sink = self.camera_server.getVideo(camera=camera)
         self.camera_feeds[name] = sink
@@ -234,6 +238,7 @@ class VisionServer2017(object):
 
 # -----------------------------------------------------------------------------
 
+
 # syntax checkers don't like global variables, so use a simple function
 def main():
     '''Main routine'''
@@ -268,6 +273,7 @@ def main():
     else:
         server.run()
     return
+
 
 # Main routine
 if __name__ == '__main__':
