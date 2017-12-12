@@ -67,6 +67,8 @@ class VisionServer2017(object):
 
     peg_approx_polydp_error = ntproperty('/vision/peg/approx_polydp_error', 0.06,
                                          doc='Peg approxPolyDP error')
+                                         
+    image_writer_state = ntproperty('/vision/write_images', False, writeDefault = True)
 
     def __init__(self):
         # for processing stored files and no camera
@@ -89,6 +91,8 @@ class VisionServer2017(object):
         self.previous_output_time = time.time()
         self.camera_frame = None
         self.output_frame = None
+        
+        self.image_writer = ImageWriter(location_root='/tmp/images', capture_period=0.5, image_format='jpg')		//may need to change the directory
 
         return
 
@@ -194,7 +198,10 @@ class VisionServer2017(object):
                 self.output_stream.notifyError(self.current_camera.getError())
                 # skip the rest of the current iteration
                 continue
-
+			
+			if self.image_writer_state == True:
+				self.image_writer.setImage(self.camera_frame)
+			
             self.process_image()
 
             # Done. Output the marked up image, if needed
