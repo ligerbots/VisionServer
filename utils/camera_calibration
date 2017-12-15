@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+
+# Calibrates a camera given checkerboard images
+
+#http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_calib3d/py_calibration/py_calibration.html
+
+class CameraCalibration(object):
+	checkerboard_height = ntproperty('/vision/calibration/checkerboard_height', 8, writeDefault=True,
+                        doc='number of squares in the height of the checkerboard')
+	checkerboard_width = ntproperty('/vision/calibration/checkerboard_width', 8, writeDefault=True,
+                        doc='number of squares in the width of the checkerboard')
+
+	def __init__(self, images):
+		self.images = images		#array of images
+		return
+	
+	def calibrateCamera(self, camera):
+		#calculate and return the distortion co-efficients
+		
+    	# termination criteria
+		criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+		# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+		objp = np.zeros((checkerboard_height * checkerboard_width,3), np.float32)
+		objp[:,:2] = np.mgrid[0:width,0:checkerboard_height].T.reshape(-1,2)
+
+		# Arrays to store object points and image points from all the images.
+		objpoints = [] # 3d point in real world space
+		imgpoints = [] # 2d points in image plane.
+
+		#images = glob.glob('*.jpg')
+
+		for fname in self.images:
+		    img = cv2.imread(fname)
+		    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+		    # Find the chess board corners
+		    ret, corners = cv2.findChessboardCorners(gray, (checkerboard_width,checkerboard_height), None)
+
+		    # If found, add object points, image points (after refining them)
+		    if ret == True:
+		        objpoints.append(objp)
+		
+		        corners2 = cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+		        imgpoints.append(corners2)
+		
+		        # Draw and display the corners
+		        img = cv2.drawChessboardCorners(img, (checkerboard_width,checkerboard_height), corners2,ret)
+		        cv2.imshow('img',img)
+		        cv2.waitKey(500)
+		        
+		cv2.destroyAllWindows()
+		
+		ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+		
+		return([ret, mtx, dist, rvecs, tvecs])
+		
+	
