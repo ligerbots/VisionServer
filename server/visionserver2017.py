@@ -198,9 +198,9 @@ class VisionServer2017(object):
                 self.output_stream.notifyError(self.current_camera.getError())
                 # skip the rest of the current iteration
                 continue
-			
-			if self.image_writer_state == True:
-				self.image_writer.setImage(self.camera_frame)
+		
+	    if self.image_writer_state == True:
+		self.image_writer.setImage(self.camera_frame)
 			
             self.process_image()
 
