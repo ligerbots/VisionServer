@@ -92,7 +92,7 @@ class VisionServer2017(object):
         self.camera_frame = None
         self.output_frame = None
         
-        self.image_writer = ImageWriter(location_root='/tmp/images', capture_period=0.5, image_format='jpg')		//may need to change the directory
+        self.image_writer = ImageWriter(location_root='/tmp/images', capture_period=0.5, image_format='jpg')		#may need to change the directory
 
         return
 
