@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-
-# For more information go to:
-# http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_calib3d/py_calibration/py_calibration.html
-
 import cv2
 import numpy
 
@@ -62,7 +57,7 @@ class CameraCalibration(object):
                 cv2.waitKey(500)
 
         cv2.destroyAllWindows()
-
+        
         if not objpoints:
             print("No useful images. Quitting...")
             return None
@@ -75,6 +70,9 @@ class CameraCalibration(object):
 
 if __name__ == '__main__':
     import argparse
+    from pprint import pprint
+    import json
+
     parser = argparse.ArgumentParser(description='Calibration utility')
     parser.add_argument('--length', '-l', type=int, default=9, help='Length of checkerboard (number of corners)')
     parser.add_argument('--width', '-w', type=int, default=6, help='Width of checkerboard (number of corners)')
@@ -87,10 +85,26 @@ if __name__ == '__main__':
     calibrate.checkerboard_width = args.width
     calibrate.checkerboard_height = args.length
     calibrate.square_size = args.size
-
+    
     ret, mtx, dist, rvecs, tvecs = calibrate.calibrateCamera(args.input_files)
     print('ret =', ret)
     print('mtx =', mtx)
     print('dist =', dist)
+    
+    print(calibrate.calibrateCamera(args.input_files))
 
-    # TODO: save matrices to a file
+    # save matrices to a file
+    
+    camera = 0
+    
+    #Get the file name for the new file to write
+    filter = "JSON File (*.json)|*.json|All Files (*.*)|*.*||"
+    filename = rs.SaveFileName("Save JSON file as", filter)
+    
+    # If the file name exists, write a JSON string into the file.
+    if filename:
+        #Writing JSON data
+        with open(filename, 'w') as f:
+            json.dump(calibrate.calibrateCamera(args.input_files), f)
+
+
