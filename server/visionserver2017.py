@@ -8,6 +8,7 @@ import cv2
 import numpy
 
 import cscore
+from cscore.imagewriter import ImageWriter
 from networktables.util import ntproperty
 from networktables import NetworkTables
 
@@ -15,7 +16,7 @@ from pegtarget2017 import PegTarget2017
 
 
 class VisionServer2017(object):
-    '''Vision server for 2017 StreamWorks'''
+    '''Vision server for 2017 SteamWorks'''
 
     # NetworkTable parameters
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
@@ -67,8 +68,9 @@ class VisionServer2017(object):
 
     peg_approx_polydp_error = ntproperty('/vision/peg/approx_polydp_error', 0.06,
                                          doc='Peg approxPolyDP error')
-                                         
-    image_writer_state = ntproperty('/vision/write_images', False, writeDefault = True)
+
+    image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
+                                    doc='Turn on saving of images')
 
     def __init__(self):
         # for processing stored files and no camera
@@ -91,8 +93,12 @@ class VisionServer2017(object):
         self.previous_output_time = time.time()
         self.camera_frame = None
         self.output_frame = None
-        
-        self.image_writer = ImageWriter(location_root='/tmp/images', capture_period=0.5, image_format='jpg')		#may need to change the directory
+
+        # if asked, save image every 1/2 second
+        # images are saved under the directory 'saved_images' in the current directory
+        #  (ie current directory when the server is started)
+        self.image_writer = ImageWriter(location_root='./saved_images',
+                                        capture_period=0.5, image_format='jpg')
 
         return
 
@@ -140,10 +146,9 @@ class VisionServer2017(object):
 
         # Output server
         # Need to do this the hard way to set the TCP port
-        self.output_stream = cscore.CvSource(
-            'camera', cscore.VideoMode.PixelFormat.kMJPEG,
-            self.image_width, self.image_height,
-            min(self.camera_fps, self.output_fps_limit))
+        self.output_stream = cscore.CvSource('camera', cscore.VideoMode.PixelFormat.kMJPEG,
+                                             self.image_width, self.image_height,
+                                             min(self.camera_fps, self.output_fps_limit))
         self.camera_server.addCamera(self.output_stream)
         server = self.camera_server.addServer(name='camera',
                                               port=self.output_port)
@@ -198,10 +203,10 @@ class VisionServer2017(object):
                 self.output_stream.notifyError(self.current_camera.getError())
                 # skip the rest of the current iteration
                 continue
-		
-	    if self.image_writer_state == True:
-		self.image_writer.setImage(self.camera_frame)
-			
+
+            if self.image_writer_state:
+                self.image_writer.setImage(self.camera_frame)
+
             self.process_image()
 
             # Done. Output the marked up image, if needed
