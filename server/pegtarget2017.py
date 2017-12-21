@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 # Find the peg target for 2017 STEAMWORKS
+# This routine should not use any WPILib classes. That keeps it portable, making testing simpler.
 
 import cv2
 import numpy
+
 
 class PegTarget2017(object):
     '''Find peg target for Steamworks 2017'''
@@ -24,8 +26,9 @@ class PegTarget2017(object):
 
         self.peg_approx_polydp_error = 0.06
 
-        #self.erodeKernel = numpy.ones((3,3), numpy.uint8)
-        #self.erodeIterations = 0
+        # Probably should use morphologyEx if needed
+        # self.erodeKernel = numpy.ones((3,3), numpy.uint8)
+        # self.erodeIterations = 0
 
         self.width_separation_ratio_max = 0.6
 
@@ -118,8 +121,8 @@ class PegTarget2017(object):
         cand_x = candidate['center'][0]
         cand_width = candidate['widths'][0]
         cand_height = candidate['widths'][1]
-        
-        #print('ratio:', cand_width / candidate['widths'][1])
+
+        # print('ratio:', cand_width / candidate['widths'][1])
         if cand_width / candidate['widths'][1] > self.width_separation_ratio_max:
             return None
 
@@ -197,7 +200,7 @@ class PegTarget2017(object):
         delta_x = abs(cand_x - ave_second_bar_x)
         ave_width = (cand_width + ave_second_bar_width) / 2
         ratio = delta_x / (ave_width * self.peg_target_separation)
-        #print('deltaX', deltaX, aveW, ratio)
+        # print('deltaX', deltaX, aveW, ratio)
         if ratio > 1.3 or ratio < 0.7:
             # not close enough to 1
             return None
@@ -219,7 +222,8 @@ class PegTarget2017(object):
 
         return None
 
-#--------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
 
 def process_files(peg_processor, input_files, output_dir):
     '''Process the files and output the marked up image'''
@@ -231,9 +235,10 @@ def process_files(peg_processor, input_files, output_dir):
         peg_processor.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
-        print('{} -> {}'.format(image_file,outfile))
+        print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
     return
+
 
 def time_processing(peg_processor, input_files):
     '''Time the processing of the test files'''
@@ -257,9 +262,10 @@ def time_processing(peg_processor, input_files):
     deltat = time() - startt
 
     print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
-        cnt, deltat, 1000.0 * deltat/ cnt, cnt / deltat))
+        cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
     CodeTimer.outputTimers()
     return
+
 
 def main():
     '''Main routine, for testing'''
@@ -279,6 +285,8 @@ def main():
         time_processing(peg_processor, args.input_files)
 
     return
+
+
 # Main routine
 # This is for development/testing
 if __name__ == '__main__':
