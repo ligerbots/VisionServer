@@ -5,12 +5,17 @@
 
 import cv2
 import numpy
+import json
 
 
 class PegTarget2017(object):
     '''Find peg target for Steamworks 2017'''
 
-    def __init__(self, path):
+    # real world dimensions of the peg target
+    TARGET_WIDTH = 10.24        # inches
+    TARGET_HEIGHT = 5.0         # inches
+
+    def __init__(self, calib_file):
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
@@ -37,12 +42,18 @@ class PegTarget2017(object):
 
         # output results
         self.target_contour = None
-        
-        with open(path) as f:
+
+        with open(calib_file) as f:
             json_data = json.load(f)
-            self.cameraMatrix = json_data["camera_matrix"]
-            self.distortion = json_data["distortion"]
-        self.peg_target_coords = [[-6, -4, 0], [-6, 4, 0], [6, 4, 0], [6, -4, 0]]
+            self.cameraMatrix = numpy.array(json_data["camera_matrix"])
+            self.distortionMatrix = numpy.array(json_data["distortion"])
+
+        # Corners of the peg target in real world dimensions
+        self.peg_target_coords = numpy.array([[-PegTarget2017.TARGET_WIDTH/2.0, -PegTarget2017.TARGET_HEIGHT/2.0, 0.0],
+                                              [-PegTarget2017.TARGET_WIDTH/2.0,  PegTarget2017.TARGET_HEIGHT/2.0, 0.0],
+                                              [ PegTarget2017.TARGET_WIDTH/2.0,  PegTarget2017.TARGET_HEIGHT/2.0, 0.0],
+                                              [ PegTarget2017.TARGET_WIDTH/2.0, -PegTarget2017.TARGET_HEIGHT/2.0, 0.0]])
+        print(self.peg_target_coords)
         return
 
     @staticmethod
@@ -96,14 +107,31 @@ class PegTarget2017(object):
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
         # try only the 5 biggest regions
-        self.target_contour = None
         for candidate_index in range(min(5, len(contour_list))):
             self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contour is not None:
                 break
-        
-        rvec, tvec = Calib3d.solvePnP(self.peg_target_coords, self.target_contour, self.cameraMatrix, self.distortCoeff)
-        return rvec, tvec
+
+        if self.target_contour is not None:
+            # The target was found. Convert to real world co-ordinates.
+
+            # Need to convert the contour into a matrix of corners
+            # We know it is a quadrangle.
+            # TODO: do we need to sort the corners differently?
+            image_corners = numpy.empty((4, 2))
+            for icnr in range(4):
+                cnr = self.target_contour[icnr][0]
+                image_corners[icnr][0] = float(cnr[0])
+                image_corners[icnr][1] = float(cnr[1])
+            print(image_corners)
+            retval, rvec, tvec = cv2.solvePnP(self.peg_target_coords, image_corners,
+                                              self.cameraMatrix, self.distortionMatrix)
+            if retval:
+                # Return values are 3x1 matrices. Convert to Python lists
+                return rvec.flatten().tolist(), tvec.flatten().tolist()
+
+        # no target found. Return "error"
+        return None, None
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
@@ -236,12 +264,16 @@ def process_files(peg_processor, input_files, output_dir):
     import os.path
 
     for image_file in input_files:
+        print()
+        print(image_file)
         bgr_frame = cv2.imread(image_file)
-        peg_processor.process_image(bgr_frame)
-        peg_processor.prepare_output_image(bgr_frame)
+        rvec, tvec = peg_processor.process_image(bgr_frame)
+        print('rvec:', rvec)
+        print('tvec:', tvec)
 
+        peg_processor.prepare_output_image(bgr_frame)
         outfile = os.path.join(output_dir, os.path.basename(image_file))
-        print('{} -> {}'.format(image_file, outfile))
+        # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
     return
 
@@ -280,11 +312,12 @@ def main():
     parser = argparse.ArgumentParser(description='2017 peg target')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
+    parser.add_argument('--calib', help='Calibration file')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    peg_processor = PegTarget2017()
+    peg_processor = PegTarget2017(args.calib)
     if args.output_dir is not None:
         process_files(peg_processor, args.input_files, args.output_dir)
     elif args.time:

@@ -59,7 +59,7 @@ class CameraCalibration(object):
                 cv2.waitKey(500)
 
         cv2.destroyAllWindows()
-        
+
         if not objpoints:
             print("No useful images. Quitting...")
             return None
@@ -88,21 +88,14 @@ if __name__ == '__main__':
     calibrate.checkerboard_width = args.width
     calibrate.checkerboard_height = args.length
     calibrate.square_size = args.size
-    
+
     ret, mtx, dist, rvecs, tvecs = calibrate.calibrateCamera(args.input_files)
     print('ret =', ret)
     print('mtx =', mtx)
     print('dist =', dist)
-    
-    #print(calibrate.calibrateCamera(args.input_files))
 
-    # save matrices to a file
-    
-    
-    #Get the file name for the new file to write
-    
-    # If the file name exists, write a JSON string into the file.
+    # If the command line argument was specified, save matrices to a file in JSON format
     if args.output:
-        #Writing JSON data
+        # Writing JSON data
         with open(args.output, 'w') as f:
             json.dump({"camera_matrix": mtx, "distortion": dist}, f)

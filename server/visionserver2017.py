@@ -71,9 +71,9 @@ class VisionServer2017(object):
 
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
-    
+
+    # Targetting info sent to RoboRio
     camera_rvec = ntproperty('/vision/camera_rvec', doc='Rotation vector from robot to target')
-    
     camera_tvec = ntproperty('/vision/camera_tvec', doc='Translation vector from robot to target')
 
     def __init__(self):
@@ -211,12 +211,15 @@ class VisionServer2017(object):
                 # Send the output the error.
                 self.output_stream.notifyError(self.current_camera.getError())
                 # skip the rest of the current iteration
+                # TODO: do we need to indicate error to RoboRio?
                 continue
 
             if self.image_writer_state:
                 self.image_writer.setImage(self.camera_frame)
 
             rvec, tvec = self.process_image()
+            # rvec, tvec = None if no target found
+            # TODO: how do we indicate no target via NetTables?
             self.camera_rvec = rvec
             self.camera_tvec = tvec
 
