@@ -73,10 +73,10 @@ class VisionServer2017(object):
                                     doc='Turn on saving of images')
 
     # Targetting info sent to RoboRio
-    camera_rvec = ntproperty('/vision/camera_rvec', doc='Rotation vector from robot to target')
-    camera_tvec = ntproperty('/vision/camera_tvec', doc='Translation vector from robot to target')
+    camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0), doc='Rotation vector from robot to target')
+    camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0), doc='Translation vector from robot to target')
 
-    def __init__(self):
+    def __init__(self, calib_file):
         # for processing stored files and no camera
         self.file_mode = False
         self.camera_device = 0
@@ -90,7 +90,7 @@ class VisionServer2017(object):
 
         self.create_output_stream()
 
-        self.peg_processor = PegTarget2017()
+        self.peg_processor = PegTarget2017(calib_file)
         # TODO: set all the parameters from NT
 
         # rate limit parameters
@@ -138,7 +138,19 @@ class VisionServer2017(object):
     def process_image(self):
         '''Run the processor on the image to find the target'''
 
-        self.peg_processor.process_image(self.camera_frame)
+        rvec, tvec = self.peg_processor.process_image(self.camera_frame)
+
+        # rvec, tvec = None if no target found
+        # TODO: how do we indicate no target via NetTables?
+        if rvec is not None:
+            self.camera_rvec = rvec
+        else:
+            self.camera_rvec = (0.0, 0.0, 0.0)
+        if tvec is not None:
+            self.camera_tvec = tvec
+        else:
+            self.camera_tvec = (0.0, 0.0, 0.0)
+
         return
 
     def prepare_output_image(self):
@@ -217,11 +229,7 @@ class VisionServer2017(object):
             if self.image_writer_state:
                 self.image_writer.setImage(self.camera_frame)
 
-            rvec, tvec = self.process_image()
-            # rvec, tvec = None if no target found
-            # TODO: how do we indicate no target via NetTables?
-            self.camera_rvec = rvec
-            self.camera_tvec = tvec
+            self.process_image()
 
             # Done. Output the marked up image, if needed
             now = time.time()
@@ -274,6 +282,7 @@ def main():
     parser.add_argument('--test', action='store_true', help='Run in local test mode')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose. Turn up debug messages')
     parser.add_argument('--files', action='store_true', help='Process input files instead of camera')
+    parser.add_argument('--calib', required=True, help='Calibration file for camera')
     parser.add_argument('input_files', nargs='*', help='input files')
 
     args = parser.parse_args()
@@ -289,8 +298,10 @@ def main():
         # FOR TESTING, set this box as the server
         NetworkTables.enableVerboseLogging()
         NetworkTables.initialize()
+    else:
+        NetworkTables.initialize(server='10.28.77.2')
 
-    server = VisionServer2017()
+    server = VisionServer2017(args.calib)
     if args.files:
         if not args.input_files:
             parser.usage()
