@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import cv2
 import numpy
 
@@ -65,7 +67,7 @@ class CameraCalibration(object):
         print('Found {} useful images'.format(len(objpoints)))
         ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-        return (ret, mtx, dist, rvecs, tvecs)
+        return (ret, mtx.tolist(), dist.tolist(), rvecs, tvecs)
 
 
 if __name__ == '__main__':
@@ -77,6 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--length', '-l', type=int, default=9, help='Length of checkerboard (number of corners)')
     parser.add_argument('--width', '-w', type=int, default=6, help='Width of checkerboard (number of corners)')
     parser.add_argument('--size', '-s', type=float, default=1.0, help='Size of square')
+    parser.add_argument('--output', '-o', help="Save the distortion constants to json file")
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
@@ -91,20 +94,15 @@ if __name__ == '__main__':
     print('mtx =', mtx)
     print('dist =', dist)
     
-    print(calibrate.calibrateCamera(args.input_files))
+    #print(calibrate.calibrateCamera(args.input_files))
 
     # save matrices to a file
     
-    camera = 0
     
     #Get the file name for the new file to write
-    filter = "JSON File (*.json)|*.json|All Files (*.*)|*.*||"
-    filename = rs.SaveFileName("Save JSON file as", filter)
     
     # If the file name exists, write a JSON string into the file.
-    if filename:
+    if args.output:
         #Writing JSON data
-        with open(filename, 'w') as f:
-            json.dump(calibrate.calibrateCamera(args.input_files), f)
-
-
+        with open(args.output, 'w') as f:
+            json.dump({"camera_matrix": mtx, "distortion": dist}, f)
