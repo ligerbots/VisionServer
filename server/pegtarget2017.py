@@ -12,7 +12,7 @@ class PegTarget2017(object):
     '''Find peg target for Steamworks 2017'''
 
     # real world dimensions of the peg target
-    TARGET_WIDTH = 10.24        # inches
+    TARGET_WIDTH = 10.25        # inches
     TARGET_HEIGHT = 5.0         # inches
 
     def __init__(self, calib_file):
@@ -53,7 +53,7 @@ class PegTarget2017(object):
                                               [-PegTarget2017.TARGET_WIDTH/2.0,  PegTarget2017.TARGET_HEIGHT/2.0, 0.0],
                                               [ PegTarget2017.TARGET_WIDTH/2.0,  PegTarget2017.TARGET_HEIGHT/2.0, 0.0],
                                               [ PegTarget2017.TARGET_WIDTH/2.0, -PegTarget2017.TARGET_HEIGHT/2.0, 0.0]])
-        print(self.peg_target_coords)
+
         return
 
     @staticmethod
@@ -69,6 +69,18 @@ class PegTarget2017(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
+
+    @staticmethod
+    def sort_corners(cnrlist):
+        '''Sort a list of 4 corners so that it goes in a known order. Does it in place!!'''
+        cnrlist.sort()
+
+        # now, swap the pairs to make sure in proper Y order
+        if cnrlist[0][1] > cnrlist[1][1]:
+            cnrlist[0], cnrlist[1] = cnrlist[1], cnrlist[0]
+        if cnrlist[2][1] < cnrlist[3][1]:
+            cnrlist[2], cnrlist[3] = cnrlist[3], cnrlist[2]
+        return
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -115,15 +127,15 @@ class PegTarget2017(object):
         if self.target_contour is not None:
             # The target was found. Convert to real world co-ordinates.
 
-            # Need to convert the contour into a matrix of corners
-            # We know it is a quadrangle.
-            # TODO: do we need to sort the corners differently?
-            image_corners = numpy.empty((4, 2))
-            for icnr in range(4):
-                cnr = self.target_contour[icnr][0]
-                image_corners[icnr][0] = float(cnr[0])
-                image_corners[icnr][1] = float(cnr[1])
-            print(image_corners)
+            # Need to convert the contour (integer) into a matrix of corners (float)
+            # Contour starts at arbitary place around the quad, so need to sort after
+            # Could also do this by finding the first point, but that is complicated, probably no faster
+            cnrlist = []
+            for cnr in self.target_contour:
+                cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
+            PegTarget2017.sort_corners(cnrlist)   # in place sort
+            image_corners = numpy.array(cnrlist)
+
             retval, rvec, tvec = cv2.solvePnP(self.peg_target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
