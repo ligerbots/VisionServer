@@ -10,7 +10,7 @@ import numpy
 class PegTarget2017(object):
     '''Find peg target for Steamworks 2017'''
 
-    def __init__(self):
+    def __init__(self, path):
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
@@ -37,7 +37,12 @@ class PegTarget2017(object):
 
         # output results
         self.target_contour = None
-
+        
+        with open(path) as f:
+            json_data = json.load(f)
+            self.cameraMatrix = json_data["camera_matrix"]
+            self.distortion = json_data["distortion"]
+        self.peg_target_coords = [[-6, -4, 0], [-6, 4, 0], [6, 4, 0], [6, -4, 0]]
         return
 
     @staticmethod
@@ -96,8 +101,9 @@ class PegTarget2017(object):
             self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contour is not None:
                 break
-
-        return
+        
+        rvec, tvec = Calib3d.solvePnP(self.peg_target_coords, self.target_contour, self.cameraMatrix, self.distortCoeff)
+        return rvec, tvec
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''

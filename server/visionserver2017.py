@@ -71,6 +71,10 @@ class VisionServer2017(object):
 
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
+    
+    camera_rvec = ntproperty('/vision/camera_rvec', doc='Rotation vector from robot to target')
+    
+    camera_tvec = ntproperty('/vision/camera_tvec', doc='Translation vector from robot to target')
 
     def __init__(self):
         # for processing stored files and no camera
@@ -212,7 +216,9 @@ class VisionServer2017(object):
             if self.image_writer_state:
                 self.image_writer.setImage(self.camera_frame)
 
-            self.process_image()
+            rvec, tvec = self.process_image()
+            self.camera_rvec = rvec
+            self.camera_tvec = tvec
 
             # Done. Output the marked up image, if needed
             now = time.time()
