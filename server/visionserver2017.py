@@ -114,7 +114,12 @@ class VisionServer2017(object):
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
+        # you can load a camera by ID (or path). This will help with getting the correct camera
+        #  for front and back, especially if they are the same model.
+        # self.add_camera('main', '/dev/v4l/by-id/usb-CN0VX51872487356S6L2A00_Integrated_Webcam_200901010001-video-index0', True)
+
         self.add_camera('main', self.camera_device, True)
+
         return
 
     def preallocate_arrays(self):
