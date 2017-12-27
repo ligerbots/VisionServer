@@ -139,6 +139,11 @@ class VisionServer2017(object):
         '''Run the processor on the image to find the target'''
 
         rvec, tvec = self.peg_processor.process_image(self.camera_frame)
+        self.send_target_location(rvec, tvec)
+        return
+
+    def send_target_location(self, rvec, tvec):
+        '''Send the resulting target vectors to the RoboRio'''
 
         # rvec, tvec = None if no target found
         # TODO: how do we indicate no target via NetTables?
@@ -150,6 +155,9 @@ class VisionServer2017(object):
             self.camera_tvec = tvec
         else:
             self.camera_tvec = (0.0, 0.0, 0.0)
+
+        # trigger a NT update, although this might not happen if it is rate-limited
+        NetworkTables.flush()
 
         return
 
