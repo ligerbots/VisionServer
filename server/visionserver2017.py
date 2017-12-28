@@ -13,6 +13,7 @@ from networktables.util import ntproperty
 from networktables import NetworkTables
 
 from pegtarget2017 import PegTarget2017
+from Tkinter import getboolean
 
 
 class VisionServer2017(object):
@@ -72,7 +73,7 @@ class VisionServer2017(object):
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
 
-    # Targetting info sent to RoboRio
+    # Targeting info sent to RoboRio
     camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0), doc='Rotation vector from robot to target')
     camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0), doc='Translation vector from robot to target')
 
@@ -109,12 +110,35 @@ class VisionServer2017(object):
     # --------------------------------------------------------------------------------
     # Methods generally customized each year
 
-    def update_parameters(self):
+    def update_parameters(self, table, key, value, isNew):
         '''Update processing parameters from NetworkTables values.
         Only do this on startup or if "tuning" is on, for efficiency'''
-        # TODO
+        #Make sure to add any additional created properties which should be changeable down below in addition to above
+        
+        print("valueChanged: key: '%s'; value: %s; newValue: %s" % (key, value, isNew))
+        
+        if self.tuning:
+            self.output_fps_limit = table.getBoolean('/vision/output_fps_limit')
+            self.camera_fps = table.getBoolean('/vision/fps', False)
+            
+            self.tuning = table.getBoolean('/vision/tuning', True)
+            self.restart = table.getBoolean('/vision/restart', True)
+            
+            image_width = table.getBoolean('/vision/width', False)
+            self.image_height = table.getBoolean('/vision/height', False)
+            self.image_writer_state = ntproperty('/vision/write_images', True)
+            
+            self.hue_low_limit = table.getBoolean('/vision/hue_low_limit')
+            self.hue_high_limit = table.getBoolean('/vision/hue_high_limit')
+            self.saturation_low_limit = table.getBoolean('/vision/saturation_low_limit')
+            self.saturation_high_limit = table.getBoolean('/vision/saturation_high_limit')
+            self.value_low_limit = table.getBoolean('/vision/value_low_limit')
+            self.value_high_limit = table.getBoolean('/vision/value_high_limit')
         return
-
+    
+    def connectionListener(connected, info):
+        print(info, '; Connected=%s' % connected)
+    
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
@@ -139,11 +163,6 @@ class VisionServer2017(object):
         '''Run the processor on the image to find the target'''
 
         rvec, tvec = self.peg_processor.process_image(self.camera_frame)
-        self.send_target_location(rvec, tvec)
-        return
-
-    def send_target_location(self, rvec, tvec):
-        '''Send the resulting target vectors to the RoboRio'''
 
         # rvec, tvec = None if no target found
         # TODO: how do we indicate no target via NetTables?
@@ -155,9 +174,6 @@ class VisionServer2017(object):
             self.camera_tvec = tvec
         else:
             self.camera_tvec = (0.0, 0.0, 0.0)
-
-        # trigger a NT update, although this might not happen if it is rate-limited
-        NetworkTables.flush()
 
         return
 
@@ -308,8 +324,15 @@ def main():
         NetworkTables.initialize()
     else:
         NetworkTables.initialize(server='10.28.77.2')
-
+    
     server = VisionServer2017(args.calib)
+    
+    #listens for when any network table properties are changed from the drivers station
+    NetworkTables.addConnectionListener(server.connectionListener, immediateNotify = True)
+    table = NetworkTables.getTable("SmartDashboard")
+    #when a property is changed, run update_parameters to update the local variables
+    table.addEntryListener(server.update_parameters)
+    
     if args.files:
         if not args.input_files:
             parser.usage()
