@@ -23,7 +23,7 @@ class VisionServer2017(object):
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
     # fix the port for the main output, so it does not change with multiple cameras
-    output_port = ntproperty('/vision/output_port', 1190,
+    nt_output_port = ntproperty('/vision/output_port', 1190,
                              doc='TCP port for main image output')
 
     # Operation modes. Force the value on startup.
@@ -72,10 +72,15 @@ class VisionServer2017(object):
 
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
+    
+    targetFound = ntproperty('/vision/target_found', False, writeDefault=True,
+                                    doc='Whether or not the target is found')
 
     # Targeting info sent to RoboRio
-    camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0), doc='Rotation vector from robot to target')
-    camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0), doc='Translation vector from robot to target')
+    camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0), 
+                             doc='Rotation vector from robot to target')
+    camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0), 
+                             doc='Translation vector from robot to target')
 
     def __init__(self, calib_file):
         # for processing stored files and no camera
@@ -104,7 +109,8 @@ class VisionServer2017(object):
         #  (ie current directory when the server is started)
         self.image_writer = ImageWriter(location_root='./saved_images',
                                         capture_period=0.5, image_format='jpg')
-
+        
+        #self.table = NetworkTables.getTable('SmartDashboard')
         return
 
     # --------------------------------------------------------------------------------
@@ -118,22 +124,22 @@ class VisionServer2017(object):
         print("valueChanged: key: '%s'; value: %s; newValue: %s" % (key, value, isNew))
         
         if self.tuning:
-            self.output_fps_limit = table.getBoolean('/vision/output_fps_limit')
-            self.camera_fps = table.getBoolean('/vision/fps', False)
+            self.output_fps_limit = table.getInteger('/vision/output_fps_limit')
+            self.camera_fps = table.getInteger('/vision/fps')
             
-            self.tuning = table.getBoolean('/vision/tuning', True)
-            self.restart = table.getBoolean('/vision/restart', True)
+            self.tuning = table.getBoolean('/vision/tuning')
+            self.restart = table.getBoolean('/vision/restart')
             
-            image_width = table.getBoolean('/vision/width', False)
-            self.image_height = table.getBoolean('/vision/height', False)
-            self.image_writer_state = ntproperty('/vision/write_images', True)
+            image_width = table.getInteger('/vision/width')
+            self.image_height = table.getInteger('/vision/height')
+            self.image_writer_state = getBoolean('/vision/write_images')
             
-            self.hue_low_limit = table.getBoolean('/vision/hue_low_limit')
-            self.hue_high_limit = table.getBoolean('/vision/hue_high_limit')
-            self.saturation_low_limit = table.getBoolean('/vision/saturation_low_limit')
-            self.saturation_high_limit = table.getBoolean('/vision/saturation_high_limit')
-            self.value_low_limit = table.getBoolean('/vision/value_low_limit')
-            self.value_high_limit = table.getBoolean('/vision/value_high_limit')
+            self.hue_low_limit = table.getInteger('/vision/hue_low_limit')
+            self.hue_high_limit = table.getInteger('/vision/hue_high_limit')
+            self.saturation_low_limit = table.getInteger('/vision/saturation_low_limit')
+            self.saturation_high_limit = table.getInteger('/vision/saturation_high_limit')
+            self.value_low_limit = table.getInteger('/vision/value_low_limit')
+            self.value_high_limit = table.getInteger('/vision/value_high_limit')
         return
     
     def connectionListener(connected, info):
@@ -166,6 +172,14 @@ class VisionServer2017(object):
 
         # rvec, tvec = None if no target found
         # TODO: how do we indicate no target via NetTables?
+        #if rvec == None or tvec == None:
+            #set target_found to False:
+            #self.targetFound = NetworkTables.setBoolean('/vision/target_found', False)
+
+        #else:
+            #set target_found to True:
+            #self.targetFound = NetworkTables.setBoolean('/vision/target_found', True)
+        
         if rvec is not None:
             self.camera_rvec = rvec
         else:
@@ -327,11 +341,12 @@ def main():
     
     server = VisionServer2017(args.calib)
     
-    #listens for when any network table properties are changed from the drivers station
-    NetworkTables.addConnectionListener(server.connectionListener, immediateNotify = True)
-    table = NetworkTables.getTable("SmartDashboard")
+    #listens for when any network table properties are changed from the drivers station -- use the listener if not
+    #using ntproperty() method for storing values
+    #NetworkTables.addConnectionListener(server.connectionListener, immediateNotify = True)
+    #table = NetworkTables.getTable("SmartDashboard")
     #when a property is changed, run update_parameters to update the local variables
-    table.addEntryListener(server.update_parameters)
+    #table.addEntryListener(server.update_parameters)
     
     if args.files:
         if not args.input_files:
