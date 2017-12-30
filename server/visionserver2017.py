@@ -13,7 +13,6 @@ from networktables.util import ntproperty
 from networktables import NetworkTables
 
 from pegtarget2017 import PegTarget2017
-from Tkinter import getboolean
 
 
 class VisionServer2017(object):
@@ -24,7 +23,7 @@ class VisionServer2017(object):
                                   doc='FPS limit of frames sent to MJPEG server')
     # fix the port for the main output, so it does not change with multiple cameras
     nt_output_port = ntproperty('/vision/output_port', 1190,
-                             doc='TCP port for main image output')
+                                doc='TCP port for main image output')
 
     # Operation modes. Force the value on startup.
     tuning = ntproperty('/vision/tuning', False, writeDefault=True,
@@ -72,14 +71,14 @@ class VisionServer2017(object):
 
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
-    
-    targetFound = ntproperty('/vision/target_found', False, writeDefault=True,
-                                    doc='Whether or not the target is found')
+
+    target_found = ntproperty('/vision/target_found', False, writeDefault=True,
+                              doc='Whether or not the target is found')
 
     # Targeting info sent to RoboRio
-    camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0), 
+    camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0),
                              doc='Rotation vector from robot to target')
-    camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0), 
+    camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0),
                              doc='Translation vector from robot to target')
 
     def __init__(self, calib_file):
@@ -109,8 +108,7 @@ class VisionServer2017(object):
         #  (ie current directory when the server is started)
         self.image_writer = ImageWriter(location_root='./saved_images',
                                         capture_period=0.5, image_format='jpg')
-        
-        #self.table = NetworkTables.getTable('SmartDashboard')
+
         return
 
     # --------------------------------------------------------------------------------
@@ -119,21 +117,21 @@ class VisionServer2017(object):
     def update_parameters(self, table, key, value, isNew):
         '''Update processing parameters from NetworkTables values.
         Only do this on startup or if "tuning" is on, for efficiency'''
-        #Make sure to add any additional created properties which should be changeable down below in addition to above
-        
+        # Make sure to add any additional created properties which should be changeable down below in addition to above
+
         print("valueChanged: key: '%s'; value: %s; newValue: %s" % (key, value, isNew))
-        
+
         if self.tuning:
             self.output_fps_limit = table.getInteger('/vision/output_fps_limit')
             self.camera_fps = table.getInteger('/vision/fps')
-            
+
             self.tuning = table.getBoolean('/vision/tuning')
             self.restart = table.getBoolean('/vision/restart')
-            
-            image_width = table.getInteger('/vision/width')
+
+            self.image_width = table.getInteger('/vision/width')
             self.image_height = table.getInteger('/vision/height')
-            self.image_writer_state = getBoolean('/vision/write_images')
-            
+            self.image_writer_state = table.getBoolean('/vision/write_images')
+
             self.hue_low_limit = table.getInteger('/vision/hue_low_limit')
             self.hue_high_limit = table.getInteger('/vision/hue_high_limit')
             self.saturation_low_limit = table.getInteger('/vision/saturation_low_limit')
@@ -141,10 +139,10 @@ class VisionServer2017(object):
             self.value_low_limit = table.getInteger('/vision/value_low_limit')
             self.value_high_limit = table.getInteger('/vision/value_high_limit')
         return
-    
+
     def connectionListener(connected, info):
         print(info, '; Connected=%s' % connected)
-    
+
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
@@ -168,26 +166,24 @@ class VisionServer2017(object):
     def process_image(self):
         '''Run the processor on the image to find the target'''
 
+        # rvec, tvec return as None if no target found
         rvec, tvec = self.peg_processor.process_image(self.camera_frame)
 
-        # rvec, tvec = None if no target found
-        # TODO: how do we indicate no target via NetTables?
-        #if rvec == None or tvec == None:
-            #set target_found to False:
-            #self.targetFound = NetworkTables.setBoolean('/vision/target_found', False)
+        # TODO: Do we need to send this as one big array? That might be needed to
+        #  make sure that all values are consistent at the RoboRio.
 
-        #else:
-            #set target_found to True:
-            #self.targetFound = NetworkTables.setBoolean('/vision/target_found', True)
-        
-        if rvec is not None:
-            self.camera_rvec = rvec
-        else:
+        if rvec is None or tvec is None:
+            self.target_found = False
             self.camera_rvec = (0.0, 0.0, 0.0)
-        if tvec is not None:
-            self.camera_tvec = tvec
-        else:
             self.camera_tvec = (0.0, 0.0, 0.0)
+        else:
+            self.target_found = True
+            self.camera_rvec = rvec
+            self.camera_tvec = tvec
+
+        # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
+        #  so it might not happen every call.
+        NetworkTables.flush()
 
         return
 
@@ -338,16 +334,9 @@ def main():
         NetworkTables.initialize()
     else:
         NetworkTables.initialize(server='10.28.77.2')
-    
+
     server = VisionServer2017(args.calib)
-    
-    #listens for when any network table properties are changed from the drivers station -- use the listener if not
-    #using ntproperty() method for storing values
-    #NetworkTables.addConnectionListener(server.connectionListener, immediateNotify = True)
-    #table = NetworkTables.getTable("SmartDashboard")
-    #when a property is changed, run update_parameters to update the local variables
-    #table.addEntryListener(server.update_parameters)
-    
+
     if args.files:
         if not args.input_files:
             parser.usage()
