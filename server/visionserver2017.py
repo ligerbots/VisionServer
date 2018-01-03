@@ -21,9 +21,9 @@ class VisionServer2017(object):
     # NetworkTable parameters
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
-    # fix the port for the main output, so it does not change with multiple cameras
-    nt_output_port = ntproperty('/vision/output_port', 1190,
-                                doc='TCP port for main image output')
+    # fix the TCP port for the main video, so it does not change with multiple cameras
+    output_port = ntproperty('/vision/output_port', 1190,
+                             doc='TCP port for main image output')
 
     # Operation modes. Force the value on startup.
     tuning = ntproperty('/vision/tuning', False, writeDefault=True,
@@ -72,14 +72,11 @@ class VisionServer2017(object):
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
 
-    target_found = ntproperty('/vision/target_found', False, writeDefault=True,
-                              doc='Whether or not the target is found')
-
     # Targeting info sent to RoboRio
-    camera_rvec = ntproperty('/vision/camera_rvec', (0.0, 0.0, 0.0),
-                             doc='Rotation vector from robot to target')
-    camera_tvec = ntproperty('/vision/camera_tvec', (0.0, 0.0, 0.0),
-                             doc='Translation vector from robot to target')
+    # Send the results as one big array in order to guarantee that the results
+    #  all arrive at the RoboRio at the same time
+    # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
+    target_info = ntproperty('/vision/target_info', 7 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
 
     def __init__(self, calib_file):
         # for processing stored files and no camera
@@ -169,17 +166,17 @@ class VisionServer2017(object):
         # rvec, tvec return as None if no target found
         rvec, tvec = self.peg_processor.process_image(self.camera_frame)
 
-        # TODO: Do we need to send this as one big array? That might be needed to
-        #  make sure that all values are consistent at the RoboRio.
+        # Send the results as one big array in order to guarantee that the results
+        #  all arrive at the RoboRio at the same time
+        # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
 
         if rvec is None or tvec is None:
-            self.target_found = False
-            self.camera_rvec = (0.0, 0.0, 0.0)
-            self.camera_tvec = (0.0, 0.0, 0.0)
+            res = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         else:
-            self.target_found = True
-            self.camera_rvec = rvec
-            self.camera_tvec = tvec
+            res = [1.0, ]       # Found
+            res.extend(tvec)
+            res.extend(rvec)
+        self.target_info = res
 
         # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
         #  so it might not happen every call.
