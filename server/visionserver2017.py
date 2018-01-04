@@ -6,6 +6,7 @@
 import time
 import cv2
 import numpy
+import logging
 
 import cscore
 from cscore.imagewriter import ImageWriter
@@ -21,6 +22,7 @@ class VisionServer2017(object):
     # NetworkTable parameters
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
+
     # fix the TCP port for the main video, so it does not change with multiple cameras
     output_port = ntproperty('/vision/output_port', 1190,
                              doc='TCP port for main image output')
@@ -72,6 +74,10 @@ class VisionServer2017(object):
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
 
+    # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
+    # This is the NT variable, which can be set from the Driver's station
+    nt_active_camera = ntproperty('/vision/active_camera', 'main', doc='Active camera')
+
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
     #  all arrive at the RoboRio at the same time
@@ -88,6 +94,8 @@ class VisionServer2017(object):
 
         self.camera_feeds = {}
         self.current_camera = None
+        # active camera name. To be compared to nt_active_camera to see if it has changed
+        self.active_camera = None
         self.add_cameras()
 
         self.create_output_stream()
@@ -143,11 +151,16 @@ class VisionServer2017(object):
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
+        self.add_camera('main', self.camera_device, True)
+
         # you can load a camera by ID (or path). This will help with getting the correct camera
         #  for front and back, especially if they are the same model.
-        # self.add_camera('main', '/dev/v4l/by-id/usb-CN0VX51872487356S6L2A00_Integrated_Webcam_200901010001-video-index0', True)
 
-        self.add_camera('main', self.camera_device, True)
+        # Paul's old Logitech
+        # self.add_camera('front', '/dev/v4l/by-id/usb-046d_0809_69B5F86C-video-index0', False)
+
+        # The Spinel camera board
+        # self.add_camera('rear', '/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0', True)
 
         return
 
@@ -221,6 +234,8 @@ class VisionServer2017(object):
         self.camera_feeds[name] = sink
         if active:
             self.current_camera = sink
+            self.active_camera = name
+            self.nt_active_camera = name
         else:
             # if not active, disable it to save CPU
             sink.setEnabled(False)
@@ -237,6 +252,10 @@ class VisionServer2017(object):
             # enable the new one. Do this 2nd in case it is the same as the old one.
             new_cam.setEnabled(True)
             self.current_camera = new_cam
+            self.active_camera = name
+        else:
+            logging.warning('Unknown camera %s' % name)
+            self.nt_active_camera = self.active_camera
 
         return
 
@@ -244,6 +263,13 @@ class VisionServer2017(object):
         '''Main loop. Read camera, process the image, send to the MJPEG server'''
 
         while True:
+
+            # Check whether DS has asked for a different camera
+            ntcam = self.nt_active_camera  # temp, for efficiency
+            if ntcam != self.active_camera:
+                self.switch_camera(ntcam)
+                # TODO: switch image processing algorithm??
+
             if self.camera_frame is None:
                 self.preallocate_arrays()
 
@@ -319,7 +345,6 @@ def main():
     args = parser.parse_args()
 
     # To see messages from networktables, you must setup logging
-    import logging
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
