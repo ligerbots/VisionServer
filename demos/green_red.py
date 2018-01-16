@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
+# Play around with thresholding using GREEN - RED and adaptive OTSU thresholding
+
 import cv2
 import numpy
 
 
-class CubeFinder2018(object):
-    '''Find power cube for PowerUp 2018'''
+class CubeFinder(object):
+    '''Find a cross target'''
 
     def __init__(self):
-        # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
-        # individual properties
+        # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((25, 95, 110), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
 
@@ -17,12 +18,12 @@ class CubeFinder2018(object):
         self.contour_min_area = 100
 
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
-        self.erode_iterations = 2
+        self.erode_iterations = 0
         return
 
     @staticmethod
     def contour_center_width(contour):
-        '''Find boundingRect of contour, but return center, width, and height'''
+        '''Find boundingRect of contour, but return center and width/height'''
 
         x, y, w, h = cv2.boundingRect(contour)
         return (x + int(w / 2), y + int(h / 2)), (w, h)
@@ -35,10 +36,15 @@ class CubeFinder2018(object):
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
     def process_image(self, camera_frame):
-        '''Main image processing routine'''
+        blue_frame, green_frame, red_frame = cv2.split(camera_frame)
 
-        hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
-        threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
+        diff = green_frame - red_frame
+
+        # See what the subtracted (grey) frame looks like
+        # cv2.imshow("Window", diff)
+        # return
+
+        ret2, threshold_frame = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
         if self.erode_iterations > 0:
             erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
@@ -51,7 +57,7 @@ class CubeFinder2018(object):
 
         contour_list = []
         for c in contours:
-            center, widths = CubeFinder2018.contour_center_width(c)
+            center, widths = CubeFinder.contour_center_width(c)
             area = widths[0] * widths[1]
             if area > self.contour_min_area:
                 # TODO: use a simple class? Maybe use "attrs" package?
@@ -78,7 +84,7 @@ class CubeFinder2018(object):
             # # cv2.drawContours(camera_frame, [poly_fit], -1, (100, 255, 255), 1)
 
             hull = cv2.convexHull(biggest_contour)
-            hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
+            hull_fit = CubeFinder.quad_fit(hull, 0.01)
             # cv2.drawContours(camera_frame, [hull], -1, (0, 255, 0), 1)
             cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
 
@@ -96,80 +102,33 @@ class CubeFinder2018(object):
 
         cv2.imshow("Window", camera_frame)
 
-        # Probably can distinguish a cross by the ratio of perimeters and/or areas
-        # That is, it is not universally true, but probably true from what we would see on the field
-
         return
 
 
-def process_files(peg_processor, input_files, output_dir):
-    '''Process the files and output the marked up image'''
-    import os.path
-
-    for image_file in input_files:
-        print()
-        print(image_file)
-        bgr_frame = cv2.imread(image_file)
-        rvec, tvec = peg_processor.process_image(bgr_frame)
-        print('rvec:', rvec)
-        print('tvec:', tvec)
-
-        peg_processor.prepare_output_image(bgr_frame)
-        outfile = os.path.join(output_dir, os.path.basename(image_file))
-        # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, bgr_frame)
-    return
-
-
-def time_processing(peg_processor, input_files):
-    '''Time the processing of the test files'''
-
-    from codetimer import CodeTimer
-    from time import time
-
-    startt = time()
-
-    cnt = 0
-
-    # Loop 100x over the files. This is needed to make it long enough
-    #  to get reasonable statistics. If we have 100s of files, we could reduce this.
-    # Need the total time to be many seconds so that the timing resolution is good.
-    for _ in range(100):
-        for image_file in input_files:
-            with CodeTimer("Read Image"):
-                bgr_frame = cv2.imread(image_file)
-
-            with CodeTimer("Main Processing"):
-                peg_processor.process_image(bgr_frame)
-
-            cnt += 1
-
-    deltat = time() - startt
-
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
-        cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.outputTimers()
-    return
-
-
 def main():
-    '''Main routine'''
+    '''Main routine, for testing'''
     import argparse
 
-    parser = argparse.ArgumentParser(description='2018 cube finder')
-    parser.add_argument('--output_dir', help='Output directory for processed images')
-    parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib', help='Calibration file')
+    parser = argparse.ArgumentParser(description='2017 peg target')
+    # parser.add_argument('--output_dir', help='Output directory for processed images')
+    # parser.add_argument('--time', action='store_true', help='Loop over files and time it')
+    # parser.add_argument('--calib', help='Calibration file')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    cube_processor = CubeFinder2018()
+    cv2.namedWindow("Window", cv2.WINDOW_NORMAL)
 
-    if args.output_dir is not None:
-        process_files(cube_processor, args.input_files, args.output_dir)
-    elif args.time:
-        time_processing(cube_processor, args.input_files)
+    processor = CubeFinder()
+    for image_file in args.input_files:
+        bgr_frame = cv2.imread(image_file)
+        processor.process_image(bgr_frame)
+
+        q = cv2.waitKey(-1) & 0xFF
+        if q == ord('q'):
+            break
+
+    cv2.destroyAllWindows()
 
     return
 
