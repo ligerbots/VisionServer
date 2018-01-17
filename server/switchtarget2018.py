@@ -19,14 +19,15 @@ class SwitchTarget2018(object):
         self.switch_target_separation = 4.0
         
         # max distance in pixels that a contour can from the guessed location
-        self.max_target_dist = 50  #TODO: change this value?
+        self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 100
-
+        
         self.approx_polydp_error = 0.06
         
-        self.width_separation_ratio_max = 0.6  #TODO: change this value?
+        #ratio of height to width of the rectangle around both strips
+        self.width_separation_ratio_max = 1.91  #1.9125, but don't need to that extent
         
         self.hsv_frame = None
         self.threshold_frame = None
