@@ -24,7 +24,7 @@ class CubeFinder2018(object):
             self.cameraMatrix = numpy.array(json_data["camera_matrix"])
             self.distortionMatrix = numpy.array(json_data["distortion"])
         
-        self.target_coords = numpy.array([[]])
+        self.target_coords = numpy.array([[]])  #TODO: create the coordinate array and real sizes of cube
         return
 
     @staticmethod
