@@ -3,7 +3,6 @@
 import cv2
 import numpy
 
-
 class CubeFinder2018(object):
     '''Find power cube for PowerUp 2018'''
 
@@ -60,7 +59,7 @@ class CubeFinder2018(object):
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
-        if len(contour_list):
+        if len(contour_list) != 0:
             biggest_contour = contour_list[0]['contour']
             top2_contour = [contour_list[0]['contour'], ]
             if len(contour_list) > 1:
@@ -98,11 +97,11 @@ class CubeFinder2018(object):
 
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
-
+        
         return
 
 
-def process_files(peg_processor, input_files, output_dir):
+def process_files(cube_processor, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
 
@@ -110,18 +109,19 @@ def process_files(peg_processor, input_files, output_dir):
         print()
         print(image_file)
         bgr_frame = cv2.imread(image_file)
-        rvec, tvec = peg_processor.process_image(bgr_frame)
-        print('rvec:', rvec)
-        print('tvec:', tvec)
+        cube_processor.process_image(bgr_frame)
 
-        peg_processor.prepare_output_image(bgr_frame)
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
+        
+        cv2.imshow("Window", bgr_frame)
+        q = cv2.waitKey(-1) & 0xFF
+        if q == ord('q'):
+            break
     return
 
-
-def time_processing(peg_processor, input_files):
+def time_processing(cube_processor, input_files):
     '''Time the processing of the test files'''
 
     from codetimer import CodeTimer
@@ -140,7 +140,7 @@ def time_processing(peg_processor, input_files):
                 bgr_frame = cv2.imread(image_file)
 
             with CodeTimer("Main Processing"):
-                peg_processor.process_image(bgr_frame)
+                cube_processor.process_image(bgr_frame)
 
             cnt += 1
 
@@ -178,3 +178,4 @@ def main():
 # This is for development/testing
 if __name__ == '__main__':
     main()
+
