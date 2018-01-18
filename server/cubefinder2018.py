@@ -2,11 +2,12 @@
 
 import cv2
 import numpy
+import json
 
 class CubeFinder2018(object):
     '''Find power cube for PowerUp 2018'''
 
-    def __init__(self):
+    def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
         # individual properties
         self.low_limit_hsv = numpy.array((25, 95, 110), dtype=numpy.uint8)
@@ -17,6 +18,13 @@ class CubeFinder2018(object):
 
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         self.erode_iterations = 2
+        
+        with open(calib_file) as f:
+            json_data = json.load(f)
+            self.cameraMatrix = numpy.array(json_data["camera_matrix"])
+            self.distortionMatrix = numpy.array(json_data["distortion"])
+        
+        self.target_coords = numpy.array([[]])
         return
 
     @staticmethod
@@ -32,7 +40,19 @@ class CubeFinder2018(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
+    
+    @staticmethod
+    def sort_corners(cnrlist):
+        '''Sort a list of 4 corners so that it goes in a known order. Does it in place!!'''
+        cnrlist.sort()
 
+        # now, swap the pairs to make sure in proper Y order
+        if cnrlist[0][1] > cnrlist[1][1]:
+            cnrlist[0], cnrlist[1] = cnrlist[1], cnrlist[0]
+        if cnrlist[2][1] < cnrlist[3][1]:
+            cnrlist[2], cnrlist[3] = cnrlist[3], cnrlist[2]
+        return
+    
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
@@ -80,6 +100,18 @@ class CubeFinder2018(object):
             hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
             # cv2.drawContours(camera_frame, [hull], -1, (0, 255, 0), 1)
             cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
+            
+            cnrlist = []
+            for cnr in biggest_contour:
+                cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
+            CubeFinder2018.sort_corners(cnrlist)   # in place sort
+            image_corners = numpy.array(cnrlist)
+
+            retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
+                                              self.cameraMatrix, self.distortionMatrix)
+            if retval:
+                # Return values are 3x1 matrices. Convert to Python lists
+                return rvec.flatten().tolist(), tvec.flatten().tolist()
 
         # print('contour peri =', cv2.arcLength(contour_list[0]['contour'], True),
         #       ' hull peri =', cv2.arcLength(hull, True))
@@ -98,7 +130,7 @@ class CubeFinder2018(object):
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
         
-        return
+        return None, None
 
 
 def process_files(cube_processor, input_files, output_dir):
@@ -109,7 +141,9 @@ def process_files(cube_processor, input_files, output_dir):
         print()
         print(image_file)
         bgr_frame = cv2.imread(image_file)
-        cube_processor.process_image(bgr_frame)
+        rvec, tvec = cube_processor.process_image(bgr_frame)
+        print("rvec: " + rvec)
+        print("tvec: " + tvec)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
@@ -159,12 +193,12 @@ def main():
     parser = argparse.ArgumentParser(description='2018 cube finder')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib', help='Calibration file')
+    parser.add_argument('--calib_file', help='Calibration file')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    cube_processor = CubeFinder2018()
+    cube_processor = CubeFinder2018(args.calib_file)
 
     if args.output_dir is not None:
         process_files(cube_processor, args.input_files, args.output_dir)
