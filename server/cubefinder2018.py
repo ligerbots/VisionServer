@@ -3,9 +3,15 @@
 import cv2
 import numpy
 import json
+from skimage.feature import corner
+from skimage.feature.corner import corner_fast
 
 class CubeFinder2018(object):
     '''Find power cube for PowerUp 2018'''
+    
+    CUBE_HEIGHT = 11    #inches
+    CUBE_WIDTH = 13     #inches
+    CUBE_LENGTH = 13    #inches
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
@@ -24,7 +30,10 @@ class CubeFinder2018(object):
             self.cameraMatrix = numpy.array(json_data["camera_matrix"])
             self.distortionMatrix = numpy.array(json_data["distortion"])
         
-        self.target_coords = numpy.array([[]])  #TODO: create the coordinate array and real sizes of cube
+        self.target_coords = numpy.array([[-CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+                                              [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+                                              [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+                                              [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
         return
 
     @staticmethod
@@ -43,15 +52,16 @@ class CubeFinder2018(object):
     
     @staticmethod
     def sort_corners(cnrlist):
-        '''Sort a list of 4 corners so that it goes in a known order. Does it in place!!'''
-        cnrlist.sort()
-
-        # now, swap the pairs to make sure in proper Y order
-        if cnrlist[0][1] > cnrlist[1][1]:
-            cnrlist[0], cnrlist[1] = cnrlist[1], cnrlist[0]
-        if cnrlist[2][1] < cnrlist[3][1]:
-            cnrlist[2], cnrlist[3] = cnrlist[3], cnrlist[2]
-        return
+        '''Sort a list of corners and returns the 2 left most and 2 right most corners in order'''
+        corners = numpy.zeros((int(cnrlist.size / 2), 2), dtype=numpy.int)
+        
+        #sort by smallest x value
+        for i in range(int((cnrlist.size + 1) / 2)):
+            corners[i] = numpy.asarray(cnrlist[i][0])
+            
+        #sort the corners by x values (1st column) first and then by y values (2nd column)
+        corners = sorted(corners, key=lambda x: (x[0], x[1]))
+        return numpy.array([corners[0], corners[1], corners[len(corners) - 2], corners[len(corners) - 1]])
     
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -97,18 +107,20 @@ class CubeFinder2018(object):
             # # cv2.drawContours(camera_frame, [poly_fit], -1, (100, 255, 255), 1)
 
             hull = cv2.convexHull(biggest_contour)
+            #hull_fit contains the corners for the contour
             hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
             # cv2.drawContours(camera_frame, [hull], -1, (0, 255, 0), 1)
+            #Draw the contour on the image
             cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
             
-            cnrlist = []
-            for cnr in biggest_contour:
-                cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
-            CubeFinder2018.sort_corners(cnrlist)   # in place sort
-            image_corners = numpy.array(cnrlist)
+            corners = numpy.array(hull_fit)
+            #divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
+            if (corners.size / 2) >= 4 and (corners.size / 2) <= 6:
+                image_corners = CubeFinder2018.sort_corners(corners)
+                pass
 
             retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
-                                              self.cameraMatrix, self.distortionMatrix)
+                                              self.cameraMatrix, self.distortionMatrix) #TODO: fix this
             if retval:
                 # Return values are 3x1 matrices. Convert to Python lists
                 return rvec.flatten().tolist(), tvec.flatten().tolist()
@@ -138,12 +150,12 @@ def process_files(cube_processor, input_files, output_dir):
     import os.path
 
     for image_file in input_files:
-        print()
-        print(image_file)
+        #print()
+        #print(image_file)
         bgr_frame = cv2.imread(image_file)
-        rvec, tvec = cube_processor.process_image(bgr_frame)
-        print("rvec: " + rvec)
-        print("tvec: " + tvec)
+        cube_processor.process_image(bgr_frame)
+        #print("rvec: " + rvec)
+        #print("tvec: " + tvec)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))

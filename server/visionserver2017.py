@@ -121,7 +121,8 @@ class VisionServer2017(object):
 
     def update_parameters(self, table, key, value, isNew):
         '''Update processing parameters from NetworkTables values.
-        Only do this on startup or if "tuning" is on, for efficiency'''
+        Only do this on startup or if "tuning" is on, for efficiency
+        - Only use if the ntproperty values are individual variables rather than links'''
         # Make sure to add any additional created properties which should be changeable down below in addition to above
 
         print("valueChanged: key: '%s'; value: %s; newValue: %s" % (key, value, isNew))
