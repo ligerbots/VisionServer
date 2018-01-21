@@ -7,7 +7,7 @@ class SwitchTarget2018(object):
     '''Find switch target for PowerUp 2018'''
     
     # real world dimensions of the switch target
-    TARGET_WIDTH = 2.0        # inches
+    TARGET_WIDTH = 8.0        # inches
     TARGET_HEIGHT = 15.3         # inches
     
     def __init__(self, calib_file):
@@ -16,7 +16,7 @@ class SwitchTarget2018(object):
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
         
         # distance between the two target bars, in units of the width of a bar
-        self.switch_target_separation = 4.0
+        self.target_separation = 3.0
         
         # max distance in pixels that a contour can from the guessed location
         self.max_target_dist = 50
@@ -26,8 +26,8 @@ class SwitchTarget2018(object):
         
         self.approx_polydp_error = 0.06
         
-        #ratio of height to width of the rectangle around both strips
-        self.width_separation_ratio_max = 1.91  #1.9125, but don't need to that extent
+        #ratio of height to width of one strip
+        self.one_strip_height_ratio = 7.65
         
         self.hsv_frame = None
         self.threshold_frame = None
@@ -162,7 +162,8 @@ class SwitchTarget2018(object):
         cand_height = candidate['widths'][1]
 
         # print('ratio:', cand_width / candidate['widths'][1])
-        if cand_width / candidate['widths'][1] > self.width_separation_ratio_max:
+        ratio = cand_height / (cand_width * self.one_strip_height_ratio)
+        if ratio < 0.7 or ratio > 1.3:
             return None
 
         # Based on the candidate location and x-width, compute guesses where the other bar should be
@@ -206,11 +207,9 @@ class SwitchTarget2018(object):
 
         # Important cut: the actual distance between the two bars in porportion to the actual
         #    average width should be similar to the target_separation variable
-        ave_second_bar_x = second_cont_x
-        ave_second_bar_width = second_cont_width
 
-        delta_x = abs(cand_x - ave_second_bar_x)
-        ave_width = (cand_width + ave_second_bar_width) / 2
+        delta_x = abs(cand_x - second_cont_x)
+        ave_width = (cand_width + second_cont_width) / 2
         ratio = delta_x / (ave_width * self.target_separation)
         # print('deltaX', deltaX, aveW, ratio)
         if ratio > 1.3 or ratio < 0.7:
