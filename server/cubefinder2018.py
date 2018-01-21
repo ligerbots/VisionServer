@@ -51,17 +51,56 @@ class CubeFinder2018(object):
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
     
     @staticmethod
-    def sort_corners(cnrlist):
-        '''Sort a list of corners and returns the 2 left most and 2 right most corners in order'''
-        corners = numpy.zeros((int(cnrlist.size / 2), 2), dtype=numpy.int)
+    def sort_corners(cnrlist, check):
+        '''Sort a list of corners -- if check == true then returns x sorted 1st, y sorted 2nd. Otherwise the opposite'''
         
-        #sort by smallest x value
+        #recreate the list of corners to get rid of excess dimensions
+        corners = numpy.zeros((int(cnrlist.size / 2), 2), dtype=numpy.int)
         for i in range(int((cnrlist.size + 1) / 2)):
             corners[i] = numpy.asarray(cnrlist[i][0])
             
         #sort the corners by x values (1st column) first and then by y values (2nd column)
-        corners = sorted(corners, key=lambda x: (x[0], x[1]))
+        if check:
+            return sorted(corners, key=lambda x: (x[0], x[1]))
+        else:
+            return sorted(corners, key=lambda x: (x[1], x[0]))
+    
+    @staticmethod
+    def choose_corners_lr(cnrlist):
+        '''Sort a list of corners and returns the 2 left most and 2 right most corners in order'''
+        corners = CubeFinder2018.sort_corners(cnrlist, True)
         return numpy.array([corners[0], corners[1], corners[len(corners) - 2], corners[len(corners) - 1]])
+    
+    @staticmethod
+    def choose_corners_bs(cnrlist):
+        '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total)'''
+        corners = CubeFinder2018.sort_corners(cnrlist)
+        
+    @staticmethod
+    def get_cube_center(img, cnrlist):
+        '''return the center of the cube'''
+        #sort just to format correctly -- get rid of extra dimensions
+        corners = CubeFinder2018.sort_corners(cnrlist, True)
+        #xs and ys only needed for drawing the point on the image
+        xs = numpy.zeros((int(len(cnrlist) / 2), 1), dtype=numpy.int)
+        ys = numpy.zeros((int(len(cnrlist) / 2), 1), dtype=numpy.int)
+        
+        for i in range(int(len(corners) / 2)):
+            xs[i] = corners[i][0]
+            ys[i] = corners[i][1]
+        #sort y list since it will be out of order, xs should be fine already
+        ys.sort()
+        
+        sum_x = 0
+        sum_y = 0
+        for corner in corners:
+            sum_x += corner[0]
+            sum_y += corner[1]
+        center = numpy.array([ int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2)) ])
+        cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
+        #cv2.line(img, (xs.min, center[1]), (xs.max, center[1]), (255,0,0), 5)
+        #cv2.line(img, (center[0], ys.min), (center[0], ys.max), (255,0,0), 5)
+        return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
     
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -116,14 +155,15 @@ class CubeFinder2018(object):
             corners = numpy.array(hull_fit)
             #divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
             if (corners.size / 2) >= 4 and (corners.size / 2) <= 6:
-                image_corners = CubeFinder2018.sort_corners(corners)
+                image_corners = CubeFinder2018.choose_corners_lr(corners)
+                cube_center = CubeFinder2018.get_cube_center(camera_frame, corners)
                 pass
 
-            retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
+            '''retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix) #TODO: fix this
             if retval:
                 # Return values are 3x1 matrices. Convert to Python lists
-                return rvec.flatten().tolist(), tvec.flatten().tolist()
+                return rvec.flatten().tolist(), tvec.flatten().tolist()'''
 
         # print('contour peri =', cv2.arcLength(contour_list[0]['contour'], True),
         #       ' hull peri =', cv2.arcLength(hull, True))
@@ -161,7 +201,7 @@ def process_files(cube_processor, input_files, output_dir):
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
         
-        cv2.imshow("Window", bgr_frame)
+        #cv2.imshow("Window", bgr_frame)
         q = cv2.waitKey(-1) & 0xFF
         if q == ord('q'):
             break
