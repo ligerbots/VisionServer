@@ -31,61 +31,63 @@ class VisionServer2018(object):
     # Operation modes. Force the value on startup.
     tuning = ntproperty('/vision/tuning', False, writeDefault=True,
                         doc='Tuning mode. Reads processing parameters each time.')
-    restart = ntproperty('/vision/restart', False, writeDefault=True,
-                         doc='Restart algorithm. Needed after certain param changes.')
 
-    image_width = ntproperty('/vision/width', 640, writeDefault=False,
-                             doc='Image width')
-    image_height = ntproperty('/vision/height', 480, writeDefault=False,
-                              doc='Image height')
-    camera_fps = ntproperty('/vision/fps', 30, writeDefault=False,
-                            doc='FPS from camera')
+    image_width = ntproperty('/vision/width', 640, writeDefault=False, doc='Image width')
+    image_height = ntproperty('/vision/height', 480, writeDefault=False, doc='Image height')
+    camera_fps = ntproperty('/vision/fps', 30, writeDefault=False, doc='FPS from camera')
+
+    # Cube finding parameters
 
     # Color threshold values, in HSV space
-    cube_hue_low_limit = ntproperty('/vision/cube/hue_low_limit', 70,
-                               doc='Hue low limit for thresholding')
-    cube_hue_high_limit = ntproperty('/vision/cube/hue_high_limit', 100,
-                                doc='Hue high limit for thresholding')
+    cube_hue_low_limit = ntproperty('/vision/cube/hue_low_limit', 25,
+                                    doc='Hue low limit for thresholding (cube mode)')
+    cube_hue_high_limit = ntproperty('/vision/cube/hue_high_limit', 75,
+                                     doc='Hue high limit for thresholding (cube mode)')
 
-    cube_saturation_low_limit = ntproperty('/vision/cube/saturation_low_limit', 60,
-                                      doc='Saturation low limit for thresholding')
+    cube_saturation_low_limit = ntproperty('/vision/cube/saturation_low_limit', 95,
+                                           doc='Saturation low limit for thresholding (cube mode)')
     cube_saturation_high_limit = ntproperty('/vision/cube/saturation_high_limit', 255,
-                                       doc='Saturation high limit for thresholding')
+                                            doc='Saturation high limit for thresholding (cube mode)')
 
-    cube_value_low_limit = ntproperty('/vision/cube/value_low_limit', 30,
-                                 doc='Value low limit for thresholding')
+    cube_value_low_limit = ntproperty('/vision/cube/value_low_limit', 110,
+                                      doc='Value low limit for thresholding (cube mode)')
     cube_value_high_limit = ntproperty('/vision/cube/value_high_limit', 255,
-                                  doc='Value high limit for thresholding')
-    
+                                       doc='Value high limit for thresholding (cube mode)')
+
+    # Switch target parameters
+
     switch_hue_low_limit = ntproperty('/vision/switch/hue_low_limit', 70,
-                               doc='Hue low limit for thresholding')
+                                      doc='Hue low limit for thresholding (switch mode)')
     switch_hue_high_limit = ntproperty('/vision/switch/hue_high_limit', 100,
-                                doc='Hue high limit for thresholding')
+                                       doc='Hue high limit for thresholding (switch mode)')
 
     switch_saturation_low_limit = ntproperty('/vision/switch/saturation_low_limit', 60,
-                                      doc='Saturation low limit for thresholding')
+                                             doc='Saturation low limit for thresholding (switch mode)')
     switch_saturation_high_limit = ntproperty('/vision/switch/saturation_high_limit', 255,
-                                       doc='Saturation high limit for thresholding')
+                                              doc='Saturation high limit for thresholding (switch mode)')
 
     switch_value_low_limit = ntproperty('/vision/switch/value_low_limit', 30,
-                                 doc='Value low limit for thresholding')
+                                        doc='Value low limit for thresholding (switch mode)')
     switch_value_high_limit = ntproperty('/vision/switch/value_high_limit', 255,
-                                  doc='Value high limit for thresholding')
+                                         doc='Value high limit for thresholding (switch mode)')
 
-    # distance between the two target bars, in units of the width of a bar
-    switch_target_separation = ntproperty('/vision/switch/target_separation', 3.5,
-                                       doc='switch target horizontal separation, in widths')
+    # Paul Rensing 1/21/2018: not sure we need these as tunable NetworkTable parameters,
+    #  so comment out for now.
+    #
+    # # distance between the two target bars, in units of the width of a bar
+    # switch_target_separation = ntproperty('/vision/switch/target_separation', 3.0,
+    #                                       doc='switch target horizontal separation, in widths')
 
-    # max distance in pixels that a contour can from the guessed location
-    switch_max_target_dist = ntproperty('/vision/switch/max_target_dist', 50,
-                                     doc='switch max distance between contour and expected location (pixels)')
+    # # max distance in pixels that a contour can from the guessed location
+    # switch_max_target_dist = ntproperty('/vision/switch/max_target_dist', 50,
+    #                                     doc='switch max distance between contour and expected location (pixels)')
 
-    # pixel area of the bounding rectangle - just used to remove stupidly small regions
-    switch_contour_min_area = ntproperty('/vision/switch/contour_min_area', 100,
-                                      doc='switch min area of an interesting contour (sq. pixels)')
+    # # pixel area of the bounding rectangle - just used to remove stupidly small regions
+    # switch_contour_min_area = ntproperty('/vision/switch/contour_min_area', 100,
+    #                                      doc='switch min area of an interesting contour (sq. pixels)')
 
-    switch_approx_polydp_error = ntproperty('/vision/switch/approx_polydp_error', 0.06,
-                                         doc='switch approxPolyDP error')
+    # switch_approx_polydp_error = ntproperty('/vision/switch/approx_polydp_error', 0.06,
+    #                                         doc='switch approxPolyDP error')
 
     image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')

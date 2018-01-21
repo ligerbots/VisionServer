@@ -6,9 +6,10 @@ import json
 from skimage.feature import corner
 from skimage.feature.corner import corner_fast
 
+
 class CubeFinder2018(object):
     '''Find power cube for PowerUp 2018'''
-    
+
     CUBE_HEIGHT = 11    #inches
     CUBE_WIDTH = 13     #inches
     CUBE_LENGTH = 13    #inches
@@ -24,16 +25,16 @@ class CubeFinder2018(object):
 
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         self.erode_iterations = 2
-        
+
         with open(calib_file) as f:
             json_data = json.load(f)
             self.cameraMatrix = numpy.array(json_data["camera_matrix"])
             self.distortionMatrix = numpy.array(json_data["distortion"])
-        
+
         self.target_coords = numpy.array([[-CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
-                                              [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
-                                              [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
-                                              [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
+                                          [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+                                          [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+                                          [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
         return
 
     @staticmethod
@@ -49,48 +50,49 @@ class CubeFinder2018(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
-    
+
     @staticmethod
     def sort_corners(cnrlist, check):
         '''Sort a list of corners -- if check == true then returns x sorted 1st, y sorted 2nd. Otherwise the opposite'''
-        
-        #recreate the list of corners to get rid of excess dimensions
+
+        # recreate the list of corners to get rid of excess dimensions
         corners = numpy.zeros((int(cnrlist.size / 2), 2), dtype=numpy.int)
         for i in range(int((cnrlist.size + 1) / 2)):
             corners[i] = numpy.asarray(cnrlist[i][0])
-            
-        #sort the corners by x values (1st column) first and then by y values (2nd column)
+
+        # sort the corners by x values (1st column) first and then by y values (2nd column)
         if check:
             return sorted(corners, key=lambda x: (x[0], x[1]))
         else:
             return sorted(corners, key=lambda x: (x[1], x[0]))
-    
+
     @staticmethod
     def choose_corners_lr(cnrlist):
         '''Sort a list of corners and returns the 2 left most and 2 right most corners in order'''
         corners = CubeFinder2018.sort_corners(cnrlist, True)
         return numpy.array([corners[0], corners[1], corners[len(corners) - 2], corners[len(corners) - 1]])
-    
+
     @staticmethod
     def choose_corners_bs(cnrlist):
         '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total)'''
         corners = CubeFinder2018.sort_corners(cnrlist)
-        
+        return
+
     @staticmethod
     def get_cube_center(img, cnrlist):
         '''return the center of the cube'''
-        #sort just to format correctly -- get rid of extra dimensions
+        # sort just to format correctly -- get rid of extra dimensions
         corners = CubeFinder2018.sort_corners(cnrlist, True)
-        #xs and ys only needed for drawing the point on the image
+        # xs and ys only needed for drawing the point on the image
         xs = numpy.zeros((int(len(cnrlist) / 2), 1), dtype=numpy.int)
         ys = numpy.zeros((int(len(cnrlist) / 2), 1), dtype=numpy.int)
-        
+
         for i in range(int(len(corners) / 2)):
             xs[i] = corners[i][0]
             ys[i] = corners[i][1]
-        #sort y list since it will be out of order, xs should be fine already
+        # sort y list since it will be out of order, xs should be fine already
         ys.sort()
-        
+
         sum_x = 0
         sum_y = 0
         for corner in corners:
@@ -98,10 +100,10 @@ class CubeFinder2018(object):
             sum_y += corner[1]
         center = numpy.array([ int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2)) ])
         cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
-        #cv2.line(img, (xs.min, center[1]), (xs.max, center[1]), (255,0,0), 5)
-        #cv2.line(img, (center[0], ys.min), (center[0], ys.max), (255,0,0), 5)
+        # cv2.line(img, (xs.min, center[1]), (xs.max, center[1]), (255,0,0), 5)
+        # cv2.line(img, (center[0], ys.min), (center[0], ys.max), (255,0,0), 5)
         return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
-    
+
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
@@ -146,14 +148,14 @@ class CubeFinder2018(object):
             # # cv2.drawContours(camera_frame, [poly_fit], -1, (100, 255, 255), 1)
 
             hull = cv2.convexHull(biggest_contour)
-            #hull_fit contains the corners for the contour
+            # hull_fit contains the corners for the contour
             hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
             # cv2.drawContours(camera_frame, [hull], -1, (0, 255, 0), 1)
-            #Draw the contour on the image
+            # Draw the contour on the image
             cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
-            
+
             corners = numpy.array(hull_fit)
-            #divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
+            # divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
             if (corners.size / 2) >= 4 and (corners.size / 2) <= 6:
                 image_corners = CubeFinder2018.choose_corners_lr(corners)
                 cube_center = CubeFinder2018.get_cube_center(camera_frame, corners)
@@ -181,7 +183,7 @@ class CubeFinder2018(object):
 
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
-        
+
         return None, None
 
 
@@ -190,22 +192,23 @@ def process_files(cube_processor, input_files, output_dir):
     import os.path
 
     for image_file in input_files:
-        #print()
-        #print(image_file)
+        # print()
+        # print(image_file)
         bgr_frame = cv2.imread(image_file)
         cube_processor.process_image(bgr_frame)
-        #print("rvec: " + rvec)
-        #print("tvec: " + tvec)
+        # print("rvec: " + rvec)
+        # print("tvec: " + tvec)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
-        
-        #cv2.imshow("Window", bgr_frame)
+
+        # cv2.imshow("Window", bgr_frame)
         q = cv2.waitKey(-1) & 0xFF
         if q == ord('q'):
             break
     return
+
 
 def time_processing(cube_processor, input_files):
     '''Time the processing of the test files'''
@@ -264,4 +267,3 @@ def main():
 # This is for development/testing
 if __name__ == '__main__':
     main()
-

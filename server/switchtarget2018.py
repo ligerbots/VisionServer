@@ -2,53 +2,57 @@
 
 import cv2
 import numpy
+import json
+
 
 class SwitchTarget2018(object):
     '''Find switch target for PowerUp 2018'''
-    
+
     # real world dimensions of the switch target
-    TARGET_WIDTH = 8.0        # inches
+    # These are the full dimensions around both strips
+    TARGET_WIDTH = 8.0           # inches
     TARGET_HEIGHT = 15.3         # inches
-    
+
     def __init__(self, calib_file):
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
-        
+
         # distance between the two target bars, in units of the width of a bar
         self.target_separation = 3.0
-        
+
         # max distance in pixels that a contour can from the guessed location
         self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 100
-        
+
+        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06
-        
-        #ratio of height to width of one strip
+
+        # ratio of height to width of one retroreflective strip
         self.one_strip_height_ratio = 7.65
-        
+
         self.hsv_frame = None
         self.threshold_frame = None
-        
+
         # output results
         self.target_contour = None
-        
+
         with open(calib_file) as f:
             json_data = json.load(f)
             self.cameraMatrix = numpy.array(json_data["camera_matrix"])
             self.distortionMatrix = numpy.array(json_data["distortion"])
 
         # Corners of the switch target in real world dimensions
-        #TODO: Change?
+        # TODO: Change?
         self.target_coords = numpy.array([[-SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
                                           [-SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
                                           [ SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
                                           [ SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0]])
 
         return
-    
+
     @staticmethod
     def contour_center_width(contour):
         '''Find boundingRect of contour, but return center and width/height'''
@@ -82,7 +86,7 @@ class SwitchTarget2018(object):
         # threshold_fame is grey, so only 2 dimensions
         self.threshold_frame = numpy.empty(shape=shape[:2], dtype=numpy.uint8)
         return
-    
+
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
@@ -145,7 +149,7 @@ class SwitchTarget2018(object):
             cv2.drawContours(output_frame, [self.target_contour], -1, (255, 255, 255), 1)
 
         return
-    
+
     def test_candidate_contour(self, contour_list, cand_index, width):
         '''Given a contour as the candidate for the closest (unobscured) target region,
         try to find 1 or 2 other regions which make up the other side of the target
@@ -161,7 +165,7 @@ class SwitchTarget2018(object):
         cand_width = candidate['widths'][0]
         cand_height = candidate['widths'][1]
 
-        # print('ratio:', cand_width / candidate['widths'][1])
+        # Test that the candidate region has roughly the proportions of the real retroreflective tape
         ratio = cand_height / (cand_width * self.one_strip_height_ratio)
         if ratio < 0.7 or ratio > 1.3:
             return None
@@ -202,14 +206,13 @@ class SwitchTarget2018(object):
         if second_cont_index is None:
             return None
 
-        
         # We now have all the pieces for this candidate
 
-        # Important cut: the actual distance between the two bars in porportion to the actual
+        # Important cut: the actual distance between the two bars in proportion to the actual
         #    average width should be similar to the target_separation variable
 
-        delta_x = abs(cand_x - second_cont_x)
-        ave_width = (cand_width + second_cont_width) / 2
+        delta_x = abs(cand_x - contour_list[second_cont_index]['center'][0])
+        ave_width = (cand_width + contour_list[second_cont_index]['widths'][0]) / 2
         ratio = delta_x / (ave_width * self.target_separation)
         # print('deltaX', deltaX, aveW, ratio)
         if ratio > 1.3 or ratio < 0.7:
@@ -231,7 +234,6 @@ class SwitchTarget2018(object):
 
         return None
 
-    
 
 # --------------------------------------------------------------------------------
 
@@ -252,6 +254,7 @@ def process_files(switch_target_processor, input_files, output_dir):
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
     return
+
 
 def time_processing(switch_target_processor, input_files):
     '''Time the processing of the test files'''
