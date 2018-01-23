@@ -58,7 +58,7 @@ class CubeFinder2018(object):
         #recreate the list of corners to get rid of excess dimensions
         corners = []
         for i in range(int(cnrlist.size / 2)):
-            corners.append(cnrlist[i][0])
+            corners.append(cnrlist[i][0].tolist())
         #sort the corners by x values (1st column) first and then by y values (2nd column)
         if check:
             return sorted(corners, key=lambda x: (x[0], x[1]))
@@ -73,8 +73,8 @@ class CubeFinder2018(object):
         ys = []
         
         for i in range(len(corners)):
-            xs.append(corners[i][0].tolist())
-            ys.append(corners[i][1].tolist())
+            xs.append(corners[i][0])
+            ys.append(corners[i][1])
         #sort the lists lowest to highest
         xs.sort(reverse=True)
         ys.sort(reverse=True)
@@ -105,6 +105,8 @@ class CubeFinder2018(object):
         #lonely corner is green and happy corner is red
         cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
         cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+        
+        corners.remove(lonely_corner)
         
         if happy_corner[0] > lonely_corner[0]:
             for corner in corners:
