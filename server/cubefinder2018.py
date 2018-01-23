@@ -56,26 +56,28 @@ class CubeFinder2018(object):
         '''Sort a list of corners -- if check == true then returns x sorted 1st, y sorted 2nd. Otherwise the opposite'''
         
         #recreate the list of corners to get rid of excess dimensions
-        corners = numpy.zeros((int(cnrlist.size / 2), 2), dtype=numpy.int)
+        corners = []
         for i in range(int((cnrlist.size + 1) / 2)):
-            corners[i] = numpy.asarray(cnrlist[i][0])
+            corners.append(cnrlist[i][0])
             
         #sort the corners by x values (1st column) first and then by y values (2nd column)
         if check:
             return sorted(corners, key=lambda x: (x[0], x[1]))
+        #y's first then x's
         else:
             return sorted(corners, key=lambda x: (x[1], x[0]))
     
     @staticmethod
     def split_xs_ys(corners):
         '''Split a list of corners into sorted lists of x and y values'''
-        xs = numpy.zeros((int(len(corners) / 2), 1), dtype=numpy.int)
-        ys = numpy.zeros((int(len(corners) / 2), 1), dtype=numpy.int)
+        xs = []
+        ys = []
         
         for i in range(int(len(corners) / 2)):
-            xs[i] = corners[i][0]
-            ys[i] = corners[i][1]
-        #sort y list since it will be out of order, xs should be fine already
+            xs.append(corners[i][0])
+            ys.append(corners[i][1])
+        #sort the lists lowest to highest
+        xs.sort()
         ys.sort()
         return xs, ys
     
@@ -83,51 +85,55 @@ class CubeFinder2018(object):
     def choose_corners_sides(cnrlist):
         '''Sort a list of corners and returns the 2 left most and 2 right most corners in order'''
         corners = CubeFinder2018.sort_corners(cnrlist, True)
-        return numpy.array([corners[0], corners[1], corners[len(corners) - 2], corners[len(corners) - 1]])
+        return [corners[0], corners[1], corners[len(corners) - 2], corners[len(corners) - 1]]
     
     @staticmethod
     def choose_corners_frontface(cnrlist):
         '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
         of front face'''
-        corners = CubeFinder2018.sort_corners(cnrlist)
+        corners = CubeFinder2018.sort_corners(cnrlist, True)
         xs, _ = CubeFinder2018.split_xs_ys(corners)
         x_min1 = xs[0]
         x_min2 = xs[1]
         
-        error_margin = 10   #pixels
-        possible_points = numpy.zeros((0, 0), dtype=numpy.int)   #stores possible points for 3rd point of front face
-        #should only be 2 points -- if not, adjust error_margin
+        # if above point is within ___ pixels to the right and left
+        error_margin = 40   #pixels
+        possible_points = []   #stores possible points for 3rd point of front face
+        #TODO: should only be 2 points each time -- if not, adjust error_margin -- maybe adjust in proportion with cube area?
         for corner in corners:
             y = corner[1]
-            if y >= (x_min1 - error_margin) and (y <= x_min1 + error_margin):
+            if y >= (x_min1 - error_margin) and y <= (x_min1 + error_margin):
                 possible_points.append(corner)
-            if y >= x_min2 - error_margin and y <= x_min2 + error_margin:
+            if y >= (x_min2 - error_margin) and y <= (x_min2 + error_margin):
                 possible_points.append(corner)
         
-        _, ys = CubeFinder2018.split_xs_ys(checkpoints) #used to get y min
-        
+        _, ys = CubeFinder2018.split_xs_ys(possible_points) #used to get y min
         #find the actual top point with the found y value
         for corner in corners:
             if corner[1] == ys[0]:
-                top_corner = numpy.array([corner[0], corner[1]])
-        #find the other 2 points with the x_min1 and 2:
+                top_corner = [corner[0], corner[1]]
+        #find the other 2 points with the x_min1 and x_min2:
         for corner in corners:
+            x = corner[0]
             y = corner[1]
-            if corner[0] == x_min1 and not (y >= (x_min1 - error_margin) and (y <= x_min1 + error_margin)):
-                lonely_corner = numpy.array([corner[0], corner[1]])
-            if corner[0] == x_min2 and (y >= (x_min1 - error_margin) and (y <= x_min1 + error_margin)):
-                happy_corner = numpy.array([corner[0], corner[1]])
+            if (x == x_min1 or x == x_min2) and not (y >= (x_min1 - error_margin) and (y <= x_min1 + error_margin)):
+                lonely_corner = [corner[0], corner[1]]
+            if (x == x_min1 or x == x_min2) and (y >= (x_min1 - error_margin) and (y <= x_min1 + error_margin)):
+                happy_corner = [corner[0], corner[1]]
                 
         #return order: [bottom lonely corner, bottom happy corner, top corner]
-        return numpy.array([ lonely_corner, happy_corner, top_corner ])
+        #TODO: fix this to get the right values - not work
+        return [lonely_corner, happy_corner, top_corner]
     
     @staticmethod
-    def get_cube_facecenter(corners):
+    def get_cube_facecenter(cnrlist):
         '''Compute the center of a cube face from a list of the three face corners'''
-        #pass a list of the three corners of the front face as argument
-        x = (corners[0][0] + corners[2][0]) / 2
-        y = (corners[0][1] + corners[2][1]) / 2
-        return numpy.array([ x, y ])
+        #get the three corners of the front face
+        front_corners = CubeFinder2018.choose_corners_frontface(cnrlist)
+        #average of x, y values of opposite corners of front face of cube
+        x = (front_corners[0][0] + front_corners[2][0]) / 2
+        y = (front_corners[0][1] + front_corners[2][1]) / 2
+        return [x, y]       #return center point of cube front face
         
     
     @staticmethod
@@ -207,15 +213,15 @@ class CubeFinder2018(object):
                 #center = CubeFinder2018.get_cube_center(camera_frame, corners)
                 
                 #to find center of front cube face:
-                front_corners = CubeFinder2018.choose_corners_frontface(corners)
-                center = CubeFinder2018.get_cube_facecenter(front_corners)
+                center = CubeFinder2018.get_cube_facecenter(corners)
                 pass
-
-            '''retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
-                                              self.cameraMatrix, self.distortionMatrix) #TODO: fix this
-            if retval:
-                # Return values are 3x1 matrices. Convert to Python lists
-                return rvec.flatten().tolist(), tvec.flatten().tolist()'''
+            
+            #DON'T WANT TO USE SOLVEPNP() --> THIS IS 3D TARGET, NOT 2D
+            #retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
+            #                                  self.cameraMatrix, self.distortionMatrix) #TODO: fix this
+            #if retval:
+            #    # Return values are 3x1 matrices. Convert to Python lists
+            #    return rvec.flatten().tolist(), tvec.flatten().tolist()
 
         # print('contour peri =', cv2.arcLength(contour_list[0]['contour'], True),
         #       ' hull peri =', cv2.arcLength(hull, True))
