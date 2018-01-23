@@ -90,68 +90,46 @@ class CubeFinder2018(object):
     def choose_corners_frontface(img, cnrlist):
         '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
         of front face'''
-        corners = CubeFinder2018.sort_corners(cnrlist, True)
+        corners = CubeFinder2018.sort_corners(cnrlist, True)    #get rid of extra dimensions
         
         xs, ys = CubeFinder2018.split_xs_ys(corners)
         y_min1 = ys[0]
         y_min2 = ys[1]
         
-        print("xs: ", xs)
-        
-        bottom_corners = []
         for corner in corners:
-            if corner[1] == y_min1 or corner[1] == y_min2:
-                bottom_corners.append(corner)
-                
-        for corner in bottom_corners:
-            cv2.circle(img, (corner[0], corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+            if corner[1] == y_min1:
+                lonely_corner = corner
+            if corner[1] == y_min2:
+                happy_corner = corner
         
+        #lonely corner is green and happy corner is red
+        cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+        cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
         
-        
-        '''possible_points = []   #stores possible points for 3rd point of front face
-        #TODO: should only be 2 points each time -- if not, adjust error_margin -- maybe adjust in proportion with cube area?
-        for corner in corners:
-            x = corner[0]
-            #also checking if x values are not the same --> make sure not same point -- assumes no 2 points have same x value
-            if ( (x >= (x_min1 - error_margin) and x <= (x_min1 + error_margin)) or (x >= (x_min2 - error_margin) and x <= (x_min2 + error_margin)) ) and x != x_min1 and x != x_min2:
-                possible_points.append(corner)
-        
-        #print("y_min1: ", y_min1)
-        #print("y_min2: ", y_min2)
-        print("possible points: ", possible_points)
-        #for point in possible_points:
-        #    cv2.circle(img, (point[0], point[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
-        
-        _, ys = CubeFinder2018.split_xs_ys(possible_points) #used to get y min
-        #find the actual top point with the found y value
-        for corner in corners:
-            if corner[1] == ys[0]:
-                top_corner = [corner[0], corner[1]]
-        #find the other 2 points with the x_min1 and x_min2:
-        
-        for corner in corners:
-            x = corner[0]
-            y = corner[1]
-            if (x == x_min1 or x == x_min2) and not (x >= (x_min1 - error_margin) and (x <= x_min1 + error_margin)):
-                lonely_corner = [corner[0], corner[1]]
-            if (x == x_min1 or x == x_min2) and (x >= (x_min1 - error_margin) and (x <= x_min1 + error_margin)):
-                happy_corner = [corner[0], corner[1]]
-        
-        #return order: [bottom lonely corner, bottom happy corner, top corner]
-        #TODO: fix this to get the right values - not working
-        print([lonely_corner, happy_corner, top_corner])
-        return [lonely_corner, happy_corner, top_corner]'''
+        if happy_corner[0] > lonely_corner[0]:
+            for corner in corners:
+                if corner[0] == xs[0]:
+                    top_corner = corner
+        else:
+            for corner in corners:
+                if corner[0] == xs[len(xs) - 1]:
+                    top_corner = corner
+        #top corner is in blue
+        cv2.circle(img, (top_corner[0], top_corner[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        return ([lonely_corner, happy_corner, top_corner])
     
     @staticmethod
     def get_cube_facecenter(img, cnrlist):
         '''Compute the center of a cube face from a list of the three face corners'''
         #get the three corners of the front face
-        #front_corners = 
-        CubeFinder2018.choose_corners_frontface(img, cnrlist)
+        front_corners = CubeFinder2018.choose_corners_frontface(img, cnrlist)
         #average of x, y values of opposite corners of front face of cube
-        #x = (front_corners[0][0] + front_corners[2][0]) / 2
-        #y = (front_corners[0][1] + front_corners[2][1]) / 2
-        #return [x, y]       #return center point of cube front face'''
+        x = int((front_corners[0][0] + front_corners[2][0]) / 2)
+        y = int((front_corners[0][1] + front_corners[2][1]) / 2)
+        
+        #middle point in white
+        cv2.circle(img, (x, y), 5, (255, 255, 255), thickness=10, lineType=8, shift=0)
+        return [x, y]       #return center point of cube front face'''
         
     
     @staticmethod
@@ -169,8 +147,6 @@ class CubeFinder2018(object):
             sum_y += corner[1]
         center = numpy.array([ int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2)) ])
         cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
-        #cv2.line(img, (xs.min, center[1]), (xs.max, center[1]), (255,0,0), 5)
-        #cv2.line(img, (center[0], ys.min), (center[0], ys.max), (255,0,0), 5)
         return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
 
     def process_image(self, camera_frame):
