@@ -5,6 +5,9 @@ import numpy
 import json
 from skimage.feature import corner
 from skimage.feature.corner import corner_fast
+from math import tan
+from math import atan
+from math import atan2
 
 
 class CubeFinder2018(object):
@@ -75,7 +78,7 @@ class CubeFinder2018(object):
         for i in range(len(corners)):
             xs.append(corners[i][0])
             ys.append(corners[i][1])
-        #sort the lists lowest to highest
+        #sort the lists highest to lowest
         xs.sort(reverse=True)
         ys.sort(reverse=True)
         return xs, ys
@@ -130,7 +133,7 @@ class CubeFinder2018(object):
         y = int((front_corners[0][1] + front_corners[2][1]) / 2)
         
         #middle point in white
-        cv2.circle(img, (x, y), 5, (255, 255, 255), thickness=10, lineType=8, shift=0)
+        #cv2.circle(img, (x, y), 5, (255, 255, 255), thickness=10, lineType=8, shift=0)
         return [x, y]       #return center point of cube front face'''
         
     
@@ -150,6 +153,61 @@ class CubeFinder2018(object):
         center = numpy.array([ int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2)) ])
         cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
         return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
+    
+    @staticmethod
+    def get_cube_bottomcenter(img, cnrlist):
+        corners = CubeFinder2018.sort_corners(cnrlist, True)
+        _, ys = CubeFinder2018.split_xs_ys(corners)
+        
+        for corner in corners:
+            if corner[1] == ys[0]:
+                bottom_corner_a = corner
+            if corner[1] == ys[1]:
+                bottom_corner_b = corner
+        
+        #draw circles on the points for debugging
+        #cv2.circle(img, (bottom_corner_a[0], bottom_corner_a[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        #cv2.circle(img, (bottom_corner_b[0], bottom_corner_b[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        
+        center = [ int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2) ]
+        #cv2.circle(img, (center[0], center[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+        return center
+    
+    @staticmethod
+    def get_cube_angle(center):
+        '''Calculate the angle and distance from the camera to the center point of the robot'''
+        #(px,py) = pixel coordinates, 0,0 is the upper-left, positive down and to the right
+        #(nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
+        px = center[0]
+        py = center[1]
+        nx = (1/160) * (px - 159.5)  #TODO: Change values for size of our camera
+        ny = (1/120) * (119.5 - py)
+        
+        horizontal_fov = 54     #horizontal angle of the field of view
+        vertical_fov = 41       #vertical angle of the field of view
+        
+        #create imaginary view plane on 3d coords to get height and width
+        #place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
+        vpw = 2.0*tan(horizontal_fov/2)     #view plane height
+        vph = 2.0*tan(vertical_fov/2)       #view plane width
+        
+        #convert normal pixel coords to pixel coords
+        x = vpw/2 * nx
+        y = vph/2 * ny
+        
+        #now have all pieces to convert to angle:
+        ax = atan2(1,x)     #horizontal angle
+        ay = atan2(1,y)     #vertical angle
+        
+        #now use the x and y angles to calculate the distance to the target:
+        a1 = 15   #camera mount angle (degrees)
+        a2 = ay   #vertical angle to cube
+        #TODO: change h1? ask cad people (the people over there)
+        h1 = 13   #height of camera off the ground (inches)
+        h2 = 0    #height of target off the ground (inches)
+        d = (h2-h1) / tan(a1+a2)    #distance to the target
+        
+        return ax, d    #return horizontal angle and distance
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -209,8 +267,10 @@ class CubeFinder2018(object):
                 #center = CubeFinder2018.get_cube_center(camera_frame, corners)
                 
                 #to find center of front cube face:
-                center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
-                pass
+                #center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
+                
+                center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
+                angle, distance = CubeFinder2018.get_cube_angle(center)
             
             #DON'T WANT TO USE SOLVEPNP() --> THIS IS 3D TARGET, NOT 2D
             #retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
