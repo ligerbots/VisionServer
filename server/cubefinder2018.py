@@ -270,7 +270,7 @@ class CubeFinder2018(object):
                 #center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
                 
                 center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
-                angle, distance = CubeFinder2018.get_cube_angle(center)
+                rvec, tvec = CubeFinder2018.get_cube_angle(center)
             
             #DON'T WANT TO USE SOLVEPNP() --> THIS IS 3D TARGET, NOT 2D
             #retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
@@ -296,7 +296,10 @@ class CubeFinder2018(object):
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
 
-        return None, None
+        if rvec == None and tvec == None:
+            return None, None
+        else:
+            return rvec, tvec
 
 
 def process_files(cube_processor, input_files, output_dir):
@@ -307,9 +310,9 @@ def process_files(cube_processor, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
-        cube_processor.process_image(bgr_frame)
-        # print("rvec: " + rvec)
-        # print("tvec: " + tvec)
+        rvec, tvec = cube_processor.process_image(bgr_frame)
+        print("rvec: " + str(rvec))
+        print("tvec: " + str(tvec))
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
