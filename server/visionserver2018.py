@@ -119,7 +119,7 @@ class VisionServer2018(object):
         self.create_output_stream()
 
         self.switch_processor = SwitchTarget2018(calib_file)
-        self.cube_finder = CubeFinder2018()
+        self.cube_finder = CubeFinder2018(calib_file)
         # TODO: set all the parameters from NT
 
         # rate limit parameters
@@ -196,7 +196,7 @@ class VisionServer2018(object):
         '''Run the processor on the image to find the target'''
 
         # rvec, tvec return as None if no target found
-        rvec, tvec = self.switch_processor.process_image(self.camera_frame)
+        rvec, tvec = self.cube_finder.process_image(self.camera_frame)
 
         # Send the results as one big array in order to guarantee that the results
         #  all arrive at the RoboRio at the same time
@@ -206,8 +206,8 @@ class VisionServer2018(object):
             res = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         else:
             res = [1.0, ]       # Found
-            res.extend(tvec)
-            res.extend(rvec)
+        #    res.extend(tvec)
+        #    res.extend(rvec)
         self.target_info = res
 
         # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,

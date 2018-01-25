@@ -3,8 +3,6 @@
 import cv2
 import numpy
 import json
-from skimage.feature import corner
-from skimage.feature.corner import corner_fast
 from math import tan
 from math import atan
 from math import atan2
@@ -20,7 +18,7 @@ class CubeFinder2018(object):
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
         # individual properties
-        self.low_limit_hsv = numpy.array((25, 95, 110), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
@@ -174,7 +172,7 @@ class CubeFinder2018(object):
         return center
     
     @staticmethod
-    def get_cube_angle(center):
+    def get_cube_values(center):
         '''Calculate the angle and distance from the camera to the center point of the robot'''
         #(px,py) = pixel coordinates, 0,0 is the upper-left, positive down and to the right
         #(nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
@@ -214,6 +212,9 @@ class CubeFinder2018(object):
 
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
+        rvec = None
+        tvec = None #TODO: Should end up being vector of 3 numbers -- ??
+        
 
         if self.erode_iterations > 0:
             erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
@@ -270,7 +271,7 @@ class CubeFinder2018(object):
                 #center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
                 
                 center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
-                rvec, tvec = CubeFinder2018.get_cube_angle(center)
+                rvec, tvec = CubeFinder2018.get_cube_values(center)
             
             #DON'T WANT TO USE SOLVEPNP() --> THIS IS 3D TARGET, NOT 2D
             #retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
@@ -291,7 +292,7 @@ class CubeFinder2018(object):
         #       ' hull area =', cv2.contourArea(hull),
         #       ' hull fit area =', cv2.contourArea(hull_fit))
 
-        cv2.imshow("Window", camera_frame)
+        #cv2.imshow("Window", camera_frame)
 
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
@@ -299,6 +300,8 @@ class CubeFinder2018(object):
         if rvec == None and tvec == None:
             return None, None
         else:
+            print("rvec: " + str(rvec))
+            print("tvec: " + str(tvec))
             return rvec, tvec
 
 
