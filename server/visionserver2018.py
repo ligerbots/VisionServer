@@ -101,6 +101,9 @@ class VisionServer2018(object):
     #  all arrive at the RoboRio at the same time
     # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
     target_info = ntproperty('/vision/target_info', 7 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
+    
+    # True runs the cube finding code and false runs the switch finding code
+    detector_state = ntproperty('/vision/detector_state', True, doc='Switch between cube and switch target detecting')
 
     def __init__(self, calib_file):
         # for processing stored files and no camera
@@ -194,10 +197,12 @@ class VisionServer2018(object):
 
     def process_image(self):
         '''Run the processor on the image to find the target'''
-
-        # rvec, tvec return as None if no target found
-        rvec, tvec = self.cube_finder.process_image(self.camera_frame)
-
+        
+        if detector_state == True:
+            # rvec, tvec return as None if no target found
+            rvec, tvec = self.cube_finder.process_image(self.camera_frame)
+        else:
+            rvec, tvec = self.switch_finder.process_image(self.camera_frame)
         # Send the results as one big array in order to guarantee that the results
         #  all arrive at the RoboRio at the same time
         # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
