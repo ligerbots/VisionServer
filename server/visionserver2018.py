@@ -118,11 +118,11 @@ class VisionServer2018(object):
 
         self.create_output_stream()
 
-        self.switch_processor = SwitchTarget2018(calib_file)
+        self.switch_finder = SwitchTarget2018(calib_file)
         self.cube_finder = CubeFinder2018(calib_file)
 
-		self.curr_processor = self.cube_finder
-		self.active_mode = 'cube'
+        self.curr_processor = self.cube_finder
+        self.active_mode = 'cube'
 
         # TODO: set all the parameters from NT
 
@@ -196,19 +196,20 @@ class VisionServer2018(object):
         self.output_frame = self.camera_frame
         return
 
-	def switch_mode(self, new_mode):
-		if new_mode == 'cube':
-			self.curr_processor = self.cube_finder
-		elif new_mode == 'switch':
-			self.curr_processor = self.switch_finder
-		else:
-			logging.Error("Unknown mode %s" % new_mode)
-		self.active_mode = new_mode
-		return
+    def switch_mode(self, new_mode):
+        if new_mode == 'cube':
+            self.curr_processor = self.cube_finder
+        elif new_mode == 'switch':
+            self.curr_processor = self.switch_finder
+        else:
+            logging.error("Unknown mode %s" % new_mode)
+
+        self.active_mode = new_mode
+        return
 
     def process_image(self):
         '''Run the processor on the image to find the target'''
-        
+
         # rvec, tvec return as None if no target found
         rvec, tvec = self.curr_processor.process_image(self.camera_frame)
 
@@ -220,8 +221,8 @@ class VisionServer2018(object):
             res = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         else:
             res = [1.0, ]       # Found
-            res.extend(tvec)
-            res.extend(rvec)
+            # res.extend(tvec)
+            # res.extend(rvec)
         self.target_info = res
 
         # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
@@ -233,7 +234,7 @@ class VisionServer2018(object):
     def prepare_output_image(self):
         '''Prepare an image to send to the drivers station'''
 
-        self.switch_processor.prepare_output_image(self.output_frame)
+        self.curr_processor.prepare_output_image(self.output_frame)
         return
 
     # ----------------------------------------------------------------------------
@@ -248,8 +249,7 @@ class VisionServer2018(object):
                                              self.image_width, self.image_height,
                                              min(self.camera_fps, self.output_fps_limit))
         self.camera_server.addCamera(self.output_stream)
-        server = self.camera_server.addServer(name='camera',
-                                              port=self.output_port)
+        server = self.camera_server.addServer(name='camera', port=self.output_port)
         server.setSource(self.output_stream)
 
         return
