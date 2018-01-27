@@ -94,16 +94,13 @@ class VisionServer2018(object):
 
     # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
     # This is the NT variable, which can be set from the Driver's station
-    nt_active_camera = ntproperty('/vision/active_camera', 'main', doc='Active camera')
+    nt_active_mode = ntproperty('/vision/active_mode', 'main', doc='Active mode')
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
     #  all arrive at the RoboRio at the same time
     # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
     target_info = ntproperty('/vision/target_info', 7 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
-    
-    # True runs the cube finding code and false runs the switch finding code
-    detector_state = ntproperty('/vision/detector_state', True, doc='Switch between cube and switch target detecting')
 
     def __init__(self, calib_file):
         # for processing stored files and no camera
@@ -116,13 +113,17 @@ class VisionServer2018(object):
         self.camera_feeds = {}
         self.current_camera = None
         # active camera name. To be compared to nt_active_camera to see if it has changed
-        self.active_camera = None
+        self.active_mode = None
         self.add_cameras()
 
         self.create_output_stream()
 
         self.switch_processor = SwitchTarget2018(calib_file)
         self.cube_finder = CubeFinder2018(calib_file)
+
+		self.curr_processor = self.cube_finder
+		self.active_mode = 'cube'
+
         # TODO: set all the parameters from NT
 
         # rate limit parameters
@@ -195,14 +196,22 @@ class VisionServer2018(object):
         self.output_frame = self.camera_frame
         return
 
+	def switch_mode(self, new_mode):
+		if new_mode == 'cube':
+			self.curr_processor = self.cube_finder
+		elif new_mode == 'switch':
+			self.curr_processor = self.switch_finder
+		else:
+			logging.Error("Unknown mode %s" % new_mode)
+		self.active_mode = new_mode
+		return
+
     def process_image(self):
         '''Run the processor on the image to find the target'''
         
-        if detector_state == True:
-            # rvec, tvec return as None if no target found
-            rvec, tvec = self.cube_finder.process_image(self.camera_frame)
-        else:
-            rvec, tvec = self.switch_finder.process_image(self.camera_frame)
+        # rvec, tvec return as None if no target found
+        rvec, tvec = self.curr_processor.process_image(self.camera_frame)
+
         # Send the results as one big array in order to guarantee that the results
         #  all arrive at the RoboRio at the same time
         # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
@@ -211,8 +220,8 @@ class VisionServer2018(object):
             res = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         else:
             res = [1.0, ]       # Found
-        #    res.extend(tvec)
-        #    res.extend(rvec)
+            res.extend(tvec)
+            res.extend(rvec)
         self.target_info = res
 
         # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
@@ -289,10 +298,9 @@ class VisionServer2018(object):
         while True:
 
             # Check whether DS has asked for a different camera
-            ntcam = self.nt_active_camera  # temp, for efficiency
-            if ntcam != self.active_camera:
-                self.switch_camera(ntcam)
-                # TODO: switch image processing algorithm??
+            ntmode = self.nt_active_mode  # temp, for efficiency
+            if ntmode != self.active_mode:
+                self.switch_mode(ntmode)
 
             if self.camera_frame is None:
                 self.preallocate_arrays()
