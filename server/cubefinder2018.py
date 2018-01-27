@@ -27,6 +27,9 @@ class CubeFinder2018(object):
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         self.erode_iterations = 2
 
+		# save the found center for drawing on the image
+        self.center = None
+
         with open(calib_file) as f:
             json_data = json.load(f)
             self.cameraMatrix = numpy.array(json_data["camera_matrix"])
@@ -215,7 +218,8 @@ class CubeFinder2018(object):
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
         rvec = None
         tvec = None #TODO: Should end up being vector of 3 numbers -- ??
-
+        self.center = None
+        
         if self.erode_iterations > 0:
             erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
         else:
@@ -271,8 +275,8 @@ class CubeFinder2018(object):
                 #to find center of front cube face:
                 #center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
 
-                center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
-                rvec, tvec = CubeFinder2018.get_cube_values(center)
+                self.center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
+                rvec, tvec = CubeFinder2018.get_cube_values(self.center)
 
             #DON'T WANT TO USE SOLVEPNP() --> THIS IS 3D TARGET, NOT 2D
             #retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
@@ -307,6 +311,9 @@ class CubeFinder2018(object):
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
+
+        if self.center is not None:
+            cv2.circle(output_frame, (self.center[0],self.center[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
 
         # TODO: draw the found elements on the image for the Driver Station
         # if self.target_contour is not None:
