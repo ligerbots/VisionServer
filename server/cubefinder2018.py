@@ -85,41 +85,26 @@ class CubeFinder2018(object):
         return xs, ys
 
     @staticmethod
-    def choose_corners_sides(cnrlist):
-        '''Sort a list of corners and returns the 2 left most and 2 right most corners in order'''
-        corners = CubeFinder2018.sort_corners(cnrlist, True)
-        return [corners[0], corners[1], corners[len(corners) - 2], corners[len(corners) - 1]]
-
-    @staticmethod
     def choose_corners_frontface(img, cnrlist):
         '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
         of front face'''
-        corners = CubeFinder2018.sort_corners(cnrlist, True)    #get rid of extra dimensions
-
+        corners = CubeFinder2018.sort_corners(cnrlist, False)    #get rid of extra dimensions
+        
+        happy_corner = corners[len(corners) - 1]
+        lonely_corner = corners[len(corners) - 2]
+        
         xs, ys = CubeFinder2018.split_xs_ys(corners)
-        y_min1 = ys[0]
-        y_min2 = ys[1]
-
-        for corner in corners:
-            if corner[1] == y_min1:
-                lonely_corner = corner
-            if corner[1] == y_min2:
-                happy_corner = corner
 
         #lonely corner is green and happy corner is red
         cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
         cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
-
-        corners.remove(lonely_corner)
-
+        
+        corners = CubeFinder2018.sort_corners(cnrlist, True)
+        
         if happy_corner[0] > lonely_corner[0]:
-            for corner in corners:
-                if corner[0] == xs[0]:
-                    top_corner = corner
+            top_corner = corners[len(corners) - 1]
         else:
-            for corner in corners:
-                if corner[0] == xs[len(xs) - 1]:
-                    top_corner = corner
+            top_corner = corners[0]
         #top corner is in blue
         cv2.circle(img, (top_corner[0], top_corner[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
         return ([lonely_corner, happy_corner, top_corner])
@@ -157,21 +142,16 @@ class CubeFinder2018(object):
 
     @staticmethod
     def get_cube_bottomcenter(img, cnrlist):
-        corners = CubeFinder2018.sort_corners(cnrlist, True)
-        _, ys = CubeFinder2018.split_xs_ys(corners)
+        '''return the center of the bottom-front side of the cube'''
+        corners = CubeFinder2018.sort_corners(cnrlist, False)
+        
+        bottom_corner_a = corners[len(corners) - 1]
+        bottom_corner_b = corners[len(corners) - 2]
 
-        for corner in corners:
-            if corner[1] == ys[0]:
-                bottom_corner_a = corner
-            if corner[1] == ys[1]:
-                bottom_corner_b = corner
 
-        #draw circles on the points for debugging
-        #cv2.circle(img, (bottom_corner_a[0], bottom_corner_a[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
-        #cv2.circle(img, (bottom_corner_b[0], bottom_corner_b[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
 
         center = [ int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2) ]
-        #cv2.circle(img, (center[0], center[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+        cv2.circle(img, (center[0], center[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
         return center
 
     @staticmethod
@@ -203,11 +183,10 @@ class CubeFinder2018(object):
 
         #now use the x and y angles to calculate the distance to the target:
         a1 = 15   #camera mount angle (degrees)
-        a2 = ay   #vertical angle to cube
         #TODO: change h1? ask cad people (the people over there)
         h1 = 13   #height of camera off the ground (inches)
         h2 = 0    #height of target off the ground (inches)
-        d = (h2-h1) / tan(a1+a2)    #distance to the target
+        d = (h2-h1) / tan(a1+ay)    #distance to the target
 
         return ax, d    #return horizontal angle and distance
 
@@ -273,7 +252,7 @@ class CubeFinder2018(object):
                 #center = CubeFinder2018.get_cube_center(camera_frame, corners)
 
                 #to find center of front cube face:
-                #center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
+                #self.center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
 
                 self.center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
                 rvec, tvec = CubeFinder2018.get_cube_values(self.center)
@@ -297,16 +276,13 @@ class CubeFinder2018(object):
         #       ' hull area =', cv2.contourArea(hull),
         #       ' hull fit area =', cv2.contourArea(hull_fit))
 
-        #cv2.imshow("Window", camera_frame)
+        cv2.imshow("Window", camera_frame)
 
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
 
         if rvec is None or tvec is None:
             return None, None
-
-        print("rvec: " + str(rvec))
-        print("tvec: " + str(tvec))
         return rvec, tvec
 
     def prepare_output_image(self, output_frame):
