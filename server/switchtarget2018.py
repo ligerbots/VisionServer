@@ -227,6 +227,9 @@ class SwitchTarget2018(object):
 
         combined = numpy.vstack(all_contours)
         hull = cv2.convexHull(combined)
+        
+        hull_fit = SwitchTarget2018.quad_fit(hull, 0.01)
+        cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
 
         target_contour = SwitchTarget2018.quad_fit(hull, self.approx_polydp_error)
         if len(target_contour) == 4:

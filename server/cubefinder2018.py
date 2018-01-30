@@ -18,7 +18,7 @@ class CubeFinder2018(object):
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
         # individual properties
-        self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((25, 95, 105), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
@@ -145,9 +145,8 @@ class CubeFinder2018(object):
         '''return the center of the bottom-front side of the cube'''
         corners = CubeFinder2018.sort_corners(cnrlist, False)
         
-        bottom_corner_a = corners[len(corners) - 1]
-        bottom_corner_b = corners[len(corners) - 2]
-
+        bottom_corner_a = corners[-1]
+        bottom_corner_b = corners[-2]
 
 
         center = [ int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2) ]
@@ -276,7 +275,7 @@ class CubeFinder2018(object):
         #       ' hull area =', cv2.contourArea(hull),
         #       ' hull fit area =', cv2.contourArea(hull_fit))
 
-        cv2.imshow("Window", camera_frame)
+        #cv2.imshow("Window", camera_frame)
 
         # Probably can distinguish a cross by the ratio of perimeters and/or areas
         # That is, it is not universally true, but probably true from what we would see on the field
