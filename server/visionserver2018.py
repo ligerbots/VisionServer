@@ -215,7 +215,7 @@ class VisionServer2018(object):
         '''Run the processor on the image to find the target'''
 
         # rvec, tvec return as None if no target found
-        rvec, tvec = self.curr_processor.process_image(self.camera_frame)
+        result = self.curr_processor.process_image(self.camera_frame)
 
         # Send the results as one big array in order to guarantee that the results
         #  all arrive at the RoboRio at the same time
@@ -223,12 +223,13 @@ class VisionServer2018(object):
 
         # TODO fix this up.
         # each processor should return a single result vector
-        if rvec is None or tvec is None:
-            res = (0.0, self.image_time, 0.0, 0.0, 0.0, 0.0)
+        res = [self.image_time, ]
+        if not result:
+            res.extend(5*[0.0, ])
         else:
-            res = [1.0, self.image_time, ]       # Found
-            # res.extend(tvec)
-            # res.extend(rvec)
+            # Found
+            res.extend(result)
+
         self.target_info = res
 
         # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
@@ -363,8 +364,8 @@ class VisionServer2018(object):
 
             self.output_stream.putFrame(self.output_frame)
             # probably don't want to use sleep. Want something thread-compatible
-            for _ in range(4):
-                time.sleep(0.5)
+            #for _ in range(4):
+            time.sleep(0.5)
 
             file_index = (file_index + 1) % len(file_list)
         return

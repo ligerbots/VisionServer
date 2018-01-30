@@ -11,6 +11,8 @@ from math import atan2
 class CubeFinder2018(object):
     '''Find power cube for PowerUp 2018'''
 
+    CUBE_FINDER_MODE = 2
+
     CUBE_HEIGHT = 11    #inches
     CUBE_WIDTH = 13     #inches
     CUBE_LENGTH = 13    #inches
@@ -25,9 +27,9 @@ class CubeFinder2018(object):
         self.contour_min_area = 100
 
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
-        self.erode_iterations = 2
+        self.erode_iterations = 0
 
-		# save the found center for drawing on the image
+        # save the found center for drawing on the image
         self.center = None
 
         with open(calib_file) as f:
@@ -141,16 +143,14 @@ class CubeFinder2018(object):
         return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
 
     @staticmethod
-    def get_cube_bottomcenter(img, cnrlist):
+    def get_cube_bottomcenter(cnrlist):
         '''return the center of the bottom-front side of the cube'''
         corners = CubeFinder2018.sort_corners(cnrlist, False)
-        
+
         bottom_corner_a = corners[-1]
         bottom_corner_b = corners[-2]
 
-
-        center = [ int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2) ]
-        cv2.circle(img, (center[0], center[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+        center = [int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2)]
         return center
 
     @staticmethod
@@ -192,12 +192,16 @@ class CubeFinder2018(object):
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
+        # clear out result variables
+        angle = None
+        distance = None #TODO: Should end up being vector of 3 numbers -- ??
+        self.center = None
+        self.hull_fit = None
+        self.biggest_contour = None
+
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
-        rvec = None
-        tvec = None #TODO: Should end up being vector of 3 numbers -- ??
-        self.center = None
-        
+
         if self.erode_iterations > 0:
             erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
         else:
@@ -220,79 +224,42 @@ class CubeFinder2018(object):
 
         # NOTE: testing a list returns true if there is something in the list
         if contour_list:
-            biggest_contour = contour_list[0]['contour']
-            top2_contour = [contour_list[0]['contour'], ]
-            if len(contour_list) > 1:
-                top2_contour.append(contour_list[1]['contour'])
+            self.biggest_contour = contour_list[0]['contour']
 
-            cv2.drawContours(camera_frame, top2_contour, -1, (0, 0, 255), 2)
-
-            # # lets see what the bounding rectangle looks like
-            # center = contour_list[0]['center']
-            # widths = contour_list[0]['widths']
-            # cv2.rectangle(camera_frame, (center[0] - widths[0] // 2, center[1] - widths[1] // 2),
-            #               (center[0] + widths[0] // 2, center[1] + widths[1] // 2), (255, 255, 0))
-
-            # # poly_fit = CubeFinder.quad_fit(contour_list[0]['contour'], 0.01)
-            # # cv2.drawContours(camera_frame, [poly_fit], -1, (100, 255, 255), 1)
-
-            hull = cv2.convexHull(biggest_contour)
+            hull = cv2.convexHull(self.biggest_contour)
             # hull_fit contains the corners for the contour
-            hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
-            # cv2.drawContours(camera_frame, [hull], -1, (0, 255, 0), 1)
-            # Draw the contour on the image
-            cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
+            self.hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
 
-            corners = numpy.array(hull_fit)
+            vertices = len(self.hull_fit)
             # divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
-            if (corners.size / 2) >= 4 and (corners.size / 2) <= 12:    #12 = max # of corners if all corners are flat
-                #to find center of whole cube:
-                #image_corners = CubeFinder2018.choose_corners_lr(corners)
-                #center = CubeFinder2018.get_cube_center(camera_frame, corners)
+            if vertices >= 4 and vertices <= 12:    # 12 = max # of corners if all corners are flat
+                # to find center of whole cube:
+                # image_corners = CubeFinder2018.choose_corners_lr(self.hull_fit)
+                # center = CubeFinder2018.get_cube_center(camera_frame, self.hull_fit)
 
-                #to find center of front cube face:
-                #self.center = CubeFinder2018.get_cube_facecenter(camera_frame, corners)
+                # to find center of front cube face:
+                # self.center = CubeFinder2018.get_cube_facecenter(camera_frame, self.hull_fit)
 
-                self.center = CubeFinder2018.get_cube_bottomcenter(camera_frame, corners)
-                rvec, tvec = CubeFinder2018.get_cube_values(self.center)
+                self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
+                angle, distance = CubeFinder2018.get_cube_values(self.center)
 
-            #DON'T WANT TO USE SOLVEPNP() --> THIS IS 3D TARGET, NOT 2D
-            #retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
-            #                                  self.cameraMatrix, self.distortionMatrix) #TODO: fix this
-            #if retval:
-            #    # Return values are 3x1 matrices. Convert to Python lists
-            #    return rvec.flatten().tolist(), tvec.flatten().tolist()
-
-        # print('contour peri =', cv2.arcLength(contour_list[0]['contour'], True),
-        #       ' hull peri =', cv2.arcLength(hull, True))
-        # min_rect = cv2.minAreaRect(biggest_contour)
-        # box = numpy.int0(cv2.boxPoints(min_rect))
-        # cv2.drawContours(camera_frame, [box], -1, (255, 0, 255), 1)
-        # minRectArea = cv2.contourArea(box)
-        # print('contour area =', cv2.contourArea(biggest_contour),
-        #       ' contour bounding area =', contour_list[0]['area'],
-        #       ' contour min area rect =', minRectArea,
-        #       ' hull area =', cv2.contourArea(hull),
-        #       ' hull fit area =', cv2.contourArea(hull_fit))
-
-        #cv2.imshow("Window", camera_frame)
-
-        # Probably can distinguish a cross by the ratio of perimeters and/or areas
-        # That is, it is not universally true, but probably true from what we would see on the field
-
-        if rvec is None or tvec is None:
-            return None, None
-        return rvec, tvec
+        if distance is None or angle is None:
+            return (0.0, CubeFinder2018.CUBE_FINDER_MODE, 0.0, 0.0, 0.0)
+        return (1.0, CubeFinder2018.CUBE_FINDER_MODE, distance, angle, 0.0)
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
 
-        if self.center is not None:
-            cv2.circle(output_frame, (self.center[0],self.center[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        # Draw the contour on the image
+        if self.biggest_contour is not None:
+            cv2.drawContours(output_frame, [self.biggest_contour], -1, (0, 0, 255), 2)
 
-        # TODO: draw the found elements on the image for the Driver Station
-        # if self.target_contour is not None:
-        #    cv2.drawContours(output_frame, [self.target_contour], -1, (255, 255, 255), 1)
+        if self.hull_fit is not None:
+            cv2.drawContours(output_frame, [self.hull_fit], -1, (255, 0, 0), 2)
+
+        if self.center is not None:
+            cv2.circle(output_frame, (self.center[0], self.center[1]), 5, (255, 0, 0), thickness=10,
+                       lineType=8, shift=0)
 
         return
 
@@ -305,18 +272,19 @@ def process_files(cube_processor, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
-        rvec, tvec = cube_processor.process_image(bgr_frame)
-        print("rvec: " + str(rvec))
-        print("tvec: " + str(tvec))
+        result = cube_processor.process_image(bgr_frame)
+        print(image_file, result)
+
+        cube_processor.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
 
         # cv2.imshow("Window", bgr_frame)
-        q = cv2.waitKey(-1) & 0xFF
-        if q == ord('q'):
-            break
+        # q = cv2.waitKey(-1) & 0xFF
+        # if q == ord('q'):
+        #     break
     return
 
 

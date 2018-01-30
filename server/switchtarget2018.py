@@ -8,6 +8,8 @@ import json
 class SwitchTarget2018(object):
     '''Find switch target for PowerUp 2018'''
 
+    SWITCH_FINDER_MODE = 1.0
+
     # real world dimensions of the switch target
     # These are the full dimensions around both strips
     TARGET_WIDTH = 8.0           # inches
@@ -136,11 +138,14 @@ class SwitchTarget2018(object):
             retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
+                result = [1.0, SwitchTarget2018.SWITCH_FINDER_MODE, rvec.flatten().tolist()]
+                # TODO figure out the right angles!!!
                 # Return values are 3x1 matrices. Convert to Python lists
-                return rvec.flatten().tolist(), tvec.flatten().tolist()
+                # return rvec.flatten().tolist(), tvec.flatten().tolist()
+                return result
 
-        # no target found. Return "error"
-        return None, None
+        # no target found. Return "failure"
+        return [0.0, SwitchTarget2018.SWITCH_FINDER_MODE, 0.0, 0.0, 0.0]
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
