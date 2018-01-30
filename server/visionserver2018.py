@@ -20,6 +20,8 @@ from cubefinder2018 import CubeFinder2018
 class VisionServer2018(object):
     '''Vision server for 2018 Power Up'''
 
+    INITIAL_MODE = 'cube'
+    
     # NetworkTable parameters
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
@@ -94,18 +96,21 @@ class VisionServer2018(object):
 
     # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
     # This is the NT variable, which can be set from the Driver's station
-    nt_active_mode = ntproperty('/vision/active_mode', 'main', doc='Active mode')
+    nt_active_mode = ntproperty('/vision/active_mode', INITIAL_MODE, doc='Active mode')
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
     #  all arrive at the RoboRio at the same time
     # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
-    target_info = ntproperty('/vision/target_info', 7 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
+    target_info = ntproperty('/vision/target_info', 6 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
 
     def __init__(self, calib_file):
         # for processing stored files and no camera
         self.file_mode = False
         self.camera_device = 0
+
+        # time of each frame. Sent to the RoboRio as a heartbeat
+        self.image_time = 0
 
         self.camera_server = cscore.CameraServer.getInstance()
         self.camera_server.enableLogging()
@@ -121,8 +126,7 @@ class VisionServer2018(object):
         self.switch_finder = SwitchTarget2018(calib_file)
         self.cube_finder = CubeFinder2018(calib_file)
 
-        self.curr_processor = self.cube_finder
-        self.active_mode = 'cube'
+        self.switch_mode(VisionServer2018.INITIAL_MODE)
 
         # TODO: set all the parameters from NT
 
@@ -202,7 +206,7 @@ class VisionServer2018(object):
         elif new_mode == 'switch':
             self.curr_processor = self.switch_finder
         else:
-            logging.error("Unknown mode %s" % new_mode)
+            logging.error("Unknown mode '%s'" % new_mode)
 
         self.active_mode = new_mode
         return
@@ -217,10 +221,12 @@ class VisionServer2018(object):
         #  all arrive at the RoboRio at the same time
         # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
 
+        # TODO fix this up.
+        # each processor should return a single result vector
         if rvec is None or tvec is None:
-            res = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            res = (0.0, self.image_time, 0.0, 0.0, 0.0, 0.0)
         else:
-            res = [1.0, ]       # Found
+            res = [1.0, self.image_time, ]       # Found
             # res.extend(tvec)
             # res.extend(rvec)
         self.target_info = res
@@ -314,6 +320,10 @@ class VisionServer2018(object):
                 # skip the rest of the current iteration
                 # TODO: do we need to indicate error to RoboRio?
                 continue
+
+            # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
+            # convert frametime to seconds to use as the heartbeat sent to the RoboRio
+            self.image_time = 1e-7 * frametime
 
             if self.image_writer_state:
                 self.image_writer.setImage(self.camera_frame)
