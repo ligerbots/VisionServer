@@ -164,9 +164,10 @@ class CubeFinder2018(object):
         py = center[1]
         nx = (1/160) * (px - 159.5)  #TODO: Change values for size of our camera
         ny = (1/120) * (119.5 - py)
-
-        horizontal_fov = 54     #horizontal angle of the field of view
-        vertical_fov = 41       #vertical angle of the field of view
+        
+        #for c930: diagonal degrees = 90
+        horizontal_fov = 64     #horizontal angle of the field of view
+        vertical_fov = 52       #vertical angle of the field of view
 
         #create imaginary view plane on 3d coords to get height and width
         #place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
