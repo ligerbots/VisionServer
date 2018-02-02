@@ -8,8 +8,6 @@ import json
 class SwitchTarget2018(object):
     '''Find switch target for PowerUp 2018'''
 
-    SWITCH_FINDER_MODE = 1.0
-
     # real world dimensions of the switch target
     # These are the full dimensions around both strips
     TARGET_WIDTH = 8.0           # inches
@@ -122,6 +120,8 @@ class SwitchTarget2018(object):
             self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contour is not None:
                 break
+        
+        #cv2.imshow("Window", camera_frame)
 
         if self.target_contour is not None:
             # The target was found. Convert to real world co-ordinates.
@@ -138,14 +138,11 @@ class SwitchTarget2018(object):
             retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
-                result = [1.0, SwitchTarget2018.SWITCH_FINDER_MODE, rvec.flatten().tolist()]
-                # TODO figure out the right angles!!!
                 # Return values are 3x1 matrices. Convert to Python lists
-                # return rvec.flatten().tolist(), tvec.flatten().tolist()
-                return result
+                return rvec.flatten().tolist(), tvec.flatten().tolist()
 
-        # no target found. Return "failure"
-        return [0.0, SwitchTarget2018.SWITCH_FINDER_MODE, 0.0, 0.0, 0.0]
+        # no target found. Return "error"
+        return None, None
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
@@ -232,11 +229,9 @@ class SwitchTarget2018(object):
 
         combined = numpy.vstack(all_contours)
         hull = cv2.convexHull(combined)
-        
-        hull_fit = SwitchTarget2018.quad_fit(hull, 0.01)
-        cv2.drawContours(camera_frame, [hull_fit], -1, (255, 0, 0), 2)
 
         target_contour = SwitchTarget2018.quad_fit(hull, self.approx_polydp_error)
+        
         if len(target_contour) == 4:
             return target_contour
 
@@ -298,12 +293,12 @@ def main():
     parser = argparse.ArgumentParser(description='2018 switch target')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib', help='Calibration file')
+    parser.add_argument('--calib_file', help='Calibration file')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    switch_target_processor = SwitchTarget2018(args.calib)
+    switch_target_processor = SwitchTarget2018(args.calib_file)
     if args.output_dir is not None:
         process_files(switch_target_processor, args.input_files, args.output_dir)
     elif args.time:
@@ -316,3 +311,4 @@ def main():
 # This is for development/testing
 if __name__ == '__main__':
     main()
+
