@@ -6,6 +6,7 @@ import json
 from math import tan
 from math import atan
 from math import atan2
+from math import radians
 
 
 class CubeFinder2018(object):
@@ -16,6 +17,14 @@ class CubeFinder2018(object):
     CUBE_HEIGHT = 11    #inches
     CUBE_WIDTH = 13     #inches
     CUBE_LENGTH = 13    #inches
+    
+    HFOV = 64     #horizontal angle of the field of view
+    VFOV = 52       #vertical angle of the field of view
+    
+    #create imaginary view plane on 3d coords to get height and width
+    #place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
+    VPW = 2.0*tan(HFOV/2)     #view plane height
+    VPH = 2.0*tan(VFOV/2)       #view plane width
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
@@ -41,6 +50,11 @@ class CubeFinder2018(object):
                                           [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
                                           [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
                                           [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
+        
+        self.a1 = radians(15)   #camera mount angle (degrees)
+        self.h1 = 13   #height of camera off the ground (inches)
+        self.h2 = 0    #height of target off the ground (inches)
+        
         return
 
     @staticmethod
@@ -152,41 +166,27 @@ class CubeFinder2018(object):
 
         center = [int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2)]
         return center
-
-    @staticmethod
-    def get_cube_values(center):
+    
+    def get_cube_values(self, center):
         '''Calculate the angle and distance from the camera to the center point of the robot'''
 
         #(px,py) = pixel coordinates, 0,0 is the upper-left, positive down and to the right
         #(nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
         px = center[0]
         py = center[1]
-        nx = (1/320) * (px - 319.5)  #TODO: Change values for size of our camera
+        nx = (1/320) * (px - 319.5)
         ny = (1/240) * (239.5 - py)
         
-        #for c930: diagonal degrees = 90
-        horizontal_fov = 64     #horizontal angle of the field of view
-        vertical_fov = 52       #vertical angle of the field of view
-
-        #create imaginary view plane on 3d coords to get height and width
-        #place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
-        vpw = 2.0*tan(horizontal_fov/2)     #view plane height
-        vph = 2.0*tan(vertical_fov/2)       #view plane width
-
         #convert normal pixel coords to pixel coords
-        x = vpw/2 * nx
-        y = vph/2 * ny
+        x = CubeFinder2018.VPW/2 * nx
+        y = CubeFinder2018.VPH/2 * ny
 
         #now have all pieces to convert to angle:
         ax = atan2(1,x)     #horizontal angle
         ay = atan2(1,y)     #vertical angle
 
         #now use the x and y angles to calculate the distance to the target:
-        a1 = 15   #camera mount angle (degrees)
-        #TODO: change h1? ask cad people (the people over there)
-        h1 = 13   #height of camera off the ground (inches)
-        h2 = 0    #height of target off the ground (inches)
-        d = (h2-h1) / tan(a1+ay)    #distance to the target
+        d = (self.h2 - self.h1) / tan(self.a1 + ay)    #distance to the target
 
         return ax, d    #return horizontal angle and distance
 
@@ -235,10 +235,12 @@ class CubeFinder2018(object):
             # divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
             if vertices >= 4 and vertices <= 12:    # 12 = max # of corners if all corners are flat
                 self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
-                angle, distance = CubeFinder2018.get_cube_values(self.center)
+                angle, distance = self.get_cube_values(self.center)
 
+        #return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
             return (0.0, CubeFinder2018.CUBE_FINDER_MODE, 0.0, 0.0, 0.0)
+        
         return (1.0, CubeFinder2018.CUBE_FINDER_MODE, distance, angle, 0.0)
 
     def prepare_output_image(self, output_frame):
