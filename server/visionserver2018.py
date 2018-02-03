@@ -56,6 +56,8 @@ class VisionServer2018(object):
     cube_value_high_limit = ntproperty('/vision/cube/value_high_limit', 255,
                                        doc='Value high limit for thresholding (cube mode)')
 
+    cube_exposure = ntproperty('/vision/cube/exposure', 0, doc='Camera exposure for cube (0=auto)')
+
     # Switch target parameters
 
     switch_hue_low_limit = ntproperty('/vision/switch/hue_low_limit', 70,
@@ -72,6 +74,8 @@ class VisionServer2018(object):
                                         doc='Value low limit for thresholding (switch mode)')
     switch_value_high_limit = ntproperty('/vision/switch/value_high_limit', 255,
                                          doc='Value high limit for thresholding (switch mode)')
+
+    switch_exposure = ntproperty('/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
 
     # Paul Rensing 1/21/2018: not sure we need these as tunable NetworkTable parameters,
     #  so comment out for now.
@@ -116,7 +120,8 @@ class VisionServer2018(object):
         self.camera_server.enableLogging()
 
         self.camera_feeds = {}
-        self.current_camera = None
+        self.current_sink = None
+        self.main_camera = None
         # active camera name. To be compared to nt_active_camera to see if it has changed
         self.active_mode = None
         self.add_cameras()
@@ -146,30 +151,14 @@ class VisionServer2018(object):
     # --------------------------------------------------------------------------------
     # Methods generally customized each year
 
-    def update_parameters(self, table, key, value, isNew):
+    def update_parameters(self):
         '''Update processing parameters from NetworkTables values.
         Only do this on startup or if "tuning" is on, for efficiency'''
+
         # Make sure to add any additional created properties which should be changeable down below in addition to above
+        # TODO: set color thresholds in switch
+        # TODO: set color thresholds in cube
 
-        print("valueChanged: key: '%s'; value: %s; newValue: %s" % (key, value, isNew))
-
-        if self.tuning:
-            self.output_fps_limit = table.getInteger('/vision/output_fps_limit')
-            self.camera_fps = table.getInteger('/vision/fps')
-
-            self.tuning = table.getBoolean('/vision/tuning')
-            self.restart = table.getBoolean('/vision/restart')
-
-            self.image_width = table.getInteger('/vision/width')
-            self.image_height = table.getInteger('/vision/height')
-            self.image_writer_state = table.getBoolean('/vision/write_images')
-
-            self.hue_low_limit = table.getInteger('/vision/hue_low_limit')
-            self.hue_high_limit = table.getInteger('/vision/hue_high_limit')
-            self.saturation_low_limit = table.getInteger('/vision/saturation_low_limit')
-            self.saturation_high_limit = table.getInteger('/vision/saturation_high_limit')
-            self.value_low_limit = table.getInteger('/vision/value_low_limit')
-            self.value_high_limit = table.getInteger('/vision/value_high_limit')
         return
 
     def connectionListener(connected, info):
@@ -203,8 +192,12 @@ class VisionServer2018(object):
     def switch_mode(self, new_mode):
         if new_mode == 'cube':
             self.curr_processor = self.cube_finder
+            VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
+
         elif new_mode == 'switch':
             self.curr_processor = self.switch_finder
+            VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
+
         else:
             logging.error("Unknown mode '%s'" % new_mode)
 
@@ -261,6 +254,14 @@ class VisionServer2018(object):
 
         return
 
+    @staticmethod
+    def set_exposure(camera, value):
+        if value == 0:
+            camera.setExposureAuto()
+        else:
+            camera.setExposureManual(int(value))
+        return
+
     def add_camera(self, name, device, active=True):
         '''Add a single camera and set it to active/disabled as indicated.
         Cameras are referenced by their name, so pick something unique'''
@@ -270,10 +271,13 @@ class VisionServer2018(object):
         camera.setResolution(self.image_width, self.image_height)
         camera.setFPS(self.camera_fps)
 
+        if name == 'main':
+            self.main_camera = camera
+
         sink = self.camera_server.getVideo(camera=camera)
         self.camera_feeds[name] = sink
         if active:
-            self.current_camera = sink
+            self.current_sink = sink
             self.active_camera = name
             self.nt_active_camera = name
         else:
@@ -288,10 +292,10 @@ class VisionServer2018(object):
         new_cam = self.camera_feeds.get(name, None)
         if new_cam is not None:
             # disable the old camera feed
-            self.current_camera.setEnabled(False)
+            self.current_sink.setEnabled(False)
             # enable the new one. Do this 2nd in case it is the same as the old one.
             new_cam.setEnabled(True)
-            self.current_camera = new_cam
+            self.current_sink = new_cam
             self.active_camera = name
         else:
             logging.warning('Unknown camera %s' % name)
@@ -312,12 +316,15 @@ class VisionServer2018(object):
             if self.camera_frame is None:
                 self.preallocate_arrays()
 
+            if self.tuning:
+                self.update_parameters()
+
             # Tell the CvSink to grab a frame from the camera and put it
             # in the source image.  If there is an error notify the output.
-            frametime, self.camera_frame = self.current_camera.grabFrame(self.camera_frame)
+            frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
             if frametime == 0:
                 # Send the output the error.
-                self.output_stream.notifyError(self.current_camera.getError())
+                self.output_stream.notifyError(self.current_sink.getError())
                 # skip the rest of the current iteration
                 # TODO: do we need to indicate error to RoboRio?
                 continue
