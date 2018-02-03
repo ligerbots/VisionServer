@@ -41,7 +41,7 @@ class SwitchTarget2018(object):
         # DEBUG values
         self.top_contours = None
         self.target_locations = None
-        
+
         # output results
         self.target_contour = None
 
@@ -57,6 +57,11 @@ class SwitchTarget2018(object):
                                           [ SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
                                           [ SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0]])
 
+        return
+
+    def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
+        self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
+        self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
         return
 
     @staticmethod
@@ -214,7 +219,7 @@ class SwitchTarget2018(object):
             for test_loc in test_locations:
                 # DEBUG
                 self.target_locations.append(test_loc)
-                
+
                 # negative is outside. I want the other sign
                 dist = -cv2.pointPolygonTest(c['contour'], test_loc, measureDist=True)
                 if dist < distance:

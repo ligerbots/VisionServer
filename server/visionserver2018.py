@@ -51,7 +51,7 @@ class VisionServer2018(object):
     cube_saturation_high_limit = ntproperty('/vision/cube/saturation_high_limit', 255,
                                             doc='Saturation high limit for thresholding (cube mode)')
 
-    cube_value_low_limit = ntproperty('/vision/cube/value_low_limit', 110,
+    cube_value_low_limit = ntproperty('/vision/cube/value_low_limit', 95,
                                       doc='Value low limit for thresholding (cube mode)')
     cube_value_high_limit = ntproperty('/vision/cube/value_high_limit', 255,
                                        doc='Value high limit for thresholding (cube mode)')
@@ -65,12 +65,12 @@ class VisionServer2018(object):
     switch_hue_high_limit = ntproperty('/vision/switch/hue_high_limit', 100,
                                        doc='Hue high limit for thresholding (switch mode)')
 
-    switch_saturation_low_limit = ntproperty('/vision/switch/saturation_low_limit', 60,
+    switch_saturation_low_limit = ntproperty('/vision/switch/saturation_low_limit', 100,
                                              doc='Saturation low limit for thresholding (switch mode)')
     switch_saturation_high_limit = ntproperty('/vision/switch/saturation_high_limit', 255,
                                               doc='Saturation high limit for thresholding (switch mode)')
 
-    switch_value_low_limit = ntproperty('/vision/switch/value_low_limit', 30,
+    switch_value_low_limit = ntproperty('/vision/switch/value_low_limit', 130,
                                         doc='Value low limit for thresholding (switch mode)')
     switch_value_high_limit = ntproperty('/vision/switch/value_high_limit', 255,
                                          doc='Value high limit for thresholding (switch mode)')
@@ -131,6 +131,8 @@ class VisionServer2018(object):
         self.switch_finder = SwitchTarget2018(calib_file)
         self.cube_finder = CubeFinder2018(calib_file)
 
+        self.update_parameters()
+
         self.switch_mode(VisionServer2018.INITIAL_MODE)
 
         # TODO: set all the parameters from NT
@@ -155,10 +157,14 @@ class VisionServer2018(object):
         '''Update processing parameters from NetworkTables values.
         Only do this on startup or if "tuning" is on, for efficiency'''
 
-        # Make sure to add any additional created properties which should be changeable down below in addition to above
-        # TODO: set color thresholds in switch
-        # TODO: set color thresholds in cube
+        # Make sure to add any additional created properties which should be changeable
 
+        self.switch_finder.set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
+                                                self.switch_saturation_low_limit, self.switch_saturation_high_limit,
+                                                self.switch_value_low_limit, self.switch_value_high_limit)
+        self.cube_finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
+                                              self.cube_saturation_low_limit, self.cube_saturation_high_limit,
+                                              self.cube_value_low_limit, self.cube_value_high_limit)
         return
 
     def connectionListener(connected, info):
