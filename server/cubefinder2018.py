@@ -4,9 +4,8 @@ import cv2
 import numpy
 import json
 from math import tan
-from math import atan
 from math import atan2
-from math import radians
+import math
 
 
 class CubeFinder2018(object):
@@ -51,7 +50,7 @@ class CubeFinder2018(object):
                                           [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
                                           [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
         
-        self.a1 = radians(15)   #camera mount angle (degrees)
+        self.a1 = math.radians(-15)   #camera mount angle (degrees)
         self.h1 = 13   #height of camera off the ground (inches)
         self.h2 = 0    #height of target off the ground (inches)
         
@@ -171,36 +170,39 @@ class CubeFinder2018(object):
 
         center = [int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2)]
         return center
-    
-    def get_cube_values(self, center):
+
+    def get_cube_values(self, center, shape):
         '''Calculate the angle and distance from the camera to the center point of the robot'''
 
-        #(px,py) = pixel coordinates, 0,0 is the upper-left, positive down and to the right
-        #(nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
-        px = center[0]
-        py = center[1]
-        nx = (1/320) * (px - 319.5)
-        ny = (1/240) * (239.5 - py)
-        
-        #convert normal pixel coords to pixel coords
+        # center is in pixel coordinates, 0,0 is the upper-left, positive down and to the right
+        # (nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
+        # WARNING: shape is (h, w, nbytes) not (w,h,...)
+        image_w = shape[1] / 2.0
+        image_h = shape[0] / 2.0
+
+        # NOTE: the 0.5 is to place the location in the center of the pixel
+        nx = (center[0] - image_w + 0.5) / image_w
+        ny = (image_h - 0.5 - center[1]) / image_h
+
+        # convert normal pixel coords to pixel coords
         x = CubeFinder2018.VPW/2 * nx
         y = CubeFinder2018.VPH/2 * ny
 
-        #now have all pieces to convert to angle:
-        ax = atan2(1,x)     #horizontal angle
-        ay = atan2(1,y)     #vertical angle
+        # now have all pieces to convert to angle:
+        ax = atan2(x, 1.0)     # horizontal angle
+        ay = atan2(y, 1.0)     # vertical angle
 
-        #now use the x and y angles to calculate the distance to the target:
-        d = (self.h2 - self.h1) / tan(self.a1 + ay)    #distance to the target
+        # now use the x and y angles to calculate the distance to the target:
+        d = (self.h2 - self.h1) / tan(self.a1 + ay)    # distance to the target
 
-        return ax, d    #return horizontal angle and distance
+        return ax, d    # return horizontal angle and distance
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
         # clear out result variables
         angle = None
-        distance = None #TODO: Should end up being vector of 3 numbers -- ??
+        distance = None
         self.center = None
         self.hull_fit = None
         self.biggest_contour = None
@@ -240,12 +242,12 @@ class CubeFinder2018(object):
             # divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
             if vertices >= 4 and vertices <= 12:    # 12 = max # of corners if all corners are flat
                 self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
-                angle, distance = self.get_cube_values(self.center)
+                angle, distance = self.get_cube_values(self.center, camera_frame.shape)
 
-        #return values: (success, cube or switch, distance, angle, -- still deciding here?)
+        # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
             return (0.0, CubeFinder2018.CUBE_FINDER_MODE, 0.0, 0.0, 0.0)
-        
+
         return (1.0, CubeFinder2018.CUBE_FINDER_MODE, distance, angle, 0.0)
 
     def prepare_output_image(self, output_frame):
@@ -274,7 +276,7 @@ def process_files(cube_processor, input_files, output_dir):
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
         result = cube_processor.process_image(bgr_frame)
-        print(image_file, result)
+        print(image_file, result[0], result[1], result[2], math.degrees(result[3]),  math.degrees(result[4]))
 
         cube_processor.prepare_output_image(bgr_frame)
 
