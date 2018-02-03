@@ -4,7 +4,7 @@ import cv2
 import numpy
 import json
 from math import tan
-from math import atan
+# from math import atan
 from math import atan2
 
 
@@ -27,7 +27,7 @@ class CubeFinder2018(object):
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         self.erode_iterations = 2
 
-		# save the found center for drawing on the image
+        # save the found center for drawing on the image
         self.center = None
 
         with open(calib_file) as f:
@@ -319,12 +319,12 @@ def main():
     parser = argparse.ArgumentParser(description='2018 cube finder')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib_file', help='Calibration file')
+    parser.add_argument('--calib', help='Calibration file')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    cube_processor = CubeFinder2018(args.calib_file)
+    cube_processor = CubeFinder2018(args.calib)
 
     if args.output_dir is not None:
         process_files(cube_processor, args.input_files, args.output_dir)

@@ -8,6 +8,8 @@ import json
 class SwitchTarget2018(object):
     '''Find switch target for PowerUp 2018'''
 
+    SWITCH_FINDER_MODE = 1.0
+
     # real world dimensions of the switch target
     # These are the full dimensions around both strips
     TARGET_WIDTH = 8.0           # inches
@@ -15,7 +17,7 @@ class SwitchTarget2018(object):
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((70, 100, 130), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # distance between the two target bars, in units of the width of a bar
@@ -36,6 +38,10 @@ class SwitchTarget2018(object):
         self.hsv_frame = None
         self.threshold_frame = None
 
+        # DEBUG values
+        self.top_contours = None
+        self.target_locations = None
+        
         # output results
         self.target_contour = None
 
@@ -92,6 +98,10 @@ class SwitchTarget2018(object):
 
         self.target_contour = None
 
+        # DEBUG values
+        self.top_contours = None
+        self.target_locations = []
+
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
             self.preallocate_arrays(shape)
@@ -115,13 +125,14 @@ class SwitchTarget2018(object):
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
+        # DEBUG
+        self.top_contours = [x['contour'] for x in contour_list[0:2]]
+
         # try only the 5 biggest regions
         for candidate_index in range(min(5, len(contour_list))):
             self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contour is not None:
                 break
-        
-        #cv2.imshow("Window", camera_frame)
 
         if self.target_contour is not None:
             # The target was found. Convert to real world co-ordinates.
@@ -138,17 +149,24 @@ class SwitchTarget2018(object):
             retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
-                # Return values are 3x1 matrices. Convert to Python lists
-                return rvec.flatten().tolist(), tvec.flatten().tolist()
+                result = [1.0, SwitchTarget2018.SWITCH_FINDER_MODE, rvec.flatten().tolist()]
+                # TODO figure out the right angles!!!
+                return result
 
-        # no target found. Return "error"
-        return None, None
+        # no target found. Return "failure"
+        return [0.0, SwitchTarget2018.SWITCH_FINDER_MODE, 0.0, 0.0, 0.0]
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
 
+        for loc in self.target_locations:
+            cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
+
+        if self.top_contours:
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+
         if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 255, 255), 1)
+            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
         return
 
@@ -169,7 +187,7 @@ class SwitchTarget2018(object):
 
         # Test that the candidate region has roughly the proportions of the real retroreflective tape
         ratio = cand_height / (cand_width * self.one_strip_height_ratio)
-        if ratio < 0.7 or ratio > 1.3:
+        if ratio < 0.5 or ratio > 1.3:
             return None
 
         # Based on the candidate location and x-width, compute guesses where the other bar should be
@@ -194,6 +212,9 @@ class SwitchTarget2018(object):
             c = contour_list[ci]
 
             for test_loc in test_locations:
+                # DEBUG
+                self.target_locations.append(test_loc)
+                
                 # negative is outside. I want the other sign
                 dist = -cv2.pointPolygonTest(c['contour'], test_loc, measureDist=True)
                 if dist < distance:
@@ -216,8 +237,8 @@ class SwitchTarget2018(object):
         delta_x = abs(cand_x - contour_list[second_cont_index]['center'][0])
         ave_width = (cand_width + contour_list[second_cont_index]['widths'][0]) / 2
         ratio = delta_x / (ave_width * self.target_separation)
-        # print('deltaX', deltaX, aveW, ratio)
-        if ratio > 1.3 or ratio < 0.7:
+        print('delta_x', delta_x, ave_width, ratio)
+        if ratio > 1.3 or ratio < 0.5:
             # not close enough to 1
             return None
 
@@ -231,7 +252,6 @@ class SwitchTarget2018(object):
         hull = cv2.convexHull(combined)
 
         target_contour = SwitchTarget2018.quad_fit(hull, self.approx_polydp_error)
-        
         if len(target_contour) == 4:
             return target_contour
 
@@ -248,9 +268,8 @@ def process_files(switch_target_processor, input_files, output_dir):
         print()
         print(image_file)
         bgr_frame = cv2.imread(image_file)
-        rvec, tvec = switch_target_processor.process_image(bgr_frame)
-        print('rvec:', rvec)
-        print('tvec:', tvec)
+        result = switch_target_processor.process_image(bgr_frame)
+        print('result:', result)
 
         switch_target_processor.prepare_output_image(bgr_frame)
         outfile = os.path.join(output_dir, os.path.basename(image_file))
@@ -293,12 +312,12 @@ def main():
     parser = argparse.ArgumentParser(description='2018 switch target')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib_file', help='Calibration file')
+    parser.add_argument('--calib', help='Calibration file')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    switch_target_processor = SwitchTarget2018(args.calib_file)
+    switch_target_processor = SwitchTarget2018(args.calib)
     if args.output_dir is not None:
         process_files(switch_target_processor, args.input_files, args.output_dir)
     elif args.time:
@@ -311,4 +330,3 @@ def main():
 # This is for development/testing
 if __name__ == '__main__':
     main()
-
