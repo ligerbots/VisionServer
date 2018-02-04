@@ -341,6 +341,8 @@ class VisionServer2018(object):
 
             if self.image_writer_state:
                 self.image_writer.setImage(self.camera_frame)
+                cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10,
+                       lineType=8, shift=0)
 
             self.process_image()
 
