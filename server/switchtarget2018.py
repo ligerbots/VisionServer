@@ -3,6 +3,7 @@
 import cv2
 import numpy
 import json
+import math
 
 
 class SwitchTarget2018(object):
@@ -14,6 +15,7 @@ class SwitchTarget2018(object):
     # These are the full dimensions around both strips
     TARGET_WIDTH = 8.0           # inches
     TARGET_HEIGHT = 15.3         # inches
+    TARGET_STRIP_WIDTH = 2.0     # inches
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space
@@ -21,7 +23,9 @@ class SwitchTarget2018(object):
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # distance between the two target bars, in units of the width of a bar
-        self.target_separation = 3.0
+        # self.target_separation = 3.0  # theoretical value
+        # tuned value. Seems to work better on pictures from our field elements.
+        self.target_separation = 2.6
 
         # max distance in pixels that a contour can from the guessed location
         self.max_target_dist = 50
@@ -33,7 +37,7 @@ class SwitchTarget2018(object):
         self.approx_polydp_error = 0.06
 
         # ratio of height to width of one retroreflective strip
-        self.one_strip_height_ratio = 7.65
+        self.one_strip_height_ratio = SwitchTarget2018.TARGET_HEIGHT / SwitchTarget2018.TARGET_STRIP_WIDTH
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -154,8 +158,8 @@ class SwitchTarget2018(object):
             retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
-                result = [1.0, SwitchTarget2018.SWITCH_FINDER_MODE, rvec.flatten().tolist()]
-                # TODO figure out the right angles!!!
+                result = [1.0, SwitchTarget2018.SWITCH_FINDER_MODE, ]
+                result.extend(self.compute_output_values(rvec, tvec))
                 return result
 
         # no target found. Return "failure"
@@ -206,6 +210,9 @@ class SwitchTarget2018(object):
         if x > 0:
             test_locations.append((x, cy))
 
+        # DEBUG
+        self.target_locations = test_locations
+
         # if neither location is inside the image, reject
         if not test_locations:
             return None
@@ -217,9 +224,6 @@ class SwitchTarget2018(object):
             c = contour_list[ci]
 
             for test_loc in test_locations:
-                # DEBUG
-                self.target_locations.append(test_loc)
-
                 # negative is outside. I want the other sign
                 dist = -cv2.pointPolygonTest(c['contour'], test_loc, measureDist=True)
                 if dist < distance:
@@ -242,7 +246,7 @@ class SwitchTarget2018(object):
         delta_x = abs(cand_x - contour_list[second_cont_index]['center'][0])
         ave_width = (cand_width + contour_list[second_cont_index]['widths'][0]) / 2
         ratio = delta_x / (ave_width * self.target_separation)
-        print('delta_x', delta_x, ave_width, ratio)
+        # print('delta_x', delta_x, ave_width, ratio)
         if ratio > 1.3 or ratio < 0.5:
             # not close enough to 1
             return None
@@ -262,6 +266,27 @@ class SwitchTarget2018(object):
 
         return None
 
+    def compute_output_values(self, rvec, tvec):
+        '''Compute the necessary output distance and angles'''
+
+        # TODO: include tilt of camera
+        # This probably involves adding an extra rotation matrix into the calc
+
+        x = tvec[0][0]
+        z = tvec[2][0]
+        # distance in the horizontal plane between camera and target
+        distance = math.sqrt(x**2 + z**2)
+
+        # horizontal angle between camera center line and target
+        angle1 = math.atan2(x, z)
+
+        rot, _ = cv2.Rodrigues(rvec)
+        rot_inv = rot.transpose()
+        pzero_world = numpy.matmul(rot_inv, -tvec)
+        angle2 = math.atan2(pzero_world[0][0], -pzero_world[2][0])
+
+        return distance, angle1, angle2
+
 
 # --------------------------------------------------------------------------------
 
@@ -269,17 +294,20 @@ def process_files(switch_target_processor, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
 
+    success = 0
     for image_file in input_files:
-        print()
-        print(image_file)
         bgr_frame = cv2.imread(image_file)
         result = switch_target_processor.process_image(bgr_frame)
-        print('result:', result)
+        print('{} {} {} {:.2f} {:.2f} {:.2f}'.format(image_file, result[0], result[1], result[2], math.degrees(result[3]),  math.degrees(result[4])))
+        if result[0]:
+            success += 1
 
         switch_target_processor.prepare_output_image(bgr_frame)
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
+
+    print('Found target in {} out of {} files'.format(success, len(input_files)))
     return
 
 
