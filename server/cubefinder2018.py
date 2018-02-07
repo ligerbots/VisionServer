@@ -35,8 +35,10 @@ class CubeFinder2018(object):
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         self.erode_iterations = 0
 
-        # save the found center for drawing on the image
+        # some variables to save results for drawing
         self.center = None
+        self.hull_fit = None
+        self.biggest_contour = None
 
         with open(calib_file) as f:
             json_data = json.load(f)
