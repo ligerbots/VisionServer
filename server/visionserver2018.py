@@ -21,7 +21,7 @@ class VisionServer2018(object):
     '''Vision server for 2018 Power Up'''
 
     INITIAL_MODE = 'cube'
-    
+
     # NetworkTable parameters
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
@@ -313,48 +313,58 @@ class VisionServer2018(object):
         '''Main loop. Read camera, process the image, send to the MJPEG server'''
 
         while True:
+            try:
+                # Check whether DS has asked for a different camera
+                ntmode = self.nt_active_mode  # temp, for efficiency
+                if ntmode != self.active_mode:
+                    self.switch_mode(ntmode)
 
-            # Check whether DS has asked for a different camera
-            ntmode = self.nt_active_mode  # temp, for efficiency
-            if ntmode != self.active_mode:
-                self.switch_mode(ntmode)
+                if self.camera_frame is None:
+                    self.preallocate_arrays()
 
-            if self.camera_frame is None:
-                self.preallocate_arrays()
+                if self.tuning:
+                    self.update_parameters()
 
-            if self.tuning:
-                self.update_parameters()
+                # Tell the CvSink to grab a frame from the camera and put it
+                # in the source image.  If there is an error notify the output.
+                frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
+                if frametime == 0:
+                    # Send the output the error.
+                    self.output_stream.notifyError(self.current_sink.getError())
+                    # skip the rest of the current iteration
+                    # TODO: do we need to indicate error to RoboRio?
+                    continue
 
-            # Tell the CvSink to grab a frame from the camera and put it
-            # in the source image.  If there is an error notify the output.
-            frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
-            if frametime == 0:
-                # Send the output the error.
-                self.output_stream.notifyError(self.current_sink.getError())
-                # skip the rest of the current iteration
-                # TODO: do we need to indicate error to RoboRio?
-                continue
+                # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
+                # convert frametime to seconds to use as the heartbeat sent to the RoboRio
+                self.image_time = 1e-7 * frametime
 
-            # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
-            # convert frametime to seconds to use as the heartbeat sent to the RoboRio
-            self.image_time = 1e-7 * frametime
+                if self.image_writer_state:
+                    self.image_writer.setImage(self.camera_frame)
+                    cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10,
+                               lineType=8, shift=0)
 
-            if self.image_writer_state:
-                self.image_writer.setImage(self.camera_frame)
-                cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10,
-                       lineType=8, shift=0)
+                try:
+                    self.process_image()
+                except Exception as e:
+                    logging.error('Caught processing exception: %s', e)
+                    res = [self.image_time, ]
+                    res.extend(5*[0.0, ])
+                    self.target_info = res
 
-            self.process_image()
+                # Done. Output the marked up image, if needed
+                now = time.time()
+                deltat = now - self.previous_output_time
+                min_deltat = 1.0 / self.output_fps_limit
+                if deltat >= min_deltat:
+                    self.prepare_output_image()
 
-            # Done. Output the marked up image, if needed
-            now = time.time()
-            deltat = now - self.previous_output_time
-            min_deltat = 1.0 / self.output_fps_limit
-            if deltat >= min_deltat:
-                self.prepare_output_image()
+                    self.output_stream.putFrame(self.output_frame)
+                    self.previous_output_time = now
 
-                self.output_stream.putFrame(self.output_frame)
-                self.previous_output_time = now
+            except Exception as e:
+                # major exception. Try to keep going
+                logging.error('Caught general exception: %s', e)
 
         return
 
@@ -379,7 +389,7 @@ class VisionServer2018(object):
 
             self.output_stream.putFrame(self.output_frame)
             # probably don't want to use sleep. Want something thread-compatible
-            #for _ in range(4):
+            # for _ in range(4):
             time.sleep(0.5)
 
             file_index = (file_index + 1) % len(file_list)
