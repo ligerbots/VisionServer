@@ -114,7 +114,7 @@ class CubeFinder2018(object):
         lonely_corner = corners[len(corners) - 2]
         
         xs, ys = CubeFinder2018.split_xs_ys(corners)
-
+        
         #lonely corner is green and happy corner is red
         #cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
         #cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
@@ -206,7 +206,7 @@ class CubeFinder2018(object):
         self.center = None
         self.hull_fit = None
         self.biggest_contour = None
-
+        
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
 
@@ -270,7 +270,7 @@ class CubeFinder2018(object):
 def process_files(cube_processor, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
-
+    
     for image_file in input_files:
         # print()
         # print(image_file)
