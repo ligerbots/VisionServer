@@ -3,8 +3,6 @@
 import cv2
 import numpy
 import json
-from math import tan
-from math import atan2
 import math
 
 
@@ -13,17 +11,17 @@ class CubeFinder2018(object):
 
     CUBE_FINDER_MODE = 2
 
-    CUBE_HEIGHT = 11    #inches
-    CUBE_WIDTH = 13     #inches
-    CUBE_LENGTH = 13    #inches
-    
-    HFOV = 64     #horizontal angle of the field of view
-    VFOV = 52       #vertical angle of the field of view
-    
-    #create imaginary view plane on 3d coords to get height and width
-    #place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
-    VPW = 2.0*tan(HFOV/2)     #view plane height
-    VPH = 2.0*tan(VFOV/2)       #view plane width
+    # CUBE_HEIGHT = 11    #inches
+    # CUBE_WIDTH = 13     #inches
+    # CUBE_LENGTH = 13    #inches
+
+    HFOV = 64                   # horizontal angle of the field of view
+    VFOV = 52                   # vertical angle of the field of view
+
+    # create imaginary view plane on 3d coords to get height and width
+    # place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
+    VPW = 2.0*math.tan(HFOV/2)  # view plane height
+    VPH = 2.0*math.tan(VFOV/2)  # view plane width
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
@@ -45,17 +43,17 @@ class CubeFinder2018(object):
             self.cameraMatrix = numpy.array(json_data["camera_matrix"])
             self.distortionMatrix = numpy.array(json_data["distortion"])
 
-        self.target_coords = numpy.array([[-CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
-                                          [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
-                                          [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
-                                          [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
-        
-        self.a1 = math.radians(-15)   #camera mount angle (degrees)
-        self.h1 = 13   #height of camera off the ground (inches)
-        self.h2 = 0    #height of target off the ground (inches)
-        
+        # self.target_coords = numpy.array([[-CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+        #                                   [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+        #                                   [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
+        #                                   [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
+
+        self.tilt_angle = math.radians(-15)  # camera mount angle (degrees)
+        self.camera_height = 13              # height of camera off the ground (inches)
+        self.target_height = 0               # height of target off the ground (inches)
+
         return
-    
+
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
@@ -109,18 +107,18 @@ class CubeFinder2018(object):
         '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
         of front face'''
         corners = CubeFinder2018.sort_corners(cnrlist, False)    #get rid of extra dimensions
-        
+
         happy_corner = corners[len(corners) - 1]
         lonely_corner = corners[len(corners) - 2]
-        
+
         xs, ys = CubeFinder2018.split_xs_ys(corners)
 
         #lonely corner is green and happy corner is red
         #cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
         #cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
-        
+
         corners = CubeFinder2018.sort_corners(cnrlist, True)
-        
+
         if happy_corner[0] > lonely_corner[0]:
             top_corner = corners[len(corners) - 1]
         else:
@@ -189,11 +187,11 @@ class CubeFinder2018(object):
         y = CubeFinder2018.VPH/2 * ny
 
         # now have all pieces to convert to angle:
-        ax = atan2(x, 1.0)     # horizontal angle
-        ay = atan2(y, 1.0)     # vertical angle
+        ax = math.atan2(x, 1.0)     # horizontal angle
+        ay = math.atan2(y, 1.0)     # vertical angle
 
         # now use the x and y angles to calculate the distance to the target:
-        d = (self.h2 - self.h1) / tan(self.a1 + ay)    # distance to the target
+        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
 
         return ax, d    # return horizontal angle and distance
 
@@ -242,7 +240,18 @@ class CubeFinder2018(object):
             # divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
             if vertices >= 4 and vertices <= 12:    # 12 = max # of corners if all corners are flat
                 self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
-                angle, distance = self.get_cube_values(self.center, camera_frame.shape)
+
+                # use the distortion and camera arrays to correct the location of the center point
+                # got this from
+                #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
+                # (Needs lots of brackets! Buy shares in the Bracket Company now!)
+                if self.cameraMatrix is not None:
+                    center_np = numpy.array([[[float(self.center[0]), float(self.center[1])]]])
+                    out_pt = cv2.undistortPoints(center_np, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
+                    undist_center = out_pt[0, 0]
+                    angle, distance = self.get_cube_values(undist_center, camera_frame.shape)
+                else:
+                    angle, distance = self.get_cube_values(self.center, camera_frame.shape)
 
         # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
@@ -276,7 +285,7 @@ def process_files(cube_processor, input_files, output_dir):
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
         result = cube_processor.process_image(bgr_frame)
-        print(image_file, result[0], result[1], result[2], math.degrees(result[3]),  math.degrees(result[4]))
+        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 
         cube_processor.prepare_output_image(bgr_frame)
 
