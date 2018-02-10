@@ -30,7 +30,15 @@ class CubeFinder2018(object):
         self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 100
+        self.contour_min_area = 250
+
+        # maximum no. of vertices in the fitted contour
+        # 12 = max # of corners if all corners are flat
+        # seems to be OK with 8. Allows a few truncated corners.
+        self.max_num_vertices = 8
+
+        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
+        self.approx_polydp_error = 0.015
 
         self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         self.erode_iterations = 0
@@ -248,11 +256,10 @@ class CubeFinder2018(object):
 
             hull = cv2.convexHull(self.biggest_contour)
             # hull_fit contains the corners for the contour
-            self.hull_fit = CubeFinder2018.quad_fit(hull, 0.01)
+            self.hull_fit = CubeFinder2018.quad_fit(hull, self.approx_polydp_error)
 
             vertices = len(self.hull_fit)
-            # divide by 2 since there are 2 elements per coordinate and .size takes into account both of them
-            if vertices >= 4 and vertices <= 12:    # 12 = max # of corners if all corners are flat
+            if vertices >= 4 and vertices <= self.max_num_vertices:
                 self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
 
                 # use the distortion and camera arrays to correct the location of the center point
