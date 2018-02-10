@@ -227,16 +227,15 @@ class VisionServer2018(object):
         '''Run the processor on the image to find the target'''
 
         # rvec, tvec return as None if no target found
-        if self.curr_processor != None:
+        if self.curr_processor is not None:
             result = self.curr_processor.process_image(self.camera_frame)
         else:
-            result = [1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0]#TODO: or maybe just have the result fail?
+            result = [1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0]  # TODO: or maybe just have the result fail?
+
         # Send the results as one big array in order to guarantee that the results
         #  all arrive at the RoboRio at the same time
-        # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
-
-        # TODO fix this up.
-        # each processor should return a single result vector
+        # Value is (Timestamp, Found, Mode, distance, angle1, angle2) as a flat array.
+        #  All values are floating point (required by NT).
         res = [self.image_time, ]
         if not result:
             res.extend(5*[0.0, ])
@@ -254,10 +253,10 @@ class VisionServer2018(object):
 
     def prepare_output_image(self):
         '''Prepare an image to send to the drivers station'''
-        if self.curr_processor != None:
+        if self.curr_processor is not None:
             self.curr_processor.prepare_output_image(self.output_frame)
         else:
-            #TODO: driver requests for images?
+            # TODO: driver requests for images?
             pass
         return
 
