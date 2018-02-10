@@ -212,7 +212,7 @@ class VisionServer2018(object):
             VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
 
         elif new_mode == 'driver':
-            if self.main_camera == 'driver':
+            if self.main_camera == 'main':
                 self.switch_camera('driver')
             self.curr_processor = None
             VisionServer2018.set_exposure(self.main_camera, 0)
