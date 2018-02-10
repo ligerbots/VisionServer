@@ -21,6 +21,7 @@ class VisionServer2018(object):
     '''Vision server for 2018 Power Up'''
 
     INITIAL_MODE = 'cube'
+    DRIVER_MODE = 3.0
 
     # NetworkTable parameters
     output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
@@ -111,7 +112,8 @@ class VisionServer2018(object):
     def __init__(self, calib_file):
         # for processing stored files and no camera
         self.file_mode = False
-        self.camera_device = 0
+        self.camera_device_vision = 0
+        self.camera_device_driver = 1 #TODO: correct value?
 
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
@@ -173,7 +175,8 @@ class VisionServer2018(object):
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
-        self.add_camera('main', self.camera_device, True)
+        self.add_camera('main', self.camera_device_vision, True)
+        self.add_camera('driver', self.camera_device_driver, False)
 
         # you can load a camera by ID (or path). This will help with getting the correct camera
         #  for front and back, especially if they are the same model.
@@ -197,12 +200,22 @@ class VisionServer2018(object):
 
     def switch_mode(self, new_mode):
         if new_mode == 'cube':
+            if self.main_camera == 'driver':
+                self.switch_camera('main')
             self.curr_processor = self.cube_finder
             VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
 
         elif new_mode == 'switch':
+            if self.main_camera == 'driver':
+                self.switch_camera('main')
             self.curr_processor = self.switch_finder
             VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
+
+        elif new_mode == 'driver':
+            if self.main_camera == 'driver':
+                self.switch_camera('driver')
+            self.curr_processor = None
+            VisionServer2018.set_exposure(self.main_camera, 0)
 
         else:
             logging.error("Unknown mode '%s'" % new_mode)
@@ -214,8 +227,10 @@ class VisionServer2018(object):
         '''Run the processor on the image to find the target'''
 
         # rvec, tvec return as None if no target found
-        result = self.curr_processor.process_image(self.camera_frame)
-
+        if self.curr_processor != None:
+            result = self.curr_processor.process_image(self.camera_frame)
+        else:
+            result = [1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0]#TODO: or maybe just have the result fail?
         # Send the results as one big array in order to guarantee that the results
         #  all arrive at the RoboRio at the same time
         # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
@@ -239,8 +254,11 @@ class VisionServer2018(object):
 
     def prepare_output_image(self):
         '''Prepare an image to send to the drivers station'''
-
-        self.curr_processor.prepare_output_image(self.output_frame)
+        if self.curr_processor != None:
+            self.curr_processor.prepare_output_image(self.output_frame)
+        else:
+            #TODO: driver requests for images?
+            pass
         return
 
     # ----------------------------------------------------------------------------
@@ -318,7 +336,7 @@ class VisionServer2018(object):
                 ntmode = self.nt_active_mode  # temp, for efficiency
                 if ntmode != self.active_mode:
                     self.switch_mode(ntmode)
-
+                
                 if self.camera_frame is None:
                     self.preallocate_arrays()
 
@@ -361,6 +379,7 @@ class VisionServer2018(object):
 
                     self.output_stream.putFrame(self.output_frame)
                     self.previous_output_time = now
+                    
 
             except Exception as e:
                 # major exception. Try to keep going
@@ -416,15 +435,13 @@ def main():
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.WARNING)
+        logging.basicConfig(level=logging.INFO)
 
     if args.test:
         # FOR TESTING, set this box as the server
         NetworkTables.enableVerboseLogging()
         NetworkTables.initialize()
     else:
-        # TODO: can we use mDNS?
-        # RoboRio is "roboRIO-2877-FRC.local"
         NetworkTables.initialize(server='10.28.77.2')
 
     server = VisionServer2018(args.calib)
