@@ -2,6 +2,7 @@
 
 import cv2
 import numpy
+import os.path
 
 
 class CameraCalibration(object):
@@ -16,7 +17,7 @@ class CameraCalibration(object):
         self.square_size = 1.0
         return
 
-    def calibrateCamera(self, images):
+    def calibrateCamera(self, images, output_dir=None):
         '''Calculates the distortion co-efficients'''
 
         # termination criteria
@@ -56,7 +57,13 @@ class CameraCalibration(object):
                 # Draw and display the corners
                 img = cv2.drawChessboardCorners(img, (self.checkerboard_width, self.checkerboard_height), corners2, ret)
                 cv2.imshow('img', img)
+                if output_dir:
+                    fullname = os.path.join(output_dir, os.path.basename(fname))
+                    cv2.imwrite(fullname, img)
+
                 cv2.waitKey(500)
+            else:
+                print(fname, 'failed')
 
         cv2.destroyAllWindows()
 
@@ -79,7 +86,8 @@ if __name__ == '__main__':
     parser.add_argument('--length', '-l', type=int, default=9, help='Length of checkerboard (number of corners)')
     parser.add_argument('--width', '-w', type=int, default=6, help='Width of checkerboard (number of corners)')
     parser.add_argument('--size', '-s', type=float, default=1.0, help='Size of square')
-    parser.add_argument('--output', '-o', help="Save the distortion constants to json file")
+    parser.add_argument('--output', '-o', nargs=1, help="Save the distortion constants to json file")
+    parser.add_argument('--output-images', nargs=1, help="Save processed images to directory")
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
@@ -89,7 +97,7 @@ if __name__ == '__main__':
     calibrate.checkerboard_height = args.length
     calibrate.square_size = args.size
 
-    ret, mtx, dist, rvecs, tvecs = calibrate.calibrateCamera(args.input_files)
+    ret, mtx, dist, rvecs, tvecs = calibrate.calibrateCamera(args.input_files, args.output_images[0])
     print('ret =', ret)
     print('mtx =', mtx)
     print('dist =', dist)
@@ -97,5 +105,5 @@ if __name__ == '__main__':
     # If the command line argument was specified, save matrices to a file in JSON format
     if args.output:
         # Writing JSON data
-        with open(args.output, 'w') as f:
+        with open(args.output[0], 'w') as f:
             json.dump({"camera_matrix": mtx, "distortion": dist}, f)
