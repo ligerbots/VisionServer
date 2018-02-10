@@ -7,6 +7,14 @@ SCRIPT=visionserver2018.py
 ARGS="--calib ../data/calibration/c930e_calib.json --test"
 LOG_FILE="visionserver.log"
 
+setup_camera() {
+    # set camera to fixed focus
+    # can't be done in cscore
+    # TODO get the right parameters!!!
+    #uvdynctl -d "$1" -s 'Focus (Auto)' 0
+    #uvdynctl -d "$1" -s 'Focus (Auto)' 0    
+}
+
 case "$1" in
     stop)
 	pkill -f $SCRIPT
@@ -14,7 +22,10 @@ case "$1" in
 
     start)
         cd $DIR
-        python3 ./$SCRIPT $ARGS > $LOG_FILE 2>&1 < /dev/null &
+        setup_camera /dev/video0
+        [ -c /dev/video1 ] setup_camera /dev/video1
+        
+        python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
 
     restart)

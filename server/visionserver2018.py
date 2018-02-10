@@ -416,13 +416,15 @@ def main():
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.WARNING)
 
     if args.test:
         # FOR TESTING, set this box as the server
         NetworkTables.enableVerboseLogging()
         NetworkTables.initialize()
     else:
+        # TODO: can we use mDNS?
+        # RoboRio is "roboRIO-2877-FRC.local"
         NetworkTables.initialize(server='10.28.77.2')
 
     server = VisionServer2018(args.calib)
