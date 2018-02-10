@@ -20,8 +20,8 @@ class CubeFinder2018(object):
 
     # create imaginary view plane on 3d coords to get height and width
     # place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
-    VPW = 2.0*math.tan(math.radians(HFOV)/2)  # view plane height
-    VPH = 2.0*math.tan(math.radians(VFOV)/2)  # view plane width
+    VP_HALF_WIDTH = math.tan(math.radians(HFOV)/2.0)  # view plane 1/2 height
+    VP_HALF_HEIGHT = math.tan(math.radians(VFOV)/2.0)  # view plane 1/2 width
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
@@ -47,15 +47,15 @@ class CubeFinder2018(object):
                 json_data = json.load(f)
                 self.cameraMatrix = numpy.array(json_data["camera_matrix"])
                 self.distortionMatrix = numpy.array(json_data["distortion"])
-                
+
         # self.target_coords = numpy.array([[-CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
         #                                   [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
         #                                   [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
         #                                   [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
 
-        self.tilt_angle = math.radians(0)  # camera mount angle (degrees)
-        self.camera_height = 7.5              # height of camera off the ground (inches)
-        self.target_height = 0               # height of target off the ground (inches)
+        self.tilt_angle = math.radians(0.0)  # camera mount angle (degrees)
+        self.camera_height = 7.5             # height of camera off the ground (inches)
+        self.target_height = 0.0             # height of target off the ground (inches)
 
         return
 
@@ -82,14 +82,15 @@ class CubeFinder2018(object):
     def sort_corners(cnrlist, check):
         '''Sort a list of corners -- if check == true then returns x sorted 1st, y sorted 2nd. Otherwise the opposite'''
 
-        #recreate the list of corners to get rid of excess dimensions
+        # recreate the list of corners to get rid of excess dimensions
         corners = []
-        for i in range(int(cnrlist.size / 2)):
-            corners.append(cnrlist[i][0].tolist())
-        #sort the corners by x values (1st column) first and then by y values (2nd column)
+        for c in cnrlist:
+            corners.append(c[0].tolist())
+
+        # sort the corners by x values (1st column) first and then by y values (2nd column)
         if check:
             return sorted(corners, key=lambda x: (x[0], x[1]))
-        #y's first then x's
+        # y's first then x's
         else:
             return sorted(corners, key=lambda x: (x[1], x[0]))
 
@@ -111,7 +112,7 @@ class CubeFinder2018(object):
     def choose_corners_frontface(img, cnrlist):
         '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
         of front face'''
-        corners = CubeFinder2018.sort_corners(cnrlist, False)    #get rid of extra dimensions
+        corners = CubeFinder2018.sort_corners(cnrlist, False)    # get rid of extra dimensions
 
         happy_corner = corners[len(corners) - 1]
         lonely_corner = corners[len(corners) - 2]
@@ -188,9 +189,9 @@ class CubeFinder2018(object):
         ny = (image_h - 0.5 - center[1]) / image_h
 
         # convert normal pixel coords to pixel coords
-        x = CubeFinder2018.VPW/2 * nx
-        y = CubeFinder2018.VPH/2 * ny
-        #print("values", center[0], center[1], nx, ny, x, y)
+        x = CubeFinder2018.VP_HALF_WIDTH * nx
+        y = CubeFinder2018.VP_HALF_HEIGHT * ny
+        # print("values", center[0], center[1], nx, ny, x, y)
 
         # now have all pieces to convert to angle:
         ax = math.atan2(x, 1.0)     # horizontal angle
@@ -199,10 +200,10 @@ class CubeFinder2018(object):
         # ay = math.atan2(y, 1.0)     # vertical angle
 
         # corrected expression.
-        # As horizontal angle gets larger, real vertical angle gets a little larger
+        # As horizontal angle gets larger, real vertical angle gets a little smaller
         ay = math.atan2(y * math.cos(ax), 1.0)     # vertical angle
-        #print("ax, ay", math.degrees(ax), math.degrees(ay))
-        
+        # print("ax, ay", math.degrees(ax), math.degrees(ay))
+
         # now use the x and y angles to calculate the distance to the target:
         d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
 
@@ -217,7 +218,7 @@ class CubeFinder2018(object):
         self.center = None
         self.hull_fit = None
         self.biggest_contour = None
-        
+
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
 
