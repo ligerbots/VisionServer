@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Start the vision server
+
+DIR=/home/odroid/VisionServer/server
+SCRIPT=visionserver2018.py
+ARGS="--calib ../data/calibration/c930e_calib.json --test"
+LOG_FILE="visionserver.log"
+
+case "$1" in
+    stop)
+	pkill -f $SCRIPT
+	;;
+
+    start)
+        cd $DIR
+        python3 ./$SCRIPT $ARGS > $LOG_FILE 2>&1 < /dev/null &
+	;;
+
+    restart)
+	$0 stop
+	$0 start
+	;;
+
+    *)
+	echo "$0 (start|stop|restart)"
+	;;
+esac

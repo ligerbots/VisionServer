@@ -15,13 +15,13 @@ class CubeFinder2018(object):
     # CUBE_WIDTH = 13     #inches
     # CUBE_LENGTH = 13    #inches
 
-    HFOV = 64                   # horizontal angle of the field of view
-    VFOV = 52                   # vertical angle of the field of view
+    HFOV = 64.0                  # horizontal angle of the field of view
+    VFOV = 52.0                  # vertical angle of the field of view
 
     # create imaginary view plane on 3d coords to get height and width
     # place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
-    VPW = 2.0*math.tan(HFOV/2)  # view plane height
-    VPH = 2.0*math.tan(VFOV/2)  # view plane width
+    VPW = 2.0*math.tan(math.radians(HFOV)/2)  # view plane height
+    VPH = 2.0*math.tan(math.radians(VFOV)/2)  # view plane width
 
     def __init__(self, calib_file):
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
@@ -40,11 +40,14 @@ class CubeFinder2018(object):
         self.hull_fit = None
         self.biggest_contour = None
 
-        with open(calib_file) as f:
-            json_data = json.load(f)
-            self.cameraMatrix = numpy.array(json_data["camera_matrix"])
-            self.distortionMatrix = numpy.array(json_data["distortion"])
-
+        self.cameraMatrix = None
+        self.distortionMatrix = None
+        if calib_file:
+            with open(calib_file) as f:
+                json_data = json.load(f)
+                self.cameraMatrix = numpy.array(json_data["camera_matrix"])
+                self.distortionMatrix = numpy.array(json_data["distortion"])
+                
         # self.target_coords = numpy.array([[-CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
         #                                   [-CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
         #                                   [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
@@ -187,11 +190,19 @@ class CubeFinder2018(object):
         # convert normal pixel coords to pixel coords
         x = CubeFinder2018.VPW/2 * nx
         y = CubeFinder2018.VPH/2 * ny
+        #print("values", center[0], center[1], nx, ny, x, y)
 
         # now have all pieces to convert to angle:
         ax = math.atan2(x, 1.0)     # horizontal angle
-        ay = math.atan2(y, 1.0)     # vertical angle
 
+        # naive expression
+        # ay = math.atan2(y, 1.0)     # vertical angle
+
+        # corrected expression.
+        # As horizontal angle gets larger, real vertical angle gets a little larger
+        ay = math.atan2(y * math.cos(ax), 1.0)     # vertical angle
+        #print("ax, ay", math.degrees(ax), math.degrees(ay))
+        
         # now use the x and y angles to calculate the distance to the target:
         d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
 
@@ -247,6 +258,7 @@ class CubeFinder2018(object):
                 # got this from
                 #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
                 # (Needs lots of brackets! Buy shares in the Bracket Company now!)
+                #print('center', self.center)
                 if self.cameraMatrix is not None:
                     center_np = numpy.array([[[float(self.center[0]), float(self.center[1])]]])
                     out_pt = cv2.undistortPoints(center_np, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
