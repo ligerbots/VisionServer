@@ -62,7 +62,7 @@ class CubeFinder2018(object):
         #                                   [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
 
         self.tilt_angle = math.radians(0.0)  # camera mount angle (degrees)
-        self.camera_height = 7.5             # height of camera off the ground (inches)
+        self.camera_height = 24.0             # height of camera off the ground (inches)
         self.target_height = 0.0             # height of target off the ground (inches)
 
         return
@@ -183,8 +183,41 @@ class CubeFinder2018(object):
         center = [int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2)]
         return center
 
+    def get_cube_values_calib(self, center):
+        '''Calculate the angle and distance from the camera to the center point of the robot
+        This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
+
+        # use the distortion and camera arrays to correct the location of the center point
+        # got this from
+        #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
+        # (Needs lots of brackets! Buy shares in the Bracket Company now!)
+
+        center_np = numpy.array([[[float(self.center[0]), float(self.center[1])]]])
+        out_pt = cv2.undistortPoints(center_np, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
+        undist_center = out_pt[0, 0]
+
+        x_prime = (undist_center[0] - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
+        y_prime = -(undist_center[1] - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
+
+        # now have all pieces to convert to angle:
+        ax = math.atan2(x_prime, 1.0)     # horizontal angle
+
+        # naive expression
+        # ay = math.atan2(y_prime, 1.0)     # vertical angle
+
+        # corrected expression.
+        # As horizontal angle gets larger, real vertical angle gets a little smaller
+        ay = math.atan2(y_prime * math.cos(ax), 1.0)     # vertical angle
+        # print("ax, ay", math.degrees(ax), math.degrees(ay))
+
+        # now use the x and y angles to calculate the distance to the target:
+        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
+
+        return ax, d    # return horizontal angle and distance
+
     def get_cube_values(self, center, shape):
-        '''Calculate the angle and distance from the camera to the center point of the robot'''
+        '''Calculate the angle and distance from the camera to the center point of the robot
+        This routine uses the FOV numbers and the default center to convert to normalized coordinates'''
 
         # center is in pixel coordinates, 0,0 is the upper-left, positive down and to the right
         # (nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
@@ -262,16 +295,9 @@ class CubeFinder2018(object):
             if vertices >= 4 and vertices <= self.max_num_vertices:
                 self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
 
-                # use the distortion and camera arrays to correct the location of the center point
-                # got this from
-                #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
-                # (Needs lots of brackets! Buy shares in the Bracket Company now!)
-                #print('center', self.center)
+                # print('center', self.center)
                 if self.cameraMatrix is not None:
-                    center_np = numpy.array([[[float(self.center[0]), float(self.center[1])]]])
-                    out_pt = cv2.undistortPoints(center_np, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
-                    undist_center = out_pt[0, 0]
-                    angle, distance = self.get_cube_values(undist_center, camera_frame.shape)
+                    angle, distance = self.get_cube_values_calib(self.center)
                 else:
                     angle, distance = self.get_cube_values(self.center, camera_frame.shape)
 
@@ -292,8 +318,8 @@ class CubeFinder2018(object):
             cv2.drawContours(output_frame, [self.hull_fit], -1, (255, 0, 0), 2)
 
         if self.center is not None:
-            cv2.circle(output_frame, (self.center[0], self.center[1]), 5, (255, 0, 0), thickness=10,
-                       lineType=8, shift=0)
+            cv2.drawMarker(output_frame, tuple(self.center), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
+            # cv2.circle(output_frame, tuple(self.center), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
 
         return
 
