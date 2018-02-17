@@ -24,6 +24,7 @@ class VisionServer2018(object):
     DRIVER_MODE = 3.0
 
     # NetworkTable parameters
+
     output_fps_limit = ntproperty('/vision/output_fps_limit', 16,
                                   doc='FPS limit of frames sent to MJPEG server')
 
@@ -129,8 +130,6 @@ class VisionServer2018(object):
         self.camera_feeds = {}
         self.current_sink = None
         self.main_camera = None
-        # active camera name. To be compared to nt_active_camera to see if it has changed
-        self.active_mode = None
         self.add_cameras()
 
         self.create_output_stream()
@@ -140,6 +139,8 @@ class VisionServer2018(object):
 
         self.update_parameters()
 
+        # active mode. To be compared to nt_active_mode to see if it has changed
+        self.active_mode = None
         self.curr_processor = None
         self.switch_mode(VisionServer2018.INITIAL_MODE)
 
@@ -193,25 +194,25 @@ class VisionServer2018(object):
 
     def switch_mode(self, new_mode):
         if new_mode == 'cube':
-            if self.main_camera != 'main':
+            if self.active_camera != 'main':
                 self.switch_camera('main')
-                self.curr_processor = self.cube_finder
-                VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
+            self.curr_processor = self.cube_finder
+            VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
 
         elif new_mode == 'switch':
-            if self.main_camera != 'main':
+            if self.active_camera != 'main':
                 self.switch_camera('main')
-                self.curr_processor = self.switch_finder
-                VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
+            self.curr_processor = self.switch_finder
+            VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
 
         elif new_mode in ('driver', 'drive'):
-            if self.main_camera != 'driver':
+            if self.active_camera != 'driver':
                 self.switch_camera('driver')
-                self.curr_processor = None
-                VisionServer2018.set_exposure(self.main_camera, 0)
+            self.curr_processor = None
 
         else:
             logging.error("Unknown mode '%s'" % new_mode)
+            return
 
         self.active_mode = new_mode
         return
@@ -273,6 +274,7 @@ class VisionServer2018(object):
 
     @staticmethod
     def set_exposure(camera, value):
+        logging.info("Setting camera exposure to '%d'" % value)
         if value == 0:
             camera.setExposureAuto()
         else:
@@ -296,7 +298,6 @@ class VisionServer2018(object):
         if active:
             self.current_sink = sink
             self.active_camera = name
-            self.nt_active_camera = name
         else:
             # if not active, disable it to save CPU
             sink.setEnabled(False)
@@ -316,7 +317,6 @@ class VisionServer2018(object):
             self.active_camera = name
         else:
             logging.warning('Unknown camera %s' % name)
-            self.nt_active_camera = self.active_camera
 
         return
 
@@ -329,7 +329,8 @@ class VisionServer2018(object):
                 ntmode = self.nt_active_mode  # temp, for efficiency
                 if ntmode != self.active_mode:
                     self.switch_mode(ntmode)
-                
+                    self.nt_active_mode = self.active_mode  # make sure they are in sync
+
                 if self.camera_frame is None:
                     self.preallocate_arrays()
 
@@ -372,7 +373,6 @@ class VisionServer2018(object):
 
                     self.output_stream.putFrame(self.output_frame)
                     self.previous_output_time = now
-                    
 
             except Exception as e:
                 # major exception. Try to keep going
