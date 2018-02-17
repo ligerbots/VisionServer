@@ -256,8 +256,9 @@ class VisionServer2018(object):
         if self.curr_processor is not None:
             self.curr_processor.prepare_output_image(self.output_frame)
         else:
-            # TODO: driver requests for images?
-            pass
+            #stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
+            raw_frame = self.camera_frame
+            cv2.rotate(raw_frame, self.camera_frame, ROTATE_90_CLOCKWISE)
         return
 
     # ----------------------------------------------------------------------------
