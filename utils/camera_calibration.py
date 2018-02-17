@@ -3,6 +3,7 @@
 import cv2
 import numpy
 import os.path
+import math
 
 
 class CameraCalibration(object):
@@ -15,6 +16,8 @@ class CameraCalibration(object):
 
         # size of chessboard square in physical units
         self.square_size = 1.0
+
+        self.shape = None
         return
 
     def calibrateCamera(self, images, output_dir=None):
@@ -41,6 +44,7 @@ class CameraCalibration(object):
             if img is None:
                 print("ERROR: Unable to read file", fname)
                 continue
+            self.shape = img.shape
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -79,7 +83,6 @@ class CameraCalibration(object):
 
 if __name__ == '__main__':
     import argparse
-    from pprint import pprint
     import json
 
     parser = argparse.ArgumentParser(description='Calibration utility')
@@ -97,8 +100,16 @@ if __name__ == '__main__':
     calibrate.checkerboard_height = args.length
     calibrate.square_size = args.size
 
-    ret, mtx, dist, rvecs, tvecs = calibrate.calibrateCamera(args.input_files, args.output_images[0])
-    print('ret =', ret)
+    output_dir = args.output_images[0] if args.output_images else None
+
+    ret, mtx, dist, rvecs, tvecs = calibrate.calibrateCamera(args.input_files, output_dir)
+    print('reprojection error =', ret)
+    print('image center = ({:.2f}, {:.2f})'.format(mtx[0][2], mtx[1][2]))
+
+    fov_x = math.degrees(2.0 * math.atan(calibrate.shape[1] / 2.0 / mtx[0][0]))
+    fov_y = math.degrees(2.0 * math.atan(calibrate.shape[0] / 2.0 / mtx[1][1]))
+    print('FOV = ({:.2f}, {:.2f}) degrees'.format(fov_x, fov_y))
+
     print('mtx =', mtx)
     print('dist =', dist)
 

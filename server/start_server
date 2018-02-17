@@ -10,9 +10,14 @@ LOG_FILE="visionserver.log"
 setup_camera() {
     # set camera to fixed focus
     # can't be done in cscore
-    # TODO get the right parameters!!!
-    #uvdynctl -d "$1" -s 'Focus (Auto)' 0
-    #uvdynctl -d "$1" -s 'Focus (Auto)' 0    
+    # NOTE order matters
+    uvcdynctrl -d "$1" -s 'Focus, Auto' 0
+    echo -n "$p "
+    uvcdynctrl -d "$1" -g 'Focus, Auto'
+
+    uvcdynctrl -d "$1" -s 'Focus (absolute)' 0
+    echo -n "$p "
+    uvcdynctrl -d "$1" -g 'Focus (absolute)'
 }
 
 case "$1" in
@@ -22,8 +27,10 @@ case "$1" in
 
     start)
         cd $DIR
-        setup_camera /dev/video0
-        [ -c /dev/video1 ] setup_camera /dev/video1
+        setup_camera /dev/video0 >> $LOG_FILE 2>&1
+        if [ -c /dev/video1 ]; then
+            setup_camera /dev/video1 >> $LOG_FILE 2>&1
+        fi
         
         python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;

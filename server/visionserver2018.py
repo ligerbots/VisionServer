@@ -20,11 +20,11 @@ from cubefinder2018 import CubeFinder2018
 class VisionServer2018(object):
     '''Vision server for 2018 Power Up'''
 
-    INITIAL_MODE = 'cube'
+    INITIAL_MODE = 'switch'
     DRIVER_MODE = 3.0
 
     # NetworkTable parameters
-    output_fps_limit = ntproperty('/vision/output_fps_limit', 15,
+    output_fps_limit = ntproperty('/vision/output_fps_limit', 16,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -112,8 +112,13 @@ class VisionServer2018(object):
     def __init__(self, calib_file):
         # for processing stored files and no camera
         self.file_mode = False
-        self.camera_device_vision = 0
-        self.camera_device_driver = 1 #TODO: correct value?
+
+        # self.camera_device_vision = 1
+        # self.camera_device_driver = 2  # TODO: correct value?
+
+        # Pick the cameras by USB/device path. That way, they are always the same
+        self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_E4B9053E-video-index0'
+        self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_D95C053E-video-index0'
 
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
@@ -135,6 +140,7 @@ class VisionServer2018(object):
 
         self.update_parameters()
 
+        self.curr_processor = None
         self.switch_mode(VisionServer2018.INITIAL_MODE)
 
         # TODO: set all the parameters from NT
@@ -169,24 +175,11 @@ class VisionServer2018(object):
                                               self.cube_value_low_limit, self.cube_value_high_limit)
         return
 
-    def connectionListener(connected, info):
-        print(info, '; Connected=%s' % connected)
-
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
         self.add_camera('main', self.camera_device_vision, True)
         self.add_camera('driver', self.camera_device_driver, False)
-
-        # you can load a camera by ID (or path). This will help with getting the correct camera
-        #  for front and back, especially if they are the same model.
-
-        # Paul's old Logitech
-        # self.add_camera('front', '/dev/v4l/by-id/usb-046d_0809_69B5F86C-video-index0', False)
-
-        # The Spinel camera board
-        # self.add_camera('rear', '/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0', True)
-
         return
 
     def preallocate_arrays(self):
@@ -195,27 +188,27 @@ class VisionServer2018(object):
         # NOTE: shape is (height, width, #bytes)
         self.camera_frame = numpy.zeros(shape=(self.image_height, self.image_width, 3),
                                         dtype=numpy.uint8)
-        self.output_frame = self.camera_frame
+        # self.output_frame = self.camera_frame
         return
 
     def switch_mode(self, new_mode):
         if new_mode == 'cube':
-            if self.main_camera == 'driver':
+            if self.main_camera != 'main':
                 self.switch_camera('main')
-            self.curr_processor = self.cube_finder
-            VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
+                self.curr_processor = self.cube_finder
+                VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
 
         elif new_mode == 'switch':
-            if self.main_camera == 'driver':
+            if self.main_camera != 'main':
                 self.switch_camera('main')
-            self.curr_processor = self.switch_finder
-            VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
+                self.curr_processor = self.switch_finder
+                VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
 
-        elif new_mode == 'driver':
-            if self.main_camera == 'main':
+        elif new_mode in ('driver', 'drive'):
+            if self.main_camera != 'driver':
                 self.switch_camera('driver')
-            self.curr_processor = None
-            VisionServer2018.set_exposure(self.main_camera, 0)
+                self.curr_processor = None
+                VisionServer2018.set_exposure(self.main_camera, 0)
 
         else:
             logging.error("Unknown mode '%s'" % new_mode)
@@ -254,6 +247,7 @@ class VisionServer2018(object):
     def prepare_output_image(self):
         '''Prepare an image to send to the drivers station'''
         if self.curr_processor is not None:
+            self.output_frame = self.camera_frame.copy()
             self.curr_processor.prepare_output_image(self.output_frame)
         else:
             # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
