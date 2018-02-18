@@ -79,6 +79,8 @@ class VisionServer2018(object):
 
     switch_exposure = ntproperty('/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
 
+    camera_height = ntproperty('/vision/camera_height', 24.0, doc='Camera height (inches)')
+
     # Paul Rensing 1/21/2018: not sure we need these as tunable NetworkTable parameters,
     #  so comment out for now.
     #
@@ -142,7 +144,9 @@ class VisionServer2018(object):
         # active mode. To be compared to nt_active_mode to see if it has changed
         self.active_mode = None
         self.curr_processor = None
-        self.switch_mode(VisionServer2018.INITIAL_MODE)
+
+        # Start in cube mode, then then switch to INITIAL_MODE after camera is fully initialized
+        self.switch_mode('cube')
 
         # TODO: set all the parameters from NT
 
@@ -174,6 +178,8 @@ class VisionServer2018(object):
         self.cube_finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
                                               self.cube_saturation_low_limit, self.cube_saturation_high_limit,
                                               self.cube_value_low_limit, self.cube_value_high_limit)
+
+        self.cube_finder.camera_height = self.camera_height
         return
 
     def add_cameras(self):
@@ -193,6 +199,8 @@ class VisionServer2018(object):
         return
 
     def switch_mode(self, new_mode):
+        logging.info("Switching mode to '%s'" % new_mode)
+
         if new_mode == 'cube':
             if self.active_camera != 'main':
                 self.switch_camera('main')
@@ -215,6 +223,7 @@ class VisionServer2018(object):
             return
 
         self.active_mode = new_mode
+        self.nt_active_mode = self.active_mode  # make sure they are in sync
         return
 
     def process_image(self):
@@ -323,13 +332,13 @@ class VisionServer2018(object):
     def run(self):
         '''Main loop. Read camera, process the image, send to the MJPEG server'''
 
+        frame_num = 0
         while True:
             try:
                 # Check whether DS has asked for a different camera
                 ntmode = self.nt_active_mode  # temp, for efficiency
                 if ntmode != self.active_mode:
                     self.switch_mode(ntmode)
-                    self.nt_active_mode = self.active_mode  # make sure they are in sync
 
                 if self.camera_frame is None:
                     self.preallocate_arrays()
@@ -346,6 +355,12 @@ class VisionServer2018(object):
                     # skip the rest of the current iteration
                     # TODO: do we need to indicate error to RoboRio?
                     continue
+
+                frame_num += 1
+                if frame_num == 30:
+                    # This is a bit stupid, but you need to poke the camera *after* the first
+                    #  bunch of frames has been collected.
+                    self.switch_mode(VisionServer2018.INITIAL_MODE)
 
                 # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
                 # convert frametime to seconds to use as the heartbeat sent to the RoboRio
