@@ -25,92 +25,92 @@ class VisionServer2018(object):
 
     # NetworkTable parameters
 
-    output_fps_limit = ntproperty('/vision/output_fps_limit', 16,
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 16,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
-    output_port = ntproperty('/vision/output_port', 1190,
+    output_port = ntproperty('/SmartDashboard/vision/output_port', 1190,
                              doc='TCP port for main image output')
 
     # Operation modes. Force the value on startup.
-    tuning = ntproperty('/vision/tuning', False, writeDefault=True,
+    tuning = ntproperty('/SmartDashboard/vision/tuning', False, writeDefault=True,
                         doc='Tuning mode. Reads processing parameters each time.')
 
-    image_width = ntproperty('/vision/width', 640, writeDefault=False, doc='Image width')
-    image_height = ntproperty('/vision/height', 480, writeDefault=False, doc='Image height')
-    camera_fps = ntproperty('/vision/fps', 30, writeDefault=False, doc='FPS from camera')
+    image_width = ntproperty('/SmartDashboard/vision/width', 640, writeDefault=False, doc='Image width')
+    image_height = ntproperty('/SmartDashboard/vision/height', 480, writeDefault=False, doc='Image height')
+    camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
 
     # Cube finding parameters
 
     # Color threshold values, in HSV space
-    cube_hue_low_limit = ntproperty('/vision/cube/hue_low_limit', 25,
+    cube_hue_low_limit = ntproperty('/SmartDashboard/vision/cube/hue_low_limit', 25,
                                     doc='Hue low limit for thresholding (cube mode)')
-    cube_hue_high_limit = ntproperty('/vision/cube/hue_high_limit', 75,
+    cube_hue_high_limit = ntproperty('/SmartDashboard/vision/cube/hue_high_limit', 75,
                                      doc='Hue high limit for thresholding (cube mode)')
 
-    cube_saturation_low_limit = ntproperty('/vision/cube/saturation_low_limit', 95,
+    cube_saturation_low_limit = ntproperty('/SmartDashboard/vision/cube/saturation_low_limit', 95,
                                            doc='Saturation low limit for thresholding (cube mode)')
-    cube_saturation_high_limit = ntproperty('/vision/cube/saturation_high_limit', 255,
+    cube_saturation_high_limit = ntproperty('/SmartDashboard/vision/cube/saturation_high_limit', 255,
                                             doc='Saturation high limit for thresholding (cube mode)')
 
-    cube_value_low_limit = ntproperty('/vision/cube/value_low_limit', 95,
+    cube_value_low_limit = ntproperty('/SmartDashboard/vision/cube/value_low_limit', 95,
                                       doc='Value low limit for thresholding (cube mode)')
-    cube_value_high_limit = ntproperty('/vision/cube/value_high_limit', 255,
+    cube_value_high_limit = ntproperty('/SmartDashboard/vision/cube/value_high_limit', 255,
                                        doc='Value high limit for thresholding (cube mode)')
 
-    cube_exposure = ntproperty('/vision/cube/exposure', 0, doc='Camera exposure for cube (0=auto)')
+    cube_exposure = ntproperty('/SmartDashboard/vision/cube/exposure', 0, doc='Camera exposure for cube (0=auto)')
 
     # Switch target parameters
 
-    switch_hue_low_limit = ntproperty('/vision/switch/hue_low_limit', 70,
+    switch_hue_low_limit = ntproperty('/SmartDashboard/vision/switch/hue_low_limit', 70,
                                       doc='Hue low limit for thresholding (switch mode)')
-    switch_hue_high_limit = ntproperty('/vision/switch/hue_high_limit', 100,
+    switch_hue_high_limit = ntproperty('/SmartDashboard/vision/switch/hue_high_limit', 100,
                                        doc='Hue high limit for thresholding (switch mode)')
 
-    switch_saturation_low_limit = ntproperty('/vision/switch/saturation_low_limit', 100,
+    switch_saturation_low_limit = ntproperty('/SmartDashboard/vision/switch/saturation_low_limit', 100,
                                              doc='Saturation low limit for thresholding (switch mode)')
-    switch_saturation_high_limit = ntproperty('/vision/switch/saturation_high_limit', 255,
+    switch_saturation_high_limit = ntproperty('/SmartDashboard/vision/switch/saturation_high_limit', 255,
                                               doc='Saturation high limit for thresholding (switch mode)')
 
-    switch_value_low_limit = ntproperty('/vision/switch/value_low_limit', 130,
+    switch_value_low_limit = ntproperty('/SmartDashboard/vision/switch/value_low_limit', 130,
                                         doc='Value low limit for thresholding (switch mode)')
-    switch_value_high_limit = ntproperty('/vision/switch/value_high_limit', 255,
+    switch_value_high_limit = ntproperty('/SmartDashboard/vision/switch/value_high_limit', 255,
                                          doc='Value high limit for thresholding (switch mode)')
 
-    switch_exposure = ntproperty('/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
+    switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
 
-    camera_height = ntproperty('/vision/camera_height', 24.0, doc='Camera height (inches)')
+    camera_height = ntproperty('/SmartDashboard/vision/camera_height', 24.0, doc='Camera height (inches)')
 
     # Paul Rensing 1/21/2018: not sure we need these as tunable NetworkTable parameters,
     #  so comment out for now.
     #
     # # distance between the two target bars, in units of the width of a bar
-    # switch_target_separation = ntproperty('/vision/switch/target_separation', 3.0,
+    # switch_target_separation = ntproperty('/SmartDashboard/vision/switch/target_separation', 3.0,
     #                                       doc='switch target horizontal separation, in widths')
 
     # # max distance in pixels that a contour can from the guessed location
-    # switch_max_target_dist = ntproperty('/vision/switch/max_target_dist', 50,
+    # switch_max_target_dist = ntproperty('/SmartDashboard/vision/switch/max_target_dist', 50,
     #                                     doc='switch max distance between contour and expected location (pixels)')
 
     # # pixel area of the bounding rectangle - just used to remove stupidly small regions
-    # switch_contour_min_area = ntproperty('/vision/switch/contour_min_area', 100,
+    # switch_contour_min_area = ntproperty('/SmartDashboard/vision/switch/contour_min_area', 100,
     #                                      doc='switch min area of an interesting contour (sq. pixels)')
 
-    # switch_approx_polydp_error = ntproperty('/vision/switch/approx_polydp_error', 0.06,
+    # switch_approx_polydp_error = ntproperty('/SmartDashboard/vision/switch/approx_polydp_error', 0.06,
     #                                         doc='switch approxPolyDP error')
 
-    image_writer_state = ntproperty('/vision/write_images', False, writeDefault=True,
+    image_writer_state = ntproperty('/SmartDashboard/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
 
     # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
     # This is the NT variable, which can be set from the Driver's station
-    nt_active_mode = ntproperty('/vision/active_mode', INITIAL_MODE, doc='Active mode')
+    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', INITIAL_MODE, doc='Active mode')
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
     #  all arrive at the RoboRio at the same time
     # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
-    target_info = ntproperty('/vision/target_info', 6 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
+    target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
 
     def __init__(self, calib_file):
         # for processing stored files and no camera
@@ -262,6 +262,10 @@ class VisionServer2018(object):
         else:
             # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
             self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_CLOCKWISE)
+
+        if self.image_writer_state:
+            cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+
         return
 
     # ----------------------------------------------------------------------------
@@ -368,8 +372,6 @@ class VisionServer2018(object):
 
                 if self.image_writer_state:
                     self.image_writer.setImage(self.camera_frame)
-                    cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10,
-                               lineType=8, shift=0)
 
                 try:
                     self.process_image()
