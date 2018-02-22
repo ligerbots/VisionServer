@@ -371,6 +371,7 @@ class VisionServer2018(object):
                             self.switch_camera('driver')
                         else:
                             self.switch_camera('main')
+                        errors = 0
                         
                 
                 if frametime == 0:
