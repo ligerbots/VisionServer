@@ -262,8 +262,8 @@ class VisionServer2018(object):
 
     def prepare_output_image(self):
         '''Prepare an image to send to the drivers station'''
+        self.output_frame = self.camera_frame.copy()
         if self.curr_processor is not None:
-            self.output_frame = self.camera_frame.copy()
             self.curr_processor.prepare_output_image(self.output_frame)
         elif self.active_mode == 'driver':
             # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
