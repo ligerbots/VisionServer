@@ -265,7 +265,7 @@ class VisionServer2018(object):
         if self.curr_processor is not None:
             self.output_frame = self.camera_frame.copy()
             self.curr_processor.prepare_output_image(self.output_frame)
-        else:
+        elif self.active_mode == 'driver':
             # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
             self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_CLOCKWISE)
 
@@ -343,6 +343,7 @@ class VisionServer2018(object):
         '''Main loop. Read camera, process the image, send to the MJPEG server'''
 
         frame_num = 0
+        errors = 0
         while True:
             try:
                 # Check whether DS has asked for a different camera
@@ -358,7 +359,20 @@ class VisionServer2018(object):
 
                 # Tell the CvSink to grab a frame from the camera and put it
                 # in the source image.  If there is an error notify the output.
-                frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
+                frametime = 0
+                try:
+                    frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
+                except:
+                    if errors < 10:
+                        errors += 1
+                    else:   #if greater than 10 iterations without any stream switch cameras
+                        logging.warning(self.active_camera + " camera is no longer streaming. Switching cameras...")
+                        if self.active_camera == 'main':
+                            self.switch_camera('driver')
+                        else:
+                            self.switch_camera('main')
+                        
+                
                 if frametime == 0:
                     # Send the output the error.
                     self.output_stream.notifyError(self.current_sink.getError())
