@@ -129,9 +129,9 @@ class VisionServer2018(object):
         self.camera_server = cscore.CameraServer.getInstance()
         self.camera_server.enableLogging()
 
-        self.camera_feeds = {}
+        self.video_sinks = {}
         self.current_sink = None
-        self.main_camera = None
+        self.cameras = {}
         self.add_cameras()
 
         self.create_output_stream()
@@ -154,6 +154,8 @@ class VisionServer2018(object):
         self.previous_output_time = time.time()
         self.camera_frame = None
         self.output_frame = None
+
+        self.error_msg = None
 
         # if asked, save image every 1/2 second
         # images are saved under the directory 'saved_images' in the current directory
@@ -185,7 +187,7 @@ class VisionServer2018(object):
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
-        self.add_camera('main', self.camera_device_vision, True)
+        self.add_camera('intake', self.camera_device_vision, True)
         self.add_camera('driver', self.camera_device_driver, False)
         return
 
@@ -202,23 +204,23 @@ class VisionServer2018(object):
         logging.info("Switching mode to '%s'" % new_mode)
 
         if new_mode == 'cube':
-            if self.active_camera != 'main':
-                self.switch_camera('main')
+            if self.active_camera != 'intake':
+                self.switch_camera('intake')
             self.curr_processor = self.cube_finder
-            VisionServer2018.set_exposure(self.main_camera, self.cube_exposure)
+            VisionServer2018.set_exposure(self.cameras['intake'], self.cube_exposure)
 
         elif new_mode == 'switch':
-            if self.active_camera != 'main':
-                self.switch_camera('main')
+            if self.active_camera != 'intake':
+                self.switch_camera('intake')
             self.curr_processor = self.switch_finder
-            VisionServer2018.set_exposure(self.main_camera, self.switch_exposure)
+            VisionServer2018.set_exposure(self.cameras['intake'], self.switch_exposure)
 
         elif new_mode == 'intake':
-            if self.active_camera != 'main':
-                self.switch_camera('main')
+            if self.active_camera != 'intake':
+                self.switch_camera('intake')
             self.curr_processor = None
-            VisionServer2018.set_exposure(self.main_camera, 0)
-        
+            VisionServer2018.set_exposure(self.cameras['intake'], 0)
+
         elif new_mode in ('driver', 'drive'):
             if self.active_camera != 'driver':
                 self.switch_camera('driver')
@@ -239,36 +241,22 @@ class VisionServer2018(object):
         if self.curr_processor is not None:
             result = self.curr_processor.process_image(self.camera_frame)
         else:
-            result = [1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0]  # TODO: or maybe just have the result fail?
+            result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
 
-        # Send the results as one big array in order to guarantee that the results
-        #  all arrive at the RoboRio at the same time
-        # Value is (Timestamp, Found, Mode, distance, angle1, angle2) as a flat array.
-        #  All values are floating point (required by NT).
-        res = [self.image_time, ]
-        if not result:
-            res.extend(5*[0.0, ])
-        else:
-            # Found
-            res.extend(result)
-
-        self.target_info = res
-
-        # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
-        #  so it might not happen every call.
-        NetworkTables.flush()
-
-        return
+        return result
 
     def prepare_output_image(self):
         '''Prepare an image to send to the drivers station'''
-        self.output_frame = self.camera_frame.copy()
-        if self.curr_processor is not None:
-            self.curr_processor.prepare_output_image(self.output_frame)
-        elif self.active_mode == 'driver':
+
+        if self.active_mode == 'driver':
             # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
             self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_CLOCKWISE)
+        else:
+            self.output_frame = self.camera_frame.copy()
+            if self.curr_processor is not None:
+                self.curr_processor.prepare_output_image(self.output_frame)
 
+        # If saving images, add a little red "Recording" dot in upper left
         if self.image_writer_state:
             cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
 
@@ -305,15 +293,15 @@ class VisionServer2018(object):
         Cameras are referenced by their name, so pick something unique'''
 
         camera = cscore.UsbCamera(name, device)
+        # remember the camera object, in case we need to adjust it (eg the exposure)
+        self.cameras[name] = camera
+
         self.camera_server.startAutomaticCapture(camera=camera)
         camera.setResolution(self.image_width, self.image_height)
         camera.setFPS(self.camera_fps)
 
-        if name == 'main':
-            self.main_camera = camera
-
         sink = self.camera_server.getVideo(camera=camera)
-        self.camera_feeds[name] = sink
+        self.video_sinks[name] = sink
         if active:
             self.current_sink = sink
             self.active_camera = name
@@ -326,13 +314,13 @@ class VisionServer2018(object):
     def switch_camera(self, name):
         '''Switch the active camera, and disable the previously active one'''
 
-        new_cam = self.camera_feeds.get(name, None)
-        if new_cam is not None:
+        new_sink = self.video_sinks.get(name, None)
+        if new_sink is not None:
             # disable the old camera feed
             self.current_sink.setEnabled(False)
             # enable the new one. Do this 2nd in case it is the same as the old one.
-            new_cam.setEnabled(True)
-            self.current_sink = new_cam
+            new_sink.setEnabled(True)
+            self.current_sink = new_sink
             self.active_camera = name
         else:
             logging.warning('Unknown camera %s' % name)
@@ -359,48 +347,52 @@ class VisionServer2018(object):
 
                 # Tell the CvSink to grab a frame from the camera and put it
                 # in the source image.  If there is an error notify the output.
-                frametime = 0
-                try:
-                    frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
-                except:
+                frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
+                frame_num += 1
+
+                if frametime == 0:
+                    # ERROR!!
+                    self.error_msg = self.current_sink.getError()
+
                     if errors < 10:
                         errors += 1
-                    else:   #if greater than 10 iterations without any stream switch cameras
+                    else:   # if greater than 10 iterations without any stream switch cameras
                         logging.warning(self.active_camera + " camera is no longer streaming. Switching cameras...")
-                        if self.active_camera == 'main':
-                            self.switch_camera('driver')
+                        if self.active_camera == 'intake':
+                            self.switch_mode('driver')
                         else:
-                            self.switch_camera('main')
+                            self.switch_mode('intake')
                         errors = 0
-                        
-                
-                if frametime == 0:
-                    # Send the output the error.
-                    self.output_stream.notifyError(self.current_sink.getError())
-                    # skip the rest of the current iteration
-                    # TODO: do we need to indicate error to RoboRio?
-                    continue
 
-                frame_num += 1
-                if frame_num == 30:
-                    # This is a bit stupid, but you need to poke the camera *after* the first
-                    #  bunch of frames has been collected.
-                    self.switch_mode(VisionServer2018.INITIAL_MODE)
+                    target_res = [time.time(), ]
+                    target_res.extend(5*[0.0, ])
+                else:
+                    self.error_msg = None
 
-                # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
-                # convert frametime to seconds to use as the heartbeat sent to the RoboRio
-                self.image_time = 1e-7 * frametime
+                    if self.image_writer_state:
+                        self.image_writer.setImage(self.camera_frame)
 
-                if self.image_writer_state:
-                    self.image_writer.setImage(self.camera_frame)
+                    # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
+                    # convert frametime to seconds to use as the heartbeat sent to the RoboRio
+                    target_res = [1e-7 * frametime, ]
 
-                try:
-                    self.process_image()
-                except Exception as e:
-                    logging.error('Caught processing exception: %s', e)
-                    res = [self.image_time, ]
-                    res.extend(5*[0.0, ])
-                    self.target_info = res
+                    try:
+                        proc_result = self.process_image()
+                    except Exception as e:
+                        logging.error('Caught processing exception: %s', e)
+                        proc_result = 5*[0.0, ]
+
+                    target_res.extend(proc_result)
+
+                # Send the results as one big array in order to guarantee that the results
+                #  all arrive at the RoboRio at the same time
+                # Value is (Timestamp, Found, Mode, distance, angle1, angle2) as a flat array.
+                #  All values are floating point (required by NT).
+                self.target_info = target_res
+
+                # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
+                #  so it might not happen every call.
+                NetworkTables.flush()
 
                 # Done. Output the marked up image, if needed
                 now = time.time()
@@ -411,6 +403,11 @@ class VisionServer2018(object):
 
                     self.output_stream.putFrame(self.output_frame)
                     self.previous_output_time = now
+
+                if frame_num == 30:
+                    # This is a bit stupid, but you need to poke the camera *after* the first
+                    #  bunch of frames has been collected.
+                    self.switch_mode(VisionServer2018.INITIAL_MODE)
 
             except Exception as e:
                 # major exception. Try to keep going
