@@ -3,9 +3,31 @@
 # Start the vision server
 
 DIR=/home/odroid/VisionServer/server
+
 SCRIPT=visionserver2018.py
-ARGS="--calib ../data/calibration/c930e_calib.json --test"
-LOG_FILE="visionserver.log"
+# For running standalone (not alongside a RoboRio), add the "--test" option
+ARGS="--calib ../data/calibration/c930e_calib.json"
+
+LOG_DIR="logs"
+LOG_BASE="visionserver"
+
+logfile_name() {
+    if [ ! -d $LOG_DIR ]; then
+        mkdir $LOG_DIR
+        index=1
+    else
+        line=$( ls -1t $LOG_DIR/${LOG_BASE}_*.log 2>/dev/null | head -1 )
+        if [ -z "$line" ]; then
+            index=1
+        else
+            b=$( basename $line '.log' )
+            index=${b#${LOG_BASE}_}
+            index=$(( $index + 1 ))
+        fi
+    fi
+    
+    printf "$LOG_DIR/${LOG_BASE}_%05d.log" $index
+}
 
 setup_camera() {
     # set camera to fixed focus
@@ -27,6 +49,8 @@ setup_camera() {
     # echo -n "$1: White Balance Temperature "
     # uvcdynctrl -d "$1" -g 'White Balance Temperature'
 }
+
+LOG_FILE=$( logfile_name )
 
 case "$1" in
     stop)
