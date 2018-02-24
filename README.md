@@ -8,7 +8,7 @@ Some interesting NT variables:
 All values are floats, because NT arrays need to be a uniform type. Values are:
   * target_info[0] = timestamp of image in seconds. NOTE: ODROID clock is often wildly off; you can use the clock change, but not the actual value.
   * target_info[1] = success (1.0) OR failure (0.0)
-  * target_info[2] = mode (1=switch, 2=cube, 3=driver)
+  * target_info[2] = mode (1=switch, 2=cube, 3=driver/intake)
   * target_info[3] = distance to target (inches)
   * target_info[4] = angle1 to target (radians)
   * target_info[5] = angle2 of target (radians)
