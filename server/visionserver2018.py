@@ -237,11 +237,16 @@ class VisionServer2018(object):
     def process_image(self):
         '''Run the processor on the image to find the target'''
 
-        # rvec, tvec return as None if no target found
-        if self.curr_processor is not None:
-            result = self.curr_processor.process_image(self.camera_frame)
-        else:
-            result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
+        # make sure to catch any except from processing the image
+        try:
+            # rvec, tvec return as None if no target found
+            if self.curr_processor is not None:
+                result = self.curr_processor.process_image(self.camera_frame)
+            else:
+                result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
+        except Exception as e:
+            logging.error('Caught processing exception: %s', e)
+            result = (0.0, 0.0, 0.0, 0.0, 0.0)
 
         return result
 
@@ -368,6 +373,7 @@ class VisionServer2018(object):
                     target_res.extend(5*[0.0, ])
                 else:
                     self.error_msg = None
+                    errors = 0
 
                     if self.image_writer_state:
                         self.image_writer.setImage(self.camera_frame)
@@ -376,12 +382,7 @@ class VisionServer2018(object):
                     # convert frametime to seconds to use as the heartbeat sent to the RoboRio
                     target_res = [1e-7 * frametime, ]
 
-                    try:
-                        proc_result = self.process_image()
-                    except Exception as e:
-                        logging.error('Caught processing exception: %s', e)
-                        proc_result = 5*[0.0, ]
-
+                    proc_result = self.process_image()
                     target_res.extend(proc_result)
 
                 # Send the results as one big array in order to guarantee that the results
