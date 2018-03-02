@@ -120,8 +120,10 @@ class VisionServer2018(object):
         # self.camera_device_driver = 2  # TODO: correct value?
 
         # Pick the cameras by USB/device path. That way, they are always the same
-        self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_E4B9053E-video-index0'
-        self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_D95C053E-video-index0'
+        ##self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_E4B9053E-video-index0'
+        ##self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_D95C053E-video-index0'
+        self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
+        self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
 
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
@@ -255,7 +257,7 @@ class VisionServer2018(object):
 
         if self.active_mode == 'driver':
             # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
-            self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_CLOCKWISE)
+            self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
         else:
             self.output_frame = self.camera_frame.copy()
             if self.curr_processor is not None:
