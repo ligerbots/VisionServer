@@ -39,6 +39,10 @@ class SwitchTarget2018(object):
         # ratio of height to width of one retroreflective strip
         self.one_strip_height_ratio = SwitchTarget2018.TARGET_HEIGHT / SwitchTarget2018.TARGET_STRIP_WIDTH
 
+        # camera mount angle (radians)
+        # NOTE: not sure if this should be positive or negative
+        self.tilt_angle = math.radians(7.5)
+
         self.hsv_frame = None
         self.threshold_frame = None
 
@@ -269,11 +273,11 @@ class SwitchTarget2018(object):
     def compute_output_values(self, rvec, tvec):
         '''Compute the necessary output distance and angles'''
 
-        # TODO: include tilt of camera
-        # This probably involves adding an extra rotation matrix into the calc
+        # The tilt angle only affects the distance and angle1 calcs
 
         x = tvec[0][0]
-        z = tvec[2][0]
+        z = math.sin(self.tilt_angle) * tvec[1][0] + math.cos(self.tilt_angle) * tvec[2][0]
+
         # distance in the horizontal plane between camera and target
         distance = math.sqrt(x**2 + z**2)
 
