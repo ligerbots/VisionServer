@@ -126,7 +126,7 @@ class CubeFinder2018(object):
         lonely_corner = corners[len(corners) - 2]
 
         xs, ys = CubeFinder2018.split_xs_ys(corners)
-        
+
         #lonely corner is green and happy corner is red
         #cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
         #cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
@@ -283,29 +283,44 @@ class CubeFinder2018(object):
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
+        # test first 3 biggest contours only (optimization)
+        for cnt in contour_list[0:3]:
+            self.hull_fit = self.test_candidate_contour(cnt)
+            if self.hull_fit is not None:
+                self.biggest_contour = cnt['contour']
+                break
+
         # NOTE: testing a list returns true if there is something in the list
-        if contour_list:
-            self.biggest_contour = contour_list[0]['contour']
+        if self.hull_fit is not None:
+            self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
 
-            hull = cv2.convexHull(self.biggest_contour)
-            # hull_fit contains the corners for the contour
-            self.hull_fit = CubeFinder2018.quad_fit(hull, self.approx_polydp_error)
-
-            vertices = len(self.hull_fit)
-            if vertices >= 4 and vertices <= self.max_num_vertices:
-                self.center = CubeFinder2018.get_cube_bottomcenter(self.hull_fit)
-
-                # print('center', self.center)
-                if self.cameraMatrix is not None:
-                    angle, distance = self.get_cube_values_calib(self.center)
-                else:
-                    angle, distance = self.get_cube_values(self.center, camera_frame.shape)
+            # print('center', self.center)
+            if self.cameraMatrix is not None:
+                angle, distance = self.get_cube_values_calib(self.center)
+            else:
+                angle, distance = self.get_cube_values(self.center, camera_frame.shape)
 
         # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
             return (0.0, CubeFinder2018.CUBE_FINDER_MODE, 0.0, 0.0, 0.0)
 
         return (1.0, CubeFinder2018.CUBE_FINDER_MODE, distance, angle, 0.0)
+
+    def test_candidate_contour(self, contour_entry):
+        cnt = contour_entry['contour']
+
+        real_area = cv2.contourArea(cnt)
+        # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
+        if real_area / contour_entry['area'] > 0.5:
+            hull = cv2.convexHull(cnt)
+            # hull_fit contains the corners for the contour
+            hull_fit = CubeFinder2018.quad_fit(hull, self.approx_polydp_error)
+
+            vertices = len(hull_fit)
+            if vertices >= 4 and vertices <= self.max_num_vertices:
+                return hull_fit
+
+        return None
 
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
@@ -327,7 +342,7 @@ class CubeFinder2018(object):
 def process_files(cube_processor, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
-    
+
     for image_file in input_files:
         # print()
         # print(image_file)
