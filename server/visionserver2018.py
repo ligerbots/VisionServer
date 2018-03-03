@@ -79,7 +79,7 @@ class VisionServer2018(object):
 
     switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
 
-    camera_height = ntproperty('/SmartDashboard/vision/camera_height', 24.0, doc='Camera height (inches)')
+    camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
 
     # Paul Rensing 1/21/2018: not sure we need these as tunable NetworkTable parameters,
     #  so comment out for now.

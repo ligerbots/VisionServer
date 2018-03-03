@@ -61,8 +61,8 @@ class CubeFinder2018(object):
         #                                   [ CubeFinder2018.CUBE_LENGTH/2.0,  CubeFinder2018.CUBE_HEIGHT/2.0, 0.0],
         #                                   [ CubeFinder2018.CUBE_LENGTH/2.0, -CubeFinder2018.CUBE_HEIGHT/2.0, 0.0]])
 
-        self.tilt_angle = math.radians(7.5)  # camera mount angle (radians)
-        self.camera_height = 24.0            # height of camera off the ground (inches)
+        self.tilt_angle = math.radians(-7.5)  # camera mount angle (radians)
+        self.camera_height = 23.0            # height of camera off the ground (inches)
         self.target_height = 0.0             # height of target off the ground (inches)
 
         return
