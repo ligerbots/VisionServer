@@ -41,7 +41,7 @@ class SwitchTarget2018(object):
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
-        self.tilt_angle = math.radians(7.5)
+        self.tilt_angle = math.radians(-7.5)
 
         self.hsv_frame = None
         self.threshold_frame = None
