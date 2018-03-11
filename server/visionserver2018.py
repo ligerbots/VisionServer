@@ -25,7 +25,7 @@ class VisionServer2018(object):
 
     # NetworkTable parameters
 
-    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 16,
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 15,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
