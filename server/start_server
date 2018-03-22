@@ -50,8 +50,6 @@ setup_camera() {
     # uvcdynctrl -d "$1" -g 'White Balance Temperature'
 }
 
-LOG_FILE=$( logfile_name )
-
 case "$1" in
     stop)
 	pkill -f $SCRIPT
@@ -59,6 +57,8 @@ case "$1" in
 
     start)
         cd $DIR
+        LOG_FILE=$( logfile_name )
+
         setup_camera /dev/video0 >> $LOG_FILE 2>&1
         if [ -c /dev/video1 ]; then
             setup_camera /dev/video1 >> $LOG_FILE 2>&1
