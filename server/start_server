@@ -22,7 +22,8 @@ logfile_name() {
         else
             b=$( basename $line '.log' )
             index=${b#${LOG_BASE}_}
-            index=$(( $index + 1 ))
+            # this is stupid. Bash interprets the leading 0s as base-8. Say it is base 10.
+            index=$(( 10#$index + 1 ))
         fi
     fi
     
