@@ -25,7 +25,7 @@ class VisionServer2018(object):
 
     # NetworkTable parameters
 
-    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 15,
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 17,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -36,8 +36,8 @@ class VisionServer2018(object):
     tuning = ntproperty('/SmartDashboard/vision/tuning', False, writeDefault=True,
                         doc='Tuning mode. Reads processing parameters each time.')
 
-    image_width = ntproperty('/SmartDashboard/vision/width', 640, writeDefault=False, doc='Image width')
-    image_height = ntproperty('/SmartDashboard/vision/height', 480, writeDefault=False, doc='Image height')
+    image_width = ntproperty('/SmartDashboard/vision/width', 320, writeDefault=False, doc='Image width')
+    image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
 
     # Cube finding parameters
@@ -124,7 +124,7 @@ class VisionServer2018(object):
         ##self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_D95C053E-video-index0'
         self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
-
+        
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
 
@@ -353,7 +353,7 @@ class VisionServer2018(object):
                     self.update_parameters()
 
                 # Tell the CvSink to grab a frame from the camera and put it
-                # in the source image.  If there is an error notify the output.
+                # in the source image.  Frametime==0 on error
                 frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
                 frame_num += 1
 
@@ -363,7 +363,7 @@ class VisionServer2018(object):
 
                     if errors < 10:
                         errors += 1
-                    else:   # if greater than 10 iterations without any stream switch cameras
+                    else:   # if 10 or more iterations without any stream switch cameras
                         logging.warning(self.active_camera + " camera is no longer streaming. Switching cameras...")
                         if self.active_camera == 'intake':
                             self.switch_mode('driver')
@@ -380,9 +380,9 @@ class VisionServer2018(object):
                     if self.image_writer_state:
                         self.image_writer.setImage(self.camera_frame)
 
-                    # frametime = time.time() * 1e7  (ie in 1/10 microseconds)
+                    # frametime = time.time() * 1e8  (ie in 1/100 microseconds)
                     # convert frametime to seconds to use as the heartbeat sent to the RoboRio
-                    target_res = [1e-7 * frametime, ]
+                    target_res = [1e-8 * frametime, ]
 
                     proc_result = self.process_image()
                     target_res.extend(proc_result)
