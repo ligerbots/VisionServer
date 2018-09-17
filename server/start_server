@@ -7,7 +7,7 @@ DIR=/home/odroid/VisionServer/server
 SCRIPT=visionserver2018.py
 # For running standalone (not alongside a RoboRio), add the "--test" option
 # 640x480 value
-##ARGS="--calib ../data/calibration/c930e_qvga_calib.json"
+##ARGS="--calib ../data/calibration/c930e_calib.json"
 
 # 320x240 value
 ARGS="--calib ../data/calibration/c930e_qvga_calib.json"
@@ -20,7 +20,8 @@ logfile_name() {
         mkdir $LOG_DIR
         index=1
     else
-        line=$( ls -1t $LOG_DIR/${LOG_BASE}_*.log 2>/dev/null | head -1 )
+        # don't sort by time, since the ODROID has a bad clock. Sort by filename (reverse order).
+        line=$( ls -1r $LOG_DIR/${LOG_BASE}_*.log 2>/dev/null | head -1 )
         if [ -z "$line" ]; then
             index=1
         else
@@ -30,7 +31,7 @@ logfile_name() {
             index=$(( 10#$index + 1 ))
         fi
     fi
-    
+
     printf "$LOG_DIR/${LOG_BASE}_%05d.log" $index
 }
 
@@ -64,11 +65,14 @@ case "$1" in
         cd $DIR
         LOG_FILE=$( logfile_name )
 
+        ls -l /dev/v4l/by-id > $LOG_FILE
+        echo '' >> $LOG_FILE
+
         setup_camera /dev/video0 >> $LOG_FILE 2>&1
         if [ -c /dev/video1 ]; then
             setup_camera /dev/video1 >> $LOG_FILE 2>&1
         fi
-        
+
         python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
 

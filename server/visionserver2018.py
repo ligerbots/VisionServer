@@ -116,15 +116,13 @@ class VisionServer2018(object):
         # for processing stored files and no camera
         self.file_mode = False
 
-        # self.camera_device_vision = 1
-        # self.camera_device_driver = 2  # TODO: correct value?
+        # self.camera_device_vision = 0
+        # self.camera_device_driver = 1  # TODO: correct value?
 
         # Pick the cameras by USB/device path. That way, they are always the same
-        ##self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_E4B9053E-video-index0'
-        ##self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_D95C053E-video-index0'
         self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
-        
+
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
 
