@@ -60,10 +60,10 @@ class SwitchTarget2018(object):
 
         # Corners of the switch target in real world dimensions
         # TODO: Change?
-        self.target_coords = numpy.array([[-SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
-                                          [-SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
-                                          [ SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
-                                          [ SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0]])
+        self.target_coords = numpy.array([[-SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
+                                          [-SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
+                                          [ SwitchTarget2018.TARGET_WIDTH/2.0, -SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0],
+                                          [ SwitchTarget2018.TARGET_WIDTH/2.0,  SwitchTarget2018.TARGET_HEIGHT/2.0, 0.0]])
 
         return
 
@@ -287,7 +287,7 @@ class SwitchTarget2018(object):
         rot, _ = cv2.Rodrigues(rvec)
         rot_inv = rot.transpose()
         pzero_world = numpy.matmul(rot_inv, -tvec)
-        angle2 = math.atan2(pzero_world[0][0], -pzero_world[2][0])
+        angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
 
         return distance, angle1, angle2
 
