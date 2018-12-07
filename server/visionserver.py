@@ -14,7 +14,7 @@ from networktables import NetworkTables
 
 class visionserver:
     
-    INITIAL_MODE = 'default'
+    #INITIAL_MODE = 'DEFAULT'
     #DRIVER_MODE = 3.0
 
     # NetworkTable parameters
@@ -111,7 +111,7 @@ class visionserver:
         # self.camera_device_vision = 0
         # self.camera_device_driver = 1  # TODO: correct value?
 
-        # Pick the cameras by USB/device path. That way, they are always the same        TODO will this change?
+        # Pick the cameras by USB/device path. That way, they are always the same
         self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
 
@@ -159,30 +159,106 @@ class visionserver:
 
     # --------------------------------------------------------------------------------
     # Methods generally customized each year
+    
+    """Method Templates you should/must include"""
+    
+    #def update_parameters(self):
+    #    '''Update processing parameters from NetworkTables values.
+    #    Only do this on startup or if "tuning" is on, for efficiency'''
 
-    def update_parameters(self):
-        '''Update processing parameters from NetworkTables values.
-        Only do this on startup or if "tuning" is on, for efficiency'''
+    #    # Make sure to add any additional created properties which should be changeable
 
-        # Make sure to add any additional created properties which should be changeable
+    #    self.switch_finder.set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
+    #                                            self.switch_saturation_low_limit, self.switch_saturation_high_limit,
+    #                                            self.switch_value_low_limit, self.switch_value_high_limit)
+    #    self.cube_finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
+    #                                          self.cube_saturation_low_limit, self.cube_saturation_high_limit,
+    #                                          self.cube_value_low_limit, self.cube_value_high_limit)
 
-        self.switch_finder.set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
-                                                self.switch_saturation_low_limit, self.switch_saturation_high_limit,
-                                                self.switch_value_low_limit, self.switch_value_high_limit)
-        self.cube_finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
-                                              self.cube_saturation_low_limit, self.cube_saturation_high_limit,
-                                              self.cube_value_low_limit, self.cube_value_high_limit)
+    #    self.cube_finder.camera_height = self.camera_height
+    #    return
 
-        self.cube_finder.camera_height = self.camera_height
-        return
+    #def add_cameras(self):
+    #    '''add a single camera at /dev/videoN, N=camera_device'''
 
-    def add_cameras(self):
-        '''add a single camera at /dev/videoN, N=camera_device'''
+    #    self.add_camera('intake', self.camera_device_vision, True)
+    #    self.add_camera('driver', self.camera_device_driver, False)
+    #    return
 
-        self.add_camera('intake', self.camera_device_vision, True)
-        self.add_camera('driver', self.camera_device_driver, False)
-        return
+    #def switch_mode(self, new_mode):
+    #    logging.info("Switching mode to '%s'" % new_mode)
 
+    #    if new_mode == 'cube':
+    #        if self.active_camera != 'intake':
+    #            self.switch_camera('intake')
+    #        self.curr_processor = self.cube_finder
+    #        VisionServer2018.set_exposure(self.cameras['intake'], self.cube_exposure)
+
+    #    elif new_mode == 'switch':
+    #        if self.active_camera != 'intake':
+    #            self.switch_camera('intake')
+    #        self.curr_processor = self.switch_finder
+    #        VisionServer2018.set_exposure(self.cameras['intake'], self.switch_exposure)
+
+    #    elif new_mode == 'intake':
+    #        if self.active_camera != 'intake':
+    #            self.switch_camera('intake')
+    #        self.curr_processor = None
+    #        VisionServer2018.set_exposure(self.cameras['intake'], 0)
+
+    #    elif new_mode in ('driver', 'drive'):
+    #        if self.active_camera != 'driver':
+    #            self.switch_camera('driver')
+    #        self.curr_processor = None
+
+    #    else:
+    #        logging.error("Unknown mode '%s'" % new_mode)
+    #        return
+
+    #    self.active_mode = new_mode
+    #    self.nt_active_mode = self.active_mode  # make sure they are in sync
+    #    return
+
+    #def process_image(self):
+    #    '''Run the processor on the image to find the target'''
+
+        # make sure to catch any except from processing the image
+    #    try:
+    #        # rvec, tvec return as None if no target found
+    #        if self.curr_processor is not None:
+    #            result = self.curr_processor.process_image(self.camera_frame)
+    #        else:
+    #            result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
+    #    except Exception as e:
+    #        logging.error('Caught processing exception: %s', e)
+    #        result = (0.0, 0.0, 0.0, 0.0, 0.0)
+
+    #    return result
+
+    #def prepare_output_image(self):
+    #    '''Prepare an image to send to the drivers station'''
+
+    #    if self.active_mode == 'driver':
+    #        # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
+    #        self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    #    else:
+    #        self.output_frame = self.camera_frame.copy()
+    #        if self.curr_processor is not None:
+    #            self.curr_processor.prepare_output_image(self.output_frame)
+
+    #    # If saving images, add a little red "Recording" dot in upper left
+    #    if self.image_writer_state:
+    #        cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+    
+         # If tuning mode is on, add text to the upper left corner saying "Tuning On"
+    #    if self.tuning:
+    #        cv2.putText(image,"TUNING ON", (60,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
+
+    #    return
+
+    # ----------------------------------------------------------------------------
+    # Methods which hopefully don't need to be updated
+    
     def preallocate_arrays(self):
         '''Preallocate the intermediate result image arrays'''
 
@@ -191,76 +267,6 @@ class visionserver:
                                         dtype=numpy.uint8)
         # self.output_frame = self.camera_frame
         return
-
-    def switch_mode(self, new_mode):
-        logging.info("Switching mode to '%s'" % new_mode)
-
-        if new_mode == 'cube':
-            if self.active_camera != 'intake':
-                self.switch_camera('intake')
-            self.curr_processor = self.cube_finder
-            VisionServer2018.set_exposure(self.cameras['intake'], self.cube_exposure)
-
-        elif new_mode == 'switch':
-            if self.active_camera != 'intake':
-                self.switch_camera('intake')
-            self.curr_processor = self.switch_finder
-            VisionServer2018.set_exposure(self.cameras['intake'], self.switch_exposure)
-
-        elif new_mode == 'intake':
-            if self.active_camera != 'intake':
-                self.switch_camera('intake')
-            self.curr_processor = None
-            VisionServer2018.set_exposure(self.cameras['intake'], 0)
-
-        elif new_mode in ('driver', 'drive'):
-            if self.active_camera != 'driver':
-                self.switch_camera('driver')
-            self.curr_processor = None
-
-        else:
-            logging.error("Unknown mode '%s'" % new_mode)
-            return
-
-        self.active_mode = new_mode
-        self.nt_active_mode = self.active_mode  # make sure they are in sync
-        return
-
-    def process_image(self):
-        '''Run the processor on the image to find the target'''
-
-        # make sure to catch any except from processing the image
-        try:
-            # rvec, tvec return as None if no target found
-            if self.curr_processor is not None:
-                result = self.curr_processor.process_image(self.camera_frame)
-            else:
-                result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
-        except Exception as e:
-            logging.error('Caught processing exception: %s', e)
-            result = (0.0, 0.0, 0.0, 0.0, 0.0)
-
-        return result
-
-    def prepare_output_image(self):
-        '''Prepare an image to send to the drivers station'''
-
-        if self.active_mode == 'driver':
-            # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
-            self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        else:
-            self.output_frame = self.camera_frame.copy()
-            if self.curr_processor is not None:
-                self.curr_processor.prepare_output_image(self.output_frame)
-
-        # If saving images, add a little red "Recording" dot in upper left
-        if self.image_writer_state:
-            cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
-
-        return
-
-    # ----------------------------------------------------------------------------
-    # Methods which hopefully don't need to be updated
 
     def create_output_stream(self):
         '''Create the main image MJPEG server'''
