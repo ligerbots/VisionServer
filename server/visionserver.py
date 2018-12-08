@@ -14,8 +14,8 @@ from networktables import NetworkTables
 
 class visionserver:
     
-    #INITIAL_MODE = 'DEFAULT'
-    #DRIVER_MODE = 3.0
+    INITIAL_MODE = 'DEFAULT'        #need for generic functions -- RESET IN SUBCLASS
+    DRIVER_MODE = 3.0
 
     # NetworkTable parameters
 
