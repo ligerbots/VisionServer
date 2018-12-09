@@ -12,7 +12,7 @@ from cscore.imagewriter import ImageWriter
 from networktables.util import ntproperty
 from networktables import NetworkTables
 
-class visionserver:
+class VisionServer:
     
     INITIAL_MODE = 'DEFAULT'        #need for generic functions -- RESET IN SUBCLASS
     DRIVER_MODE = 3.0

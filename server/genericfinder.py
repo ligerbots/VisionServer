@@ -2,9 +2,12 @@
 
 """Generic finder used when not searching for any targets"""
 
-class genericfinder:
+class GenericFinder:
     
     DRIVER_MODE = 3.0
+    
+    def __init__(self, rotation):
+        self.rotation = rotation
     
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -14,4 +17,4 @@ class genericfinder:
     #only need this as a placeholder method (does nothing to the image) so we can implement polymorphism
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
-        return
+        cv2.rotate(self.camera_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
