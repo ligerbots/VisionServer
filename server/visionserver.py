@@ -130,6 +130,8 @@ class VisionServer:
 
         #self.switch_finder = SwitchTarget2018(calib_file)
         #self.cube_finder = CubeFinder2018(calib_file)
+        
+        self.target_finders = []
 
         self.update_parameters()
 
@@ -183,40 +185,6 @@ class VisionServer:
 
     #    self.add_camera('intake', self.camera_device_vision, True)
     #    self.add_camera('driver', self.camera_device_driver, False)
-    #    return
-
-    #def switch_mode(self, new_mode):
-    #    logging.info("Switching mode to '%s'" % new_mode)
-
-    #    if new_mode == 'cube':
-    #        if self.active_camera != 'intake':
-    #            self.switch_camera('intake')
-    #        self.curr_processor = self.cube_finder
-    #        VisionServer2018.set_exposure(self.cameras['intake'], self.cube_exposure)
-
-    #    elif new_mode == 'switch':
-    #        if self.active_camera != 'intake':
-    #            self.switch_camera('intake')
-    #        self.curr_processor = self.switch_finder
-    #        VisionServer2018.set_exposure(self.cameras['intake'], self.switch_exposure)
-
-    #    elif new_mode == 'intake':
-    #        if self.active_camera != 'intake':
-    #            self.switch_camera('intake')
-    #        self.curr_processor = None
-    #        VisionServer2018.set_exposure(self.cameras['intake'], 0)
-
-    #    elif new_mode in ('driver', 'drive'):
-    #        if self.active_camera != 'driver':
-    #            self.switch_camera('driver')
-    #        self.curr_processor = None
-
-    #    else:
-    #        logging.error("Unknown mode '%s'" % new_mode)
-    #        return
-
-    #    self.active_mode = new_mode
-    #    self.nt_active_mode = self.active_mode  # make sure they are in sync
     #    return
 
     #def process_image(self):
@@ -328,6 +296,25 @@ class VisionServer:
         else:
             logging.warning('Unknown camera %s' % name)
 
+        return
+    
+    def add_target_finder(self, finder):
+        self.target_finders.append(finder)
+    
+    def switch_mode(self, new_mode):
+        logging.info("Switching mode to '%s'" % new_mode)
+
+        for finder in self.target_finders:
+            if new_mode == finder.READABLE_ID:
+                if self.active_camera != finder.camera:
+                    self.switch_camera(finder.camera)
+                self.curr_processor = finder
+                VisionServer2018.set_exposure(self.cameras[finder.camera], finder.exposure)
+                self.active_mode = new_mode
+                self.nt_active_mode = self.active_mode  # make sure they are in sync
+                return
+        
+        logging.error("Unknown mode '%s'" % new_mode)
         return
 
     def run(self):
