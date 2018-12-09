@@ -104,7 +104,7 @@ class VisionServer:
     # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
     target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
 
-    def __init__(self, calib_file):
+    def __init__(self):
         # for processing stored files and no camera
         self.file_mode = False
 
