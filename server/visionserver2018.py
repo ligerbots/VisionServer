@@ -195,7 +195,7 @@ class VisionServer2018(object):
         '''Preallocate the intermediate result image arrays'''
 
         # NOTE: shape is (height, width, #bytes)
-        self.camera_frame = numpy.zeros(shape=(self.image_height, self.image_width, 3),
+        self.camera_frame = numpy.zeros(shape=(int(self.image_height), int(self.image_width), 3),
                                         dtype=numpy.uint8)
         # self.output_frame = self.camera_frame
         return
@@ -276,10 +276,10 @@ class VisionServer2018(object):
         # Output server
         # Need to do this the hard way to set the TCP port
         self.output_stream = cscore.CvSource('camera', cscore.VideoMode.PixelFormat.kMJPEG,
-                                             self.image_width, self.image_height,
-                                             min(self.camera_fps, self.output_fps_limit))
+                                             int(self.image_width), int(self.image_height),
+                                             int(min(self.camera_fps, self.output_fps_limit)))
         self.camera_server.addCamera(self.output_stream)
-        server = self.camera_server.addServer(name='camera', port=self.output_port)
+        server = self.camera_server.addServer(name='camera', port=int(self.output_port))
         server.setSource(self.output_stream)
 
         return
@@ -302,8 +302,8 @@ class VisionServer2018(object):
         self.cameras[name] = camera
 
         self.camera_server.startAutomaticCapture(camera=camera)
-        camera.setResolution(self.image_width, self.image_height)
-        camera.setFPS(self.camera_fps)
+        camera.setResolution(int(self.image_width), int(self.image_height))
+        camera.setFPS(int(self.camera_fps))
 
         sink = self.camera_server.getVideo(camera=camera)
         self.video_sinks[name] = sink

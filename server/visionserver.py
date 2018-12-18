@@ -12,8 +12,9 @@ from cscore.imagewriter import ImageWriter
 from networktables.util import ntproperty
 from networktables import NetworkTables
 
+
 class VisionServer:
-    
+
     INITIAL_MODE = 'DEFAULT'        #need for generic functions -- RESET IN SUBCLASS
     DRIVER_MODE = 3.0
 
@@ -37,39 +38,39 @@ class VisionServer:
     # Cube finding parameters
 
     # Color threshold values, in HSV space
-    #cube_hue_high_limit = ntproperty('/SmartDashboard/vision/cube/hue_high_limit', 75,
+    # cube_hue_high_limit = ntproperty('/SmartDashboard/vision/cube/hue_high_limit', 75,
     #                                 doc='Hue high limit for thresholding (cube mode)')
 
-    #cube_saturation_low_limit = ntproperty('/SmartDashboard/vision/cube/saturation_low_limit', 95,
+    # cube_saturation_low_limit = ntproperty('/SmartDashboard/vision/cube/saturation_low_limit', 95,
     #                                       doc='Saturation low limit for thresholding (cube mode)')
-    #cube_saturation_high_limit = ntproperty('/SmartDashboard/vision/cube/saturation_high_limit', 255,
+    # cube_saturation_high_limit = ntproperty('/SmartDashboard/vision/cube/saturation_high_limit', 255,
     #                                        doc='Saturation high limit for thresholding (cube mode)')
 
-    #cube_value_low_limit = ntproperty('/SmartDashboard/vision/cube/value_low_limit', 95,
+    # cube_value_low_limit = ntproperty('/SmartDashboard/vision/cube/value_low_limit', 95,
     #                                  doc='Value low limit for thresholding (cube mode)')
-    #cube_value_high_limit = ntproperty('/SmartDashboard/vision/cube/value_high_limit', 255,
+    # cube_value_high_limit = ntproperty('/SmartDashboard/vision/cube/value_high_limit', 255,
     #                                   doc='Value high limit for thresholding (cube mode)')
 
-    #cube_exposure = ntproperty('/SmartDashboard/vision/cube/exposure', 0, doc='Camera exposure for cube (0=auto)')
+    # cube_exposure = ntproperty('/SmartDashboard/vision/cube/exposure', 0, doc='Camera exposure for cube (0=auto)')
 
     # Switch target parameters
 
-    #switch_hue_low_limit = ntproperty('/SmartDashboard/vision/switch/hue_low_limit', 70,
-    #                                  doc='Hue low limit for thresholding (switch mode)')
-    #switch_hue_high_limit = ntproperty('/SmartDashboard/vision/switch/hue_high_limit', 100,
-    #                                   doc='Hue high limit for thresholding (switch mode)')
-#
-    #switch_saturation_low_limit = ntproperty('/SmartDashboard/vision/switch/saturation_low_limit', 100,
-    #                                         doc='Saturation low limit for thresholding (switch mode)')
-    #switch_saturation_high_limit = ntproperty('/SmartDashboard/vision/switch/saturation_high_limit', 255,
-    #                                          doc='Saturation high limit for thresholding (switch mode)')
+    # switch_hue_low_limit = ntproperty('/SmartDashboard/vision/switch/hue_low_limit', 70,
+    #                                   doc='Hue low limit for thresholding (switch mode)')
+    # switch_hue_high_limit = ntproperty('/SmartDashboard/vision/switch/hue_high_limit', 100,
+    #                                    doc='Hue high limit for thresholding (switch mode)')
+    #
+    # switch_saturation_low_limit = ntproperty('/SmartDashboard/vision/switch/saturation_low_limit', 100,
+    #                                          doc='Saturation low limit for thresholding (switch mode)')
+    # switch_saturation_high_limit = ntproperty('/SmartDashboard/vision/switch/saturation_high_limit', 255,
+    #                                           doc='Saturation high limit for thresholding (switch mode)')
 
-    #switch_value_low_limit = ntproperty('/SmartDashboard/vision/switch/value_low_limit', 130,
-    #                                    doc='Value low limit for thresholding (switch mode)')
-    #switch_value_high_limit = ntproperty('/SmartDashboard/vision/switch/value_high_limit', 255,
-    #                                     doc='Value high limit for thresholding (switch mode)')
+    # switch_value_low_limit = ntproperty('/SmartDashboard/vision/switch/value_low_limit', 130,
+    #                                     doc='Value low limit for thresholding (switch mode)')
+    # switch_value_high_limit = ntproperty('/SmartDashboard/vision/switch/value_high_limit', 255,
+    #                                      doc='Value high limit for thresholding (switch mode)')
 
-    #switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
+    # switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
 
     camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
 
@@ -128,10 +129,10 @@ class VisionServer:
 
         self.create_output_stream()
 
-        #self.switch_finder = SwitchTarget2018(calib_file)
-        #self.cube_finder = CubeFinder2018(calib_file)
-        
-        self.target_finders = []
+        # self.switch_finder = SwitchTarget2018(calib_file)
+        # self.cube_finder = CubeFinder2018(calib_file)
+
+        self.target_finders = {}
 
         self.update_parameters()
 
@@ -140,7 +141,7 @@ class VisionServer:
         self.curr_processor = None
 
         # Start in cube mode, then then switch to INITIAL_MODE after camera is fully initialized
-        #self.switch_mode('cube')
+        # self.switch_mode('cube')
 
         # TODO: set all the parameters from NT
 
@@ -161,12 +162,12 @@ class VisionServer:
 
     # --------------------------------------------------------------------------------
     # Methods generally customized each year
-    
+
     """Method Templates you should/must include"""
-    
-    #def update_parameters(self):
-    #    '''Update processing parameters from NetworkTables values.
-    #    Only do this on startup or if "tuning" is on, for efficiency'''
+
+    # def update_parameters(self):
+    #     '''Update processing parameters from NetworkTables values.
+    #     Only do this on startup or if "tuning" is on, for efficiency'''
 
     #    # Make sure to add any additional created properties which should be changeable
 
@@ -180,17 +181,17 @@ class VisionServer:
     #    self.cube_finder.camera_height = self.camera_height
     #    return
 
-    #def add_cameras(self):
+    # def add_cameras(self):
     #    '''add a single camera at /dev/videoN, N=camera_device'''
 
     #    self.add_camera('intake', self.camera_device_vision, True)
     #    self.add_camera('driver', self.camera_device_driver, False)
     #    return
 
-    #def process_image(self):
+    # def process_image(self):
     #    '''Run the processor on the image to find the target'''
 
-        # make sure to catch any except from processing the image
+    #    # make sure to catch any except from processing the image
     #    try:
     #        # rvec, tvec return as None if no target found
     #        if self.curr_processor is not None:
@@ -203,7 +204,7 @@ class VisionServer:
 
     #    return result
 
-    #def prepare_output_image(self):
+    # def prepare_output_image(self):
     #    '''Prepare an image to send to the drivers station'''
 
     #    if self.active_mode == 'driver':
@@ -217,8 +218,8 @@ class VisionServer:
     #    # If saving images, add a little red "Recording" dot in upper left
     #    if self.image_writer_state:
     #        cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
-    
-         # If tuning mode is on, add text to the upper left corner saying "Tuning On"
+
+    #     # If tuning mode is on, add text to the upper left corner saying "Tuning On"
     #    if self.tuning:
     #        cv2.putText(image,"TUNING ON", (60,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
 
@@ -226,12 +227,12 @@ class VisionServer:
 
     # ----------------------------------------------------------------------------
     # Methods which hopefully don't need to be updated
-    
+
     def preallocate_arrays(self):
         '''Preallocate the intermediate result image arrays'''
 
         # NOTE: shape is (height, width, #bytes)
-        self.camera_frame = numpy.zeros(shape=(self.image_height, self.image_width, 3),
+        self.camera_frame = numpy.zeros(shape=(int(self.image_height), int(self.image_width), 3),
                                         dtype=numpy.uint8)
         # self.output_frame = self.camera_frame
         return
@@ -242,10 +243,10 @@ class VisionServer:
         # Output server
         # Need to do this the hard way to set the TCP port
         self.output_stream = cscore.CvSource('camera', cscore.VideoMode.PixelFormat.kMJPEG,
-                                             self.image_width, self.image_height,
-                                             min(self.camera_fps, self.output_fps_limit))
+                                             int(self.image_width), int(self.image_height),
+                                             int(min(self.camera_fps, self.output_fps_limit)))
         self.camera_server.addCamera(self.output_stream)
-        server = self.camera_server.addServer(name='camera', port=self.output_port)
+        server = self.camera_server.addServer(name='camera', port=int(self.output_port))
         server.setSource(self.output_stream)
 
         return
@@ -268,8 +269,8 @@ class VisionServer:
         self.cameras[name] = camera
 
         self.camera_server.startAutomaticCapture(camera=camera)
-        camera.setResolution(self.image_width, self.image_height)
-        camera.setFPS(self.camera_fps)
+        camera.setResolution(int(self.image_width), int(self.image_height))
+        camera.setFPS(int(self.camera_fps))
 
         sink = self.camera_server.getVideo(camera=camera)
         self.video_sinks[name] = sink
@@ -297,24 +298,25 @@ class VisionServer:
             logging.warning('Unknown camera %s' % name)
 
         return
-    
+
     def add_target_finder(self, finder):
-        self.target_finders.append(finder)
-    
+        self.target_finders[finder.READABLE_ID] = finder
+        return
+
     def switch_mode(self, new_mode):
         logging.info("Switching mode to '%s'" % new_mode)
 
-        for finder in self.target_finders:
-            if new_mode == finder.READABLE_ID:
-                if self.active_camera != finder.camera:
-                    self.switch_camera(finder.camera)
-                self.curr_processor = finder
-                VisionServer2018.set_exposure(self.cameras[finder.camera], finder.exposure)
-                self.active_mode = new_mode
-                self.nt_active_mode = self.active_mode  # make sure they are in sync
-                return
-        
-        logging.error("Unknown mode '%s'" % new_mode)
+        finder = self.target_finders.get(new_mode, None)
+        if finder is not None:
+            if self.active_camera != finder.camera:
+                self.switch_camera(finder.camera)
+            self.curr_processor = finder
+            self.set_exposure(self.cameras[finder.camera], finder.exposure)
+            self.active_mode = new_mode
+            self.nt_active_mode = self.active_mode  # make sure they are in sync
+        else:
+            logging.error("Unknown mode '%s'" % new_mode)
+
         return
 
     def run(self):
@@ -467,10 +469,4 @@ def main():
         server.run_files(args.input_files)
     else:
         server.run()
-    return    
-        
-        
-        
-        
-        
-        
+    return
