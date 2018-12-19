@@ -65,7 +65,8 @@ case "$1" in
         cd $DIR
         LOG_FILE=$( logfile_name )
 
-        ls -l /dev/v4l/by-id > $LOG_FILE
+	date > $LOG_FILE
+        ls -l /dev/v4l/by-id >> $LOG_FILE
         echo '' >> $LOG_FILE
 
         setup_camera /dev/video0 >> $LOG_FILE 2>&1
