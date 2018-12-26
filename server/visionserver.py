@@ -15,7 +15,7 @@ from networktables import NetworkTables
 
 class VisionServer:
 
-    INITIAL_MODE = 'DEFAULT'        #need for generic functions -- RESET IN SUBCLASS
+    INITIAL_MODE = 'DEFAULT'        # need for generic functions -- RESET IN SUBCLASS
     DRIVER_MODE = 3.0
 
     # NetworkTable parameters
@@ -35,62 +35,7 @@ class VisionServer:
     image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
 
-    # Cube finding parameters
-
-    # Color threshold values, in HSV space
-    # cube_hue_high_limit = ntproperty('/SmartDashboard/vision/cube/hue_high_limit', 75,
-    #                                 doc='Hue high limit for thresholding (cube mode)')
-
-    # cube_saturation_low_limit = ntproperty('/SmartDashboard/vision/cube/saturation_low_limit', 95,
-    #                                       doc='Saturation low limit for thresholding (cube mode)')
-    # cube_saturation_high_limit = ntproperty('/SmartDashboard/vision/cube/saturation_high_limit', 255,
-    #                                        doc='Saturation high limit for thresholding (cube mode)')
-
-    # cube_value_low_limit = ntproperty('/SmartDashboard/vision/cube/value_low_limit', 95,
-    #                                  doc='Value low limit for thresholding (cube mode)')
-    # cube_value_high_limit = ntproperty('/SmartDashboard/vision/cube/value_high_limit', 255,
-    #                                   doc='Value high limit for thresholding (cube mode)')
-
-    # cube_exposure = ntproperty('/SmartDashboard/vision/cube/exposure', 0, doc='Camera exposure for cube (0=auto)')
-
-    # Switch target parameters
-
-    # switch_hue_low_limit = ntproperty('/SmartDashboard/vision/switch/hue_low_limit', 70,
-    #                                   doc='Hue low limit for thresholding (switch mode)')
-    # switch_hue_high_limit = ntproperty('/SmartDashboard/vision/switch/hue_high_limit', 100,
-    #                                    doc='Hue high limit for thresholding (switch mode)')
-    #
-    # switch_saturation_low_limit = ntproperty('/SmartDashboard/vision/switch/saturation_low_limit', 100,
-    #                                          doc='Saturation low limit for thresholding (switch mode)')
-    # switch_saturation_high_limit = ntproperty('/SmartDashboard/vision/switch/saturation_high_limit', 255,
-    #                                           doc='Saturation high limit for thresholding (switch mode)')
-
-    # switch_value_low_limit = ntproperty('/SmartDashboard/vision/switch/value_low_limit', 130,
-    #                                     doc='Value low limit for thresholding (switch mode)')
-    # switch_value_high_limit = ntproperty('/SmartDashboard/vision/switch/value_high_limit', 255,
-    #                                      doc='Value high limit for thresholding (switch mode)')
-
-    # switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
-
     camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
-
-    # Paul Rensing 1/21/2018: not sure we need these as tunable NetworkTable parameters,
-    #  so comment out for now.
-    #
-    # # distance between the two target bars, in units of the width of a bar
-    # switch_target_separation = ntproperty('/SmartDashboard/vision/switch/target_separation', 3.0,
-    #                                       doc='switch target horizontal separation, in widths')
-
-    # # max distance in pixels that a contour can from the guessed location
-    # switch_max_target_dist = ntproperty('/SmartDashboard/vision/switch/max_target_dist', 50,
-    #                                     doc='switch max distance between contour and expected location (pixels)')
-
-    # # pixel area of the bounding rectangle - just used to remove stupidly small regions
-    # switch_contour_min_area = ntproperty('/SmartDashboard/vision/switch/contour_min_area', 100,
-    #                                      doc='switch min area of an interesting contour (sq. pixels)')
-
-    # switch_approx_polydp_error = ntproperty('/SmartDashboard/vision/switch/approx_polydp_error', 0.06,
-    #                                         doc='switch approxPolyDP error')
 
     image_writer_state = ntproperty('/SmartDashboard/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
@@ -101,20 +46,15 @@ class VisionServer:
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
-    #  all arrive at the RoboRio at the same time
-    # Value is (Found, tvec, rvec) as a flat array. All values are floating point (required by NT).
-    target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ], doc='Packed array of target info: found, tvec, rvec')
+    #  all arrive at the RoboRio at the same time.
+    # Value is (time, success, finder_id, distance, angle1, angle2) as a flat array.
+    # All values are floating point (required by NT).
+    target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ],
+                             doc='Packed array of target info: time, success, finder_id, distance, angle1, angle2')
 
     def __init__(self):
         # for processing stored files and no camera
         self.file_mode = False
-
-        # self.camera_device_vision = 0
-        # self.camera_device_driver = 1  # TODO: correct value?
-
-        # Pick the cameras by USB/device path. That way, they are always the same
-        self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
-        self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
 
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
@@ -129,27 +69,19 @@ class VisionServer:
 
         self.create_output_stream()
 
-        # self.switch_finder = SwitchTarget2018(calib_file)
-        # self.cube_finder = CubeFinder2018(calib_file)
-
+        # Dictionary of finders. The key is the string "name" of the finder.
         self.target_finders = {}
-
-        self.update_parameters()
 
         # active mode. To be compared to nt_active_mode to see if it has changed
         self.active_mode = None
-        self.curr_processor = None
-
-        # Start in cube mode, then then switch to INITIAL_MODE after camera is fully initialized
-        # self.switch_mode('cube')
-
-        # TODO: set all the parameters from NT
+        self.curr_finder = None
 
         # rate limit parameters
         self.previous_output_time = time.time()
         self.camera_frame = None
         self.output_frame = None
 
+        # Last error message (from cscore)
         self.error_msg = None
 
         # if asked, save image every 1/2 second
@@ -194,8 +126,8 @@ class VisionServer:
     #    # make sure to catch any except from processing the image
     #    try:
     #        # rvec, tvec return as None if no target found
-    #        if self.curr_processor is not None:
-    #            result = self.curr_processor.process_image(self.camera_frame)
+    #        if self.curr_finder is not None:
+    #            result = self.curr_finder.process_image(self.camera_frame)
     #        else:
     #            result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
     #    except Exception as e:
@@ -212,8 +144,8 @@ class VisionServer:
     #        self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
     #    else:
     #        self.output_frame = self.camera_frame.copy()
-    #        if self.curr_processor is not None:
-    #            self.curr_processor.prepare_output_image(self.output_frame)
+    #        if self.curr_finder is not None:
+    #            self.curr_finder.prepare_output_image(self.output_frame)
 
     #    # If saving images, add a little red "Recording" dot in upper left
     #    if self.image_writer_state:
@@ -300,17 +232,19 @@ class VisionServer:
         return
 
     def add_target_finder(self, finder):
-        self.target_finders[finder.READABLE_ID] = finder
+        self.target_finders[finder.name] = finder
         return
 
     def switch_mode(self, new_mode):
+        '''Switch processing mode. new_mode is the string name'''
+
         logging.info("Switching mode to '%s'" % new_mode)
 
         finder = self.target_finders.get(new_mode, None)
         if finder is not None:
             if self.active_camera != finder.camera:
                 self.switch_camera(finder.camera)
-            self.curr_processor = finder
+            self.curr_finder = finder
             self.set_exposure(self.cameras[finder.camera], finder.exposure)
             self.active_mode = new_mode
             self.nt_active_mode = self.active_mode  # make sure they are in sync
@@ -395,7 +329,7 @@ class VisionServer:
                 if frame_num == 30:
                     # This is a bit stupid, but you need to poke the camera *after* the first
                     #  bunch of frames has been collected.
-                    self.switch_mode(VisionServer2018.INITIAL_MODE)
+                    self.switch_mode(self.INITIAL_MODE)
 
             except Exception as e:
                 # major exception. Try to keep going
@@ -460,7 +394,7 @@ def main():
     else:
         NetworkTables.initialize(server='10.28.77.2')
 
-    server = VisionServer2018(args.calib)
+    server = VisionServer(args.calib)
 
     if args.files:
         if not args.input_files:
