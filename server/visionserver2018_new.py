@@ -2,7 +2,7 @@
 
 '''Vision server for 2018 Power Up -- updated to conform with VisionServer superclass'''
 
-#TODO are you required to import each library into file if superclass file already imported them?... if so, is there an easier way than simply restating each of the imports?
+# TODO are you required to import each library into file if superclass file already imported them?... if so, is there an easier way than simply restating each of the imports?
 
 import time
 import cv2
@@ -18,10 +18,11 @@ from visionserver import VisionServer
 from switchtarget2018 import SwitchTarget2018
 from cubefinder2018 import CubeFinder2018
 
+
 class VisionServer2018_new(VisionServer):
 
-    INITIAL_MODE = 'switch'     #TODO not in init, so are these ok to reset before init is called?
-    
+    INITIAL_MODE = 'switch'     # TODO not in init, so are these ok to reset before init is called?
+
     # Cube finding parameters
 
     # Color threshold values, in HSV space
@@ -60,20 +61,20 @@ class VisionServer2018_new(VisionServer):
                                          doc='Value high limit for thresholding (switch mode)')
 
     switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
-    
-    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', INITIAL_MODE, doc='Active mode')      #needed to reset b/c we changed the value of INITIAL_MODE afterwards
+
+    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', INITIAL_MODE, doc='Active mode')      # needed to reset b/c we changed the value of INITIAL_MODE afterwards
 
     def __init__(self, calib_file):
         super.__init__()
-        
+
         self.switch_finder = SwitchTarget2018(calib_file)
         self.cube_finder = CubeFinder2018(calib_file)
-        
+
         self.update_parameters()
-        
+
         # Start in cube mode, then then switch to INITIAL_MODE after camera is fully initialized
         self.switch_mode('cube')
-        
+
     def update_parameters(self):
         '''Update processing parameters from NetworkTables values.
         Only do this on startup or if "tuning" is on, for efficiency'''
@@ -96,7 +97,7 @@ class VisionServer2018_new(VisionServer):
         self.add_camera('intake', self.camera_device_vision, True)
         self.add_camera('driver', self.camera_device_driver, False)
         return
-    
+
     def process_image(self):
         '''Run the processor on the image to find the target'''
 
@@ -106,7 +107,7 @@ class VisionServer2018_new(VisionServer):
             if self.curr_processor is not None:
                 result = self.curr_processor.process_image(self.camera_frame)
             else:
-                result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
+                result = (1.0, self.DRIVER_MODE, 0.0, 0.0, 0.0)
         except Exception as e:
             logging.error('Caught processing exception: %s', e)
             result = (0.0, 0.0, 0.0, 0.0, 0.0)
