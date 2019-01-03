@@ -2,15 +2,9 @@
 
 '''Vision server for 2018 Power Up -- updated to conform with VisionServer superclass'''
 
-# TODO are you required to import each library into file if superclass file already imported them?... if so, is there an easier way than simply restating each of the imports?
-
-import time
 import cv2
-import numpy
 import logging
 
-import cscore
-from cscore.imagewriter import ImageWriter
 from networktables.util import ntproperty
 from networktables import NetworkTables
 
@@ -20,8 +14,6 @@ from cubefinder2018 import CubeFinder2018
 
 
 class VisionServer2018_new(VisionServer):
-
-    INITIAL_MODE = 'switch'     # TODO not in init, so are these ok to reset before init is called?
 
     # Cube finding parameters
 
@@ -62,17 +54,19 @@ class VisionServer2018_new(VisionServer):
 
     switch_exposure = ntproperty('/SmartDashboard/vision/switch/exposure', 6, doc='Camera exposure for switch (0=auto)')
 
-    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', INITIAL_MODE, doc='Active mode')      # needed to reset b/c we changed the value of INITIAL_MODE afterwards
-
     def __init__(self, calib_file):
         super.__init__()
+
+        # Initial mode for start of match.
+        #  VisionServer switches to this mode after a second, to get the cameras initialized
+        self.initial_mode = 'switch'
 
         self.switch_finder = SwitchTarget2018(calib_file)
         self.cube_finder = CubeFinder2018(calib_file)
 
         self.update_parameters()
 
-        # Start in cube mode, then then switch to INITIAL_MODE after camera is fully initialized
+        # Start in cube mode, then then switch to initial_mode after camera is fully initialized
         self.switch_mode('cube')
 
     def update_parameters(self):

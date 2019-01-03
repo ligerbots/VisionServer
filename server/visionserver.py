@@ -15,7 +15,6 @@ from networktables import NetworkTables
 
 class VisionServer:
 
-    INITIAL_MODE = 'DEFAULT'        # need for generic functions -- RESET IN SUBCLASS
     DRIVER_MODE = 3.0
 
     # NetworkTable parameters
@@ -42,7 +41,8 @@ class VisionServer:
 
     # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
     # This is the NT variable, which can be set from the Driver's station
-    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', INITIAL_MODE, doc='Active mode')
+    # Use "0" for the initial value; needs to be set by the subclass.
+    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', 0, doc='Active mode')
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
@@ -75,6 +75,10 @@ class VisionServer:
         # active mode. To be compared to nt_active_mode to see if it has changed
         self.active_mode = None
         self.curr_finder = None
+
+        # Initial mode for start of match.
+        #  VisionServer switches to this mode after a second, to get the cameras initialized
+        self.initial_mode = None
 
         # rate limit parameters
         self.previous_output_time = time.time()
@@ -329,7 +333,7 @@ class VisionServer:
                 if frame_num == 30:
                     # This is a bit stupid, but you need to poke the camera *after* the first
                     #  bunch of frames has been collected.
-                    self.switch_mode(self.INITIAL_MODE)
+                    self.switch_mode(self.initial_mode)
 
             except Exception as e:
                 # major exception. Try to keep going
