@@ -14,9 +14,6 @@ from networktables import NetworkTables
 
 
 class VisionServer:
-
-    DRIVER_MODE = 3.0
-
     # NetworkTable parameters
 
     output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 17,
@@ -33,8 +30,6 @@ class VisionServer:
     image_width = ntproperty('/SmartDashboard/vision/width', 320, writeDefault=False, doc='Image width')
     image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
-
-    camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
 
     image_writer_state = ntproperty('/SmartDashboard/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
@@ -65,7 +60,6 @@ class VisionServer:
         self.video_sinks = {}
         self.current_sink = None
         self.cameras = {}
-        self.add_cameras()
 
         self.create_output_stream()
 
@@ -99,69 +93,23 @@ class VisionServer:
     # --------------------------------------------------------------------------------
     # Methods generally customized each year
 
-    """Method Templates you should/must include"""
+    """Methods you should/must include"""
 
-    # def update_parameters(self):
-    #     '''Update processing parameters from NetworkTables values.
-    #     Only do this on startup or if "tuning" is on, for efficiency'''
+    def update_parameters(self):
+        '''Update processing parameters from NetworkTables values.
+        Only do this on startup or if "tuning" is on, for efficiency'''
 
-    #    # Make sure to add any additional created properties which should be changeable
+        # Make sure to add any additional created properties which should be changeable
+        raise NotImplementedError
 
-    #    self.switch_finder.set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
-    #                                            self.switch_saturation_low_limit, self.switch_saturation_high_limit,
-    #                                            self.switch_value_low_limit, self.switch_value_high_limit)
-    #    self.cube_finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
-    #                                          self.cube_saturation_low_limit, self.cube_saturation_high_limit,
-    #                                          self.cube_value_low_limit, self.cube_value_high_limit)
-
-    #    self.cube_finder.camera_height = self.camera_height
-    #    return
-
-    # def add_cameras(self):
+    def add_cameras(self):
     #    '''add a single camera at /dev/videoN, N=camera_device'''
 
     #    self.add_camera('intake', self.camera_device_vision, True)
     #    self.add_camera('driver', self.camera_device_driver, False)
-    #    return
+        raise NotImplementedError
 
-    # def process_image(self):
-    #    '''Run the processor on the image to find the target'''
-
-    #    # make sure to catch any except from processing the image
-    #    try:
-    #        # rvec, tvec return as None if no target found
-    #        if self.curr_finder is not None:
-    #            result = self.curr_finder.process_image(self.camera_frame)
-    #        else:
-    #            result = (1.0, VisionServer2018.DRIVER_MODE, 0.0, 0.0, 0.0)
-    #    except Exception as e:
-    #        logging.error('Caught processing exception: %s', e)
-    #        result = (0.0, 0.0, 0.0, 0.0, 0.0)
-
-    #    return result
-
-    # def prepare_output_image(self):
-    #    '''Prepare an image to send to the drivers station'''
-
-    #    if self.active_mode == 'driver':
-    #        # stored as enum: ROTATE_90_CLOCKWISE = 0, ROTATE_180 = 1, ROTATE_90_COUNTERCLOCKWISE = 2
-    #        self.output_frame = cv2.rotate(self.camera_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    #    else:
-    #        self.output_frame = self.camera_frame.copy()
-    #        if self.curr_finder is not None:
-    #            self.curr_finder.prepare_output_image(self.output_frame)
-
-    #    # If saving images, add a little red "Recording" dot in upper left
-    #    if self.image_writer_state:
-    #        cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
-
-    #     # If tuning mode is on, add text to the upper left corner saying "Tuning On"
-    #    if self.tuning:
-    #        cv2.putText(image,"TUNING ON", (60,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
-
-    #    return
-
-    # ----------------------------------------------------------------------------
+    # --------------------------------------------------------------------------------
     # Methods which hopefully don't need to be updated
 
     def preallocate_arrays(self):
@@ -255,6 +203,35 @@ class VisionServer:
         else:
             logging.error("Unknown mode '%s'" % new_mode)
 
+        return
+
+    def process_image(self):
+        # rvec, tvec return as None if no target found
+        try:
+            result = self.curr_finder.process_image(self.camera_frame)
+        except Exception as e:
+            logging.error("Exception caught in process_image(): %s", e)
+            result = (0.0, 0.0, 0.0, 0.0, 0.0)
+        
+        return result
+
+    def prepare_output_image(self):
+        try:
+            self.output_frame = self.camera_frame.copy()
+            if self.curr_finder is not None:
+                self.curr_finder.prepare_output_image(self.output_frame)
+
+            # If saving images, add a little red "Recording" dot in upper left
+            if self.image_writer_state:
+                cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+
+            # If tuning mode is on, add text to the upper left corner saying "Tuning On"
+            if self.tuning:
+                cv2.putText(self.output_frame, "TUNING ON", (60,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
+        
+        except Exception as e:
+            logging.error("Exception caught in prepare_output_image(): %s", e)
+        
         return
 
     def run(self):
@@ -398,7 +375,7 @@ def main():
     else:
         NetworkTables.initialize(server='10.28.77.2')
 
-    server = VisionServer(args.calib)
+    server = VisionServer()
 
     if args.files:
         if not args.input_files:

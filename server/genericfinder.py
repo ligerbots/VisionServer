@@ -8,7 +8,6 @@ finder_id may not need to be changed, depending on circumstances."""
 
 import cv2
 
-
 class GenericFinder(object):
     def __init__(self, name, camera, finder_id=1.0, exposure=0, rotation=None):
         self.name = name
@@ -25,5 +24,5 @@ class GenericFinder(object):
     def prepare_output_image(self, output_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
         if self.rotation is not None:
-            cv2.rotate(self.output_frame, self.rotation)
+            cv2.rotate(output_frame, self.rotation)
         return
