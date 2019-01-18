@@ -26,7 +26,7 @@ class LineFinder2019(object):
         self.desired_camera = "floor"        # string with camera name
         self.exposure = 0
 
-        # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
+        # Color threshold values, in HSV space -- TODO: in 2019 server (yet to be created) make the low and high hsv limits
         # individual properties
         self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
@@ -40,6 +40,9 @@ class LineFinder2019(object):
         # some variables to save results for drawing
         self.hull_fit = None
         self.biggest_contour = None
+        self.min_contour_area = 20
+        #TODO: make sure min_contour_area is correct -- what if it doesn't see the whole line...
+        #line is 18 inches long and 2 inches wide, area of 36
 
         self.cameraMatrix = None
         self.distortionMatrix = None
@@ -59,6 +62,13 @@ class LineFinder2019(object):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
         return
+
+    @staticmethod
+    def contour_center_width(contour):
+        '''Find boundingRect of contour, but return center, width, and height'''
+
+        x, y, w, h = cv2.boundingRect(contour)
+        return (x + int(w / 2), y + int(h / 2)), (w, h)
 
     @staticmethod
     def quad_fit(contour, approx_dp_error):
@@ -106,6 +116,30 @@ class LineFinder2019(object):
         self.center = None
         self.hull_fit = None
         self.biggest_contour = None
+
+        hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
+        threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
+
+        if self.erode_iterations > 0:
+            erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
+        else:
+            erode_frame = threshold_frame
+
+        # OpenCV 3 returns 3 parameters!
+        # Only need the contours variable
+        _, contours, _ = cv2.findContours(erode_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        contour_list = []
+        for c in contours:
+            center, widths = LineFinder2019.contour_center_width(c)
+            area = widths[0] * widths[1]
+            if area > self.contour_min_area:
+                # TODO: use a simple class? Maybe use "attrs" package?
+                contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
+
+        # Sort the list of contours from biggest area to smallest
+        contour_list.sort(key=lambda c: c['area'], reverse=True)
+
 
 def process_files(rrtarget_finder, input_files, output_dir):
     '''Process the files and output the marked up image'''
@@ -174,12 +208,12 @@ def main():
 
     args = parser.parse_args()
 
-    rrtarget_finder = RRTargetFinder2019(args.calib_file)
+    line_finder = LineFinder2019(args.calib_file)
 
     if args.output_dir is not None:
-        process_files(rrtarget_finder, args.input_files, args.output_dir)
+        process_files(line_finder, args.input_files, args.output_dir)
     elif args.time:
-        time_processing(rrtarget_finder, args.input_files)
+        time_processing(line_finder, args.input_files)
 
     return
 
