@@ -97,6 +97,15 @@ class LineFinder2019(object):
         ys.sort(reverse=True)
         return xs, ys
 
+    def process_image(self, camera_frame):
+        '''Main image processing routine'''
+
+        # clear out result variables each iteration
+        angle = None
+        distance = None
+        self.center = None
+        self.hull_fit = None
+        self.biggest_contour = None
 
 def process_files(rrtarget_finder, input_files, output_dir):
     '''Process the files and output the marked up image'''
