@@ -3,12 +3,12 @@
 '''Vision server for 2018 Power Up -- updated to conform with VisionServer superclass'''
 
 import cv2
-import logging
+# import logging
 
 from networktables.util import ntproperty
-from networktables import NetworkTables
+# from networktables import NetworkTables
 
-from visionserver import VisionServer
+from visionserver import VisionServer, main
 from switchtarget2018 import SwitchTarget2018
 from cubefinder2018 import CubeFinder2018
 from genericfinder import GenericFinder
@@ -57,8 +57,8 @@ class VisionServer2018_new(VisionServer):
 
     camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
 
-    def __init__(self, calib_file):
-        super().__init__()
+    def __init__(self, calib_file, testing_mode=False):
+        super().__init__(testing_mode)
 
         self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
@@ -111,45 +111,7 @@ class VisionServer2018_new(VisionServer):
         return
 
 
-# syntax checkers don't like global variables, so use a simple function
-def main():
-    '''Main routine'''
-
-    import argparse
-    parser = argparse.ArgumentParser(description='2018 Vision Server')
-    parser.add_argument('--test', action='store_true', help='Run in local test mode')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose. Turn up debug messages')
-    parser.add_argument('--files', action='store_true', help='Process input files instead of camera')
-    parser.add_argument('--calib', required=True, help='Calibration file for camera')
-    parser.add_argument('input_files', nargs='*', help='input files')
-
-    args = parser.parse_args()
-
-    # To see messages from networktables, you must setup logging
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    if args.test:
-        # FOR TESTING, set this box as the server
-        NetworkTables.enableVerboseLogging()
-        NetworkTables.initialize()
-    else:
-        NetworkTables.initialize(server='10.28.77.2')
-
-    server = VisionServer2018_new(args.calib)
-
-    if args.files:
-        if not args.input_files:
-            parser.usage()
-
-        server.run_files(args.input_files)
-    else:
-        server.run()
-    return
-
-
 # Main routine
 if __name__ == '__main__':
-    main()
+    # call the standard main routine, passing in the class type we want created, ie VisionServer2018_new
+    main(VisionServer2018_new)

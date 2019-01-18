@@ -47,7 +47,8 @@ class VisionServer:
     target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ],
                              doc='Packed array of target info: time, success, finder_id, distance, angle1, angle2')
 
-    def __init__(self):
+    def __init__(self, testing_mode=False):
+        self.testing_mode = testing_mode
         # for processing stored files and no camera
         self.file_mode = False
 
@@ -345,7 +346,7 @@ class VisionServer:
 
 
 # syntax checkers don't like global variables, so use a simple function
-def main():
+def main(server_type):
     '''Main routine'''
 
     import argparse
@@ -371,7 +372,7 @@ def main():
     else:
         NetworkTables.initialize(server='10.28.77.2')
 
-    server = VisionServer()
+    server = server_type(calib_file=args.calib, testing_mode=args.test)
 
     if args.files:
         if not args.input_files:
