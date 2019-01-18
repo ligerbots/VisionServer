@@ -18,6 +18,10 @@ class SwitchTarget2018(object):
     TARGET_STRIP_WIDTH = 2.0     # inches
 
     def __init__(self, calib_file):
+        self.name = 'switch'
+        self.finder_id = self.SWITCH_FINDER_MODE
+        self.camera = 'intake'
+
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((70, 100, 130), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)

@@ -37,7 +37,7 @@ class VisionServer:
     # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
     # This is the NT variable, which can be set from the Driver's station
     # Use "0" for the initial value; needs to be set by the subclass.
-    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', 0, doc='Active mode')
+    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', 'default', doc='Active mode')
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
@@ -60,6 +60,7 @@ class VisionServer:
         self.video_sinks = {}
         self.current_sink = None
         self.cameras = {}
+        self.active_camera = None
 
         self.create_output_stream()
 
@@ -100,13 +101,6 @@ class VisionServer:
         Only do this on startup or if "tuning" is on, for efficiency'''
 
         # Make sure to add any additional created properties which should be changeable
-        raise NotImplementedError
-
-    def add_cameras(self):
-    #    '''add a single camera at /dev/videoN, N=camera_device'''
-
-    #    self.add_camera('intake', self.camera_device_vision, True)
-    #    self.add_camera('driver', self.camera_device_driver, False)
         raise NotImplementedError
 
     # --------------------------------------------------------------------------------
@@ -179,7 +173,7 @@ class VisionServer:
             self.current_sink = new_sink
             self.active_camera = name
         else:
-            logging.warning('Unknown camera %s' % name)
+            logging.error('Unknown camera %s' % name)
 
         return
 
@@ -190,18 +184,20 @@ class VisionServer:
     def switch_mode(self, new_mode):
         '''Switch processing mode. new_mode is the string name'''
 
-        logging.info("Switching mode to '%s'" % new_mode)
-
-        finder = self.target_finders.get(new_mode, None)
-        if finder is not None:
-            if self.active_camera != finder.camera:
-                self.switch_camera(finder.camera)
-            self.curr_finder = finder
-            self.set_exposure(self.cameras[finder.camera], finder.exposure)
-            self.active_mode = new_mode
-            self.nt_active_mode = self.active_mode  # make sure they are in sync
-        else:
-            logging.error("Unknown mode '%s'" % new_mode)
+        try:
+            logging.info("Switching mode to '%s'" % new_mode)
+            finder = self.target_finders.get(new_mode, None)
+            if finder is not None:
+                if self.active_camera != finder.camera:
+                    self.switch_camera(finder.camera)
+                    self.curr_finder = finder
+                    self.set_exposure(self.cameras[finder.camera], finder.exposure)
+                    self.active_mode = new_mode
+                    self.nt_active_mode = self.active_mode  # make sure they are in sync
+            else:
+                logging.error("Unknown mode '%s'" % new_mode)
+        except Exception as e:
+            logging.error('Exception when switching mode: %s', e)
 
         return
 
@@ -212,7 +208,7 @@ class VisionServer:
         except Exception as e:
             logging.error("Exception caught in process_image(): %s", e)
             result = (0.0, 0.0, 0.0, 0.0, 0.0)
-        
+
         return result
 
     def prepare_output_image(self):
@@ -227,11 +223,11 @@ class VisionServer:
 
             # If tuning mode is on, add text to the upper left corner saying "Tuning On"
             if self.tuning:
-                cv2.putText(self.output_frame, "TUNING ON", (60,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
-        
+                cv2.putText(self.output_frame, "TUNING ON", (60, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
+
         except Exception as e:
             logging.error("Exception caught in prepare_output_image(): %s", e)
-        
+
         return
 
     def run(self):

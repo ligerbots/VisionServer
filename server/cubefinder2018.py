@@ -9,7 +9,7 @@ import math
 class CubeFinder2018(object):
     '''Find power cube for PowerUp 2018'''
 
-    CUBE_FINDER_MODE = 2
+    CUBE_FINDER_MODE = 2.0
 
     # CUBE_HEIGHT = 11    #inches
     # CUBE_WIDTH = 13     #inches
@@ -24,6 +24,10 @@ class CubeFinder2018(object):
     VP_HALF_HEIGHT = math.tan(math.radians(VFOV)/2.0)  # view plane 1/2 width
 
     def __init__(self, calib_file):
+        self.name = 'cube'
+        self.finder_id = self.CUBE_FINDER_MODE
+        self.camera = 'intake'
+
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
         # individual properties
         self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)

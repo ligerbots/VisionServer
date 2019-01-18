@@ -8,11 +8,12 @@ finder_id may not need to be changed, depending on circumstances."""
 
 import cv2
 
+
 class GenericFinder(object):
     def __init__(self, name, camera, finder_id=1.0, exposure=0, rotation=None):
         self.name = name
         self.finder_id = float(finder_id)   # id needs to be float! "id" is a reserved word.
-        self.desired_camera = camera        # string with camera name
+        self.camera = camera                # string with camera name
         self.exposure = exposure
         self.rotation = rotation            # cv2.ROTATE_90_CLOCKWISE = 0, cv2.ROTATE_180 = 1, cv2.ROTATE_90_COUNTERCLOCKWISE = 2
         return

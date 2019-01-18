@@ -11,6 +11,7 @@ from networktables import NetworkTables
 from visionserver import VisionServer
 from switchtarget2018 import SwitchTarget2018
 from cubefinder2018 import CubeFinder2018
+from genericfinder import GenericFinder
 
 
 class VisionServer2018_new(VisionServer):
@@ -57,47 +58,58 @@ class VisionServer2018_new(VisionServer):
     camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
 
     def __init__(self, calib_file):
-        super.__init__()
-
-        # Initial mode for start of match.
-        #  VisionServer switches to this mode after a second, to get the cameras initialized
-        self.initial_mode = 'switch'
-
-        self.switch_finder = SwitchTarget2018(calib_file)
-        self.cube_finder = CubeFinder2018(calib_file)
+        super().__init__()
 
         self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
+
+        # Initial mode for start of match.
+        #  VisionServer switches to this mode after a second, to get the cameras initialized
+        #  THIS IS UGLY!!
+        self.initial_mode = 'switch'
+        self.active_mode = self.initial_mode
+        self.nt_active_mode = self.initial_mode
+
+        self.add_cameras()
+
+        self.add_target_finder(SwitchTarget2018(calib_file))
+        self.add_target_finder(CubeFinder2018(calib_file))
+        # driver camera with no processing, but rotate 90 deg
+        self.add_target_finder(GenericFinder(name='driver', camera='driver', rotation=cv2.ROTATE_90_COUNTERCLOCKWISE))
+        # intake camera with no processing
+        self.add_target_finder(GenericFinder(name='intake', camera='intake'))
 
         self.update_parameters()
 
         # Start in cube mode, then then switch to initial_mode after camera is fully initialized
         self.switch_mode('cube')
+        return
 
-    @Override
     def update_parameters(self):
         '''Update processing parameters from NetworkTables values.
         Only do this on startup or if "tuning" is on, for efficiency'''
 
         # Make sure to add any additional created properties which should be changeable
 
-        self.switch_finder.set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
-                                                self.switch_saturation_low_limit, self.switch_saturation_high_limit,
-                                                self.switch_value_low_limit, self.switch_value_high_limit)
-        self.cube_finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
-                                              self.cube_saturation_low_limit, self.cube_saturation_high_limit,
-                                              self.cube_value_low_limit, self.cube_value_high_limit)
+        self.target_finders['switch'].set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
+                                                           self.switch_saturation_low_limit, self.switch_saturation_high_limit,
+                                                           self.switch_value_low_limit, self.switch_value_high_limit)
 
-        self.cube_finder.camera_height = self.camera_height
+        finder = self.target_finders['cube']
+        finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
+                                    self.cube_saturation_low_limit, self.cube_saturation_high_limit,
+                                    self.cube_value_low_limit, self.cube_value_high_limit)
+        finder.camera_height = self.camera_height
+
         return
-    
-    @Override
+
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
         self.add_camera('intake', self.camera_device_vision, True)
         self.add_camera('driver', self.camera_device_driver, False)
         return
+
 
 # syntax checkers don't like global variables, so use a simple function
 def main():
@@ -136,6 +148,7 @@ def main():
     else:
         server.run()
     return
+
 
 # Main routine
 if __name__ == '__main__':
