@@ -21,6 +21,7 @@ class SwitchTarget2018(object):
         self.name = 'switch'
         self.finder_id = self.SWITCH_FINDER_MODE
         self.camera = 'intake'
+        self.exposure = 6
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((70, 100, 130), dtype=numpy.uint8)

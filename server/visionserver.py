@@ -148,6 +148,10 @@ class VisionServer:
         self.cameras[name] = camera
 
         self.camera_server.startAutomaticCapture(camera=camera)
+
+        # PS Eye camera needs to have its pixelformat set
+        # camera.setPixelFormat(cscore.VideoMode.PixelFormat.kYUYV)
+
         camera.setResolution(int(self.image_width), int(self.image_height))
         camera.setFPS(int(self.camera_fps))
 
@@ -191,10 +195,11 @@ class VisionServer:
             if finder is not None:
                 if self.active_camera != finder.camera:
                     self.switch_camera(finder.camera)
-                    self.curr_finder = finder
-                    self.set_exposure(self.cameras[finder.camera], finder.exposure)
-                    self.active_mode = new_mode
-                    self.nt_active_mode = self.active_mode  # make sure they are in sync
+
+                self.curr_finder = finder
+                self.set_exposure(self.cameras[finder.camera], finder.exposure)
+                self.active_mode = new_mode
+                self.nt_active_mode = self.active_mode  # make sure they are in sync
             else:
                 logging.error("Unknown mode '%s'" % new_mode)
         except Exception as e:
@@ -295,12 +300,12 @@ class VisionServer:
                 NetworkTables.flush()
 
                 # Done. Output the marked up image, if needed
+                # Note this can also be done via the URL, but this is more efficient
                 now = time.time()
                 deltat = now - self.previous_output_time
                 min_deltat = 1.0 / self.output_fps_limit
                 if deltat >= min_deltat:
                     self.prepare_output_image()
-
                     self.output_stream.putFrame(self.output_frame)
                     self.previous_output_time = now
 

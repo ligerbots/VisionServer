@@ -91,15 +91,18 @@ class VisionServer2018_new(VisionServer):
 
         # Make sure to add any additional created properties which should be changeable
 
-        self.target_finders['switch'].set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
-                                                           self.switch_saturation_low_limit, self.switch_saturation_high_limit,
-                                                           self.switch_value_low_limit, self.switch_value_high_limit)
+        finder = self.target_finders['switch']
+        finder.set_color_thresholds(self.switch_hue_low_limit, self.switch_hue_high_limit,
+                                    self.switch_saturation_low_limit, self.switch_saturation_high_limit,
+                                    self.switch_value_low_limit, self.switch_value_high_limit)
+        finder.exposure = self.switch_exposure
 
         finder = self.target_finders['cube']
         finder.set_color_thresholds(self.cube_hue_low_limit, self.cube_hue_high_limit,
                                     self.cube_saturation_low_limit, self.cube_saturation_high_limit,
                                     self.cube_value_low_limit, self.cube_value_high_limit)
         finder.camera_height = self.camera_height
+        finder.exposure = self.cube_exposure
 
         return
 

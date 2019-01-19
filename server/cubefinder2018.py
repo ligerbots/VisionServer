@@ -27,6 +27,7 @@ class CubeFinder2018(object):
         self.name = 'cube'
         self.finder_id = self.CUBE_FINDER_MODE
         self.camera = 'intake'
+        self.exposure = 0
 
         # Color threshold values, in HSV space -- TODO: in 2018 server (yet to be created) make the low and high hsv limits
         # individual properties
