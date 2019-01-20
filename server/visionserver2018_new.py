@@ -60,8 +60,8 @@ class VisionServer2018_new(VisionServer):
     def __init__(self, calib_file, testing_mode=False):
         super().__init__(testing_mode)
 
-        self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
-        self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
+        self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
+        self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
 
         # Initial mode for start of match.
         #  VisionServer switches to this mode after a second, to get the cameras initialized

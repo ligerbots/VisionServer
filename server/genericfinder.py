@@ -22,8 +22,13 @@ class GenericFinder(object):
         '''Main image processing routine'''
         return (1.0, self.finder_id, 0.0, 0.0, 0.0)
 
-    def prepare_output_image(self, output_frame):
-        '''Prepare output image for drive station. Draw the found target contour.'''
+    def prepare_output_image(self, input_frame):
+        '''Prepare output image for drive station. Rotate image if needed, otherwise nothing to do.'''
+
         if self.rotation is not None:
-            cv2.rotate(output_frame, self.rotation)
-        return
+            # rotate function makes a copy, so no need to do that ahead.
+            output_frame = cv2.rotate(input_frame, self.rotation)
+        else:
+            output_frame = input_frame.copy()
+
+        return output_frame

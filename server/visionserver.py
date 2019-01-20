@@ -16,7 +16,7 @@ from networktables import NetworkTables
 class VisionServer:
     # NetworkTable parameters
 
-    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 17,
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 32,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -27,8 +27,9 @@ class VisionServer:
     tuning = ntproperty('/SmartDashboard/vision/tuning', False, writeDefault=True,
                         doc='Tuning mode. Reads processing parameters each time.')
 
+    # Logitech c930 are wide-screen cameras, so 320x180 has the biggest FOV
     image_width = ntproperty('/SmartDashboard/vision/width', 320, writeDefault=False, doc='Image width')
-    image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
+    image_height = ntproperty('/SmartDashboard/vision/height', 180, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
 
     image_writer_state = ntproperty('/SmartDashboard/vision/write_images', False, writeDefault=True,
@@ -155,6 +156,10 @@ class VisionServer:
         camera.setResolution(int(self.image_width), int(self.image_height))
         camera.setFPS(int(self.camera_fps))
 
+        mode = camera.getVideoMode()
+        logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
+                     mode.pixelFormat, mode.width, mode.height, mode.fps)
+
         sink = self.camera_server.getVideo(camera=camera)
         self.video_sinks[name] = sink
         if active:
@@ -218,10 +223,14 @@ class VisionServer:
         return result
 
     def prepare_output_image(self):
+        '''Create the image to send to the Driver station.
+        Finder is expected to *copy* the input image, as needed'''
+
         try:
-            self.output_frame = self.camera_frame.copy()
-            if self.curr_finder is not None:
-                self.curr_finder.prepare_output_image(self.output_frame)
+            if self.curr_finder is None:
+                self.output_frame = self.camera_frame.copy()
+            else:
+                self.output_frame = self.curr_finder.prepare_output_image(self.camera_frame)
 
             # If saving images, add a little red "Recording" dot in upper left
             if self.image_writer_state:

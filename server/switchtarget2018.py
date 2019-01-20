@@ -174,8 +174,10 @@ class SwitchTarget2018(object):
         # no target found. Return "failure"
         return [0.0, SwitchTarget2018.SWITCH_FINDER_MODE, 0.0, 0.0, 0.0]
 
-    def prepare_output_image(self, output_frame):
+    def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
+
+        output_frame = input_frame.copy()
 
         for loc in self.target_locations:
             cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
@@ -186,7 +188,7 @@ class SwitchTarget2018(object):
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
-        return
+        return output_frame
 
     def test_candidate_contour(self, contour_list, cand_index, width):
         '''Given a contour as the candidate for the closest (unobscured) target region,

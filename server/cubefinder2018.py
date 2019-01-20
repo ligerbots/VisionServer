@@ -327,8 +327,10 @@ class CubeFinder2018(object):
 
         return None
 
-    def prepare_output_image(self, output_frame):
+    def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
+
+        output_frame = input_frame.copy()
 
         # Draw the contour on the image
         if self.biggest_contour is not None:
@@ -341,7 +343,7 @@ class CubeFinder2018(object):
             cv2.drawMarker(output_frame, tuple(self.center), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
             # cv2.circle(output_frame, tuple(self.center), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
 
-        return
+        return output_frame
 
 
 def process_files(cube_processor, input_files, output_dir):

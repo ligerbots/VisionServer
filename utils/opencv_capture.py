@@ -6,7 +6,10 @@ import cv2
 dev = int(sys.argv[1])
 cap = cv2.VideoCapture(dev)
 
-cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
+#cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', 'U', 'Y', 'V'))
+#print('fourcc=', cap.get(cv2.CAP_PROP_FOURCC))
+
+cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
 print('auto exposure=', cap.get(cv2.CAP_PROP_AUTO_EXPOSURE))
 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
