@@ -50,8 +50,8 @@ class VisionServer:
     target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ],
                              doc='Packed array of target info: time, success, finder_id, distance, angle1, angle2')
 
-    def __init__(self, testing_mode=False):
-        self.testing_mode = testing_mode
+    def __init__(self, test_mode=False):
+        self.test_mode = test_mode
         # for processing stored files and no camera
         self.file_mode = False
 
@@ -234,13 +234,27 @@ class VisionServer:
             else:
                 self.output_frame = self.curr_finder.prepare_output_image(self.camera_frame)
 
+            image_shape = self.output_frame.shape
+            if image_shape[0] < 400: # test on height
+                dotrad = 3
+                fontscale = 0.4
+                fontthick = 1
+            else:
+                dotrad = 5
+                fontscale = 0.75
+                fontthick = 2
+
             # If saving images, add a little red "Recording" dot in upper left
             if self.image_writer_state:
-                cv2.circle(self.output_frame, (20, 20), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+                cv2.circle(self.output_frame, (20, 20), dotrad, (0, 0, 255), thickness=2*dotrad, lineType=8, shift=0)
 
             # If tuning mode is on, add text to the upper left corner saying "Tuning On"
             if self.tuning:
-                cv2.putText(self.output_frame, "TUNING ON", (60, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), thickness=2)
+                cv2.putText(self.output_frame, "TUNING ON", (60, 30), cv2.FONT_HERSHEY_SIMPLEX, fontscale, (255, 0, 0), thickness=fontthick)
+
+            # If test mode (ie running the NT server), give a warning
+            if self.test_mode:
+                cv2.putText(self.output_frame, "TEST MODE", (5, image_shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX, fontscale, (0, 255, 255), thickness=fontthick)
 
         except Exception as e:
             logging.error("Exception caught in prepare_output_image(): %s", e)
@@ -388,7 +402,7 @@ def main(server_type):
     else:
         NetworkTables.initialize(server='10.28.77.2')
 
-    server = server_type(calib_file=args.calib, testing_mode=args.test)
+    server = server_type(calib_file=args.calib, test_mode=args.test)
 
     if args.files:
         if not args.input_files:
