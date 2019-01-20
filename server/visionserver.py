@@ -16,7 +16,9 @@ from networktables import NetworkTables
 class VisionServer:
     # NetworkTable parameters
 
-    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 32,
+    # frame rate is pretty variable, so set this a fair bit higher than what you really want
+    # using a large number for no limit
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 1000,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras

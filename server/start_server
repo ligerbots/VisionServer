@@ -4,7 +4,7 @@
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2018.py
+SCRIPT=visionserver2018_new.py
 # For running standalone (not alongside a RoboRio), add the "--test" option
 # 640x480 value
 ##ARGS="--calib ../data/calibration/c930e_calib.json"
