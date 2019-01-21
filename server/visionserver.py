@@ -50,7 +50,7 @@ class VisionServer:
     target_info = ntproperty('/SmartDashboard/vision/target_info', 6 * [0.0, ],
                              doc='Packed array of target info: time, success, finder_id, distance, angle1, angle2')
 
-    def __init__(self, test_mode=False):
+    def __init__(self, initial_mode, test_mode=False):
         self.test_mode = test_mode
         # for processing stored files and no camera
         self.file_mode = False
@@ -71,13 +71,15 @@ class VisionServer:
         # Dictionary of finders. The key is the string "name" of the finder.
         self.target_finders = {}
 
+        # Initial mode for start of match.
+        # VisionServer switches to this mode after a second, to get the cameras initialized
+        self.initial_mode = initial_mode
+        self.nt_active_mode = self.initial_mode
+
         # active mode. To be compared to nt_active_mode to see if it has changed
         self.active_mode = None
-        self.curr_finder = None
 
-        # Initial mode for start of match.
-        #  VisionServer switches to this mode after a second, to get the cameras initialized
-        self.initial_mode = None
+        self.curr_finder = None
 
         # rate limit parameters
         self.previous_output_time = time.time()
