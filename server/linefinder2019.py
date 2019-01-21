@@ -8,10 +8,6 @@ import math
 class LineFinder2019(object):
     '''Find line following for Deep Space 2019'''
 
-    # CUBE_HEIGHT = 11    #inches
-    # CUBE_WIDTH = 13     #inches
-    # CUBE_LENGTH = 13    #inches
-
     HFOV = 64.0                  # horizontal angle of the field of view
     VFOV = 52.0                  # vertical angle of the field of view
 
@@ -28,8 +24,8 @@ class LineFinder2019(object):
 
         # Color threshold values, in HSV space -- TODO: in 2019 server (yet to be created) make the low and high hsv limits
         # individual properties
-        self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)
-        self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((0, 0, 185), dtype=numpy.uint8)
+        self.high_limit_hsv = numpy.array((255, 60, 255), dtype=numpy.uint8)
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.015
@@ -40,9 +36,10 @@ class LineFinder2019(object):
         # some variables to save results for drawing
         self.hull_fit = None
         self.biggest_contour = None
-        self.min_contour_area = 20
+        self.contour_min_area = 20
         #TODO: make sure min_contour_area is correct -- what if it doesn't see the whole line...
         #line is 18 inches long and 2 inches wide, area of 36
+        self.max_num_vertices = 7   #TODO test the max and min
 
         self.cameraMatrix = None
         self.distortionMatrix = None
@@ -106,6 +103,60 @@ class LineFinder2019(object):
         xs.sort(reverse=True)
         ys.sort(reverse=True)
         return xs, ys
+    
+    def test_candidate_contour(self, test_pass, contour_entry, frame_shape):
+        cnt = contour_entry['contour']
+
+        if test_pass == 0:
+            c = contour_entry['center']
+            w = contour_entry['widths']
+            if c[0] + (w[0] / 2.0) >= frame_shape[1] - 5 or c[0] - (w[0] / 2.0) <= 5:
+                #print("Failed edge cut")
+                return None
+
+        #hull = cv2.convexHull(cnt)
+        # hull_fit contains the corners for the contour
+        hull_fit = LineFinder2019.quad_fit(cnt, self.approx_polydp_error)
+
+        vertices = len(hull_fit)
+        print("Vertices %d" % vertices)
+        if vertices >= 4 and vertices <= self.max_num_vertices:
+            return hull_fit
+
+        return None
+
+    def get_line_values_calib(self, center):
+        '''Calculate the angle and distance from the camera to the center point of the robot
+        This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
+
+        # use the distortion and camera arrays to correct the location of the center point
+        # got this from
+        # https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
+        # (Needs lots of brackets! Buy shares in the Bracket Company now!)
+
+        center_np = numpy.array([[[float(self.center[0]), float(self.center[1])]]])
+        out_pt = cv2.undistortPoints(center_np, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
+        undist_center = out_pt[0, 0]
+
+        x_prime = (undist_center[0] - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
+        y_prime = -(undist_center[1] - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
+
+        # now have all pieces to convert to angle:
+        ax = math.atan2(x_prime, 1.0)     # horizontal angle
+
+        # naive expression
+        # ay = math.atan2(y_prime, 1.0)     # vertical angle
+
+        # corrected expression.
+        # As horizontal angle gets larger, real vertical angle gets a little smaller
+        ay = math.atan2(y_prime * math.cos(ax), 1.0)     # vertical angle
+        # print("ax, ay", math.degrees(ax), math.degrees(ay))
+
+        # now use the x and y angles to calculate the distance to the target:
+        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
+
+        return ax, d    # return horizontal angle and distance
+
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -139,9 +190,52 @@ class LineFinder2019(object):
 
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
+        self.found_contours = contour_list
+        # test first 3 biggest contours only (optimization)
+        for test_pass in [0, 1]:
+            for cnt in contour_list[0:3]:
+                self.hull_fit = self.test_candidate_contour(test_pass, cnt, camera_frame.shape)
+                self.biggest_contour = cnt['contour']
+                if self.hull_fit is not None:
+                    break
+            if self.hull_fit is not None:
+                break
+            print("Pass 0 failed")
+        # NOTE: testing a list returns true if there is something in the list
+        #if self.hull_fit is not None:
+        #    if self.cameraMatrix is not None:
+        #        angle, distance = self.get_cube_values_calib(self.center)
+        #    else:
+        #        angle, distance = self.get_cube_values(self.center, camera_frame.shape)
+
+        # return values: (success, cube or switch, distance, angle, -- still deciding here?)
+        #if distance is None or angle is None:
+        #    return (0.0, CubeFinder2018.CUBE_FINDER_MODE, 0.0, 0.0, 0.0)
+
+        #return (1.0, CubeFinder2018.CUBE_FINDER_MODE, distance, angle, 0.0)
+        return (1.0, self.finder_id, 0.0, 0.0, 0.0)
+
+    def prepare_output_image(self, input_frame):
+        '''Prepare output image for drive station. Draw the found target contour.'''
+
+        output_frame = input_frame.copy()
+
+        for c in self.found_contours:
+            cv2.drawContours(output_frame, [c['contour']], -1, (255, 0, 255), 2)
+
+        # Draw the contour on the image
+        #if self.biggest_contour is not None:
+        #    print("Drawing contour on image...")
+        #    cv2.drawContours(output_frame, [self.biggest_contour], -1, (255, 0, 255), 2)
+
+        if self.hull_fit is not None:
+            print("Drawing hull_fit on image...")
+            cv2.drawContours(output_frame, [self.hull_fit], -1, (255, 0, 0), 2)
+
+        return output_frame
 
 
-def process_files(rrtarget_finder, input_files, output_dir):
+def process_files(finder, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
 
@@ -149,14 +243,14 @@ def process_files(rrtarget_finder, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
-        result = rrtarget_finder.process_image(bgr_frame)
+        result = finder.process_image(bgr_frame)
         #print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 
-        rrtarget_finder.prepare_output_image(bgr_frame)
+        output_frame = finder.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, bgr_frame)
+        cv2.imwrite(outfile, output_frame)
 
         # cv2.imshow("Window", bgr_frame)
         # q = cv2.waitKey(-1) & 0xFF
@@ -165,7 +259,7 @@ def process_files(rrtarget_finder, input_files, output_dir):
     return
 
 
-def time_processing(cube_processor, input_files):
+def time_processing(finder, input_files):
     '''Time the processing of the test files'''
 
     from codetimer import CodeTimer
@@ -184,7 +278,7 @@ def time_processing(cube_processor, input_files):
                 bgr_frame = cv2.imread(image_file)
 
             with CodeTimer("Main Processing"):
-                cube_processor.process_image(bgr_frame)
+                finder.process_image(bgr_frame)
 
             cnt += 1
 
@@ -200,7 +294,7 @@ def main():
     '''Main routine'''
     import argparse
 
-    parser = argparse.ArgumentParser(description='2018 cube finder')
+    parser = argparse.ArgumentParser(description='2019 line finder')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
     parser.add_argument('--calib_file', help='Calibration file')
