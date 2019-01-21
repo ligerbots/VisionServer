@@ -58,17 +58,10 @@ class VisionServer2018_new(VisionServer):
     camera_height = ntproperty('/SmartDashboard/vision/camera_height', 23.0, doc='Camera height (inches)')
 
     def __init__(self, calib_file, test_mode=False):
-        super().__init__(test_mode)
+        super().__init__(initial_mode='switch', test_mode=test_mode)
 
         self.camera_device_driver = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_vision = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
-
-        # Initial mode for start of match.
-        #  VisionServer switches to this mode after a second, to get the cameras initialized
-        #  THIS IS UGLY!!
-        self.initial_mode = 'switch'
-        self.active_mode = self.initial_mode
-        self.nt_active_mode = self.initial_mode
 
         self.add_cameras()
 
