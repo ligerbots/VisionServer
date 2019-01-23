@@ -196,8 +196,8 @@ class RRTargetFinder2019(object):
         been rejected.
         '''
 
-        //TODO: change split to horizontal merge rather than vertical
-        //TODO: decide on if use seperate target strip point or combined points only
+        #TODO: change split to horizontal merge rather than vertical
+        #TODO: decide on if use seperate target strip point or combined points only
 
         candidate = contour_list[cand_index]
 
