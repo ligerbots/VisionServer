@@ -203,7 +203,7 @@ class RRTargetFinder2019(object):
         cand_x = candidate['center'][0]
         cand_y = candidate['center'][1]
         cand_width = candidate['widths'][0]
-        
+
         # print('ratio:', cand_width / candidate['widths'][1])
         if cand_width / candidate['widths'][1] > self.target_separation:    #TODO: how does this work? Why is it regetting the height when its in a variable already?
             return None
