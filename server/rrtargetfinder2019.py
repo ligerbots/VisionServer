@@ -28,7 +28,8 @@ class RRTargetFinder2019(object):
         # distance between the two target bars, in units of the width of a bar
         # self.target_separation = 3.0  # theoretical value
         # tuned value. Seems to work better on pictures from our field elements.
-        self.target_separation = 2.6    #TODO: should be the distance the farthest outside points of each strip (since they are tilted)
+        self.target_separation = 3.0    #distance from inside corners of the rr strips
+        self.width_separation_ratio_max = 0.7
 
         # max distance in pixels that a contour can from the guessed location
         self.max_target_dist = 50
@@ -147,10 +148,10 @@ class RRTargetFinder2019(object):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
+            self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[0])   #shape[0] is width, shape[1] is the height
             if self.target_contour is not None:
                 break
-        print(self.target_contour is None)
+
         if self.target_contour is not None:
             # The target was found. Convert to real world co-ordinates.
 
@@ -163,12 +164,13 @@ class RRTargetFinder2019(object):
             RRTargetFinder2019.sort_corners(cnrlist)   # in place sort
             image_corners = numpy.array(cnrlist)
 
-            retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
+            """retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
                 result = [1.0, self.finder_id, ]
                 result.extend(self.compute_output_values(rvec, tvec))
-                return result
+                return result"""
+            return [1.0, self.finder_id, 0.0, 0.0, 0.0]
         
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
@@ -204,42 +206,51 @@ class RRTargetFinder2019(object):
         cand_x = candidate['center'][0]
         cand_y = candidate['center'][1]
         cand_width = candidate['widths'][0]
+        cand_height = candidate['widths'][1]
+
+        print("Target center at: (" + str(cand_x) + ", " + str(cand_y) + ")")
 
         # print('ratio:', cand_width / candidate['widths'][1])
-        if cand_width / candidate['widths'][1] > self.target_separation:    #TODO: how does this work? Why is it regetting the height when its in a variable already?
+        if cand_width / cand_height > self.width_separation_ratio_max:
             return None
 
         # Based on the candidate location and x-width, compute guesses where the other bar should be
         test_locations = []
-        
-        dx = int(self.target_separation * cand_width)   #TODO: why multiply by target_seperation?        x = cand_x + dx
+
+        dx = int(self.target_separation * cand_width)
+        print("dx: ", dx)
         x = cand_x + dx
+        print("x1: ", x)
         if x < width:
             test_locations.append((x, cand_y))
         x = cand_x - dx
+        print("x2: ", x)
         if x > 0:
             test_locations.append((x, cand_y))
-
+        print("Test location coord is: ", test_locations)
         # if neither location is inside the image, reject
         if not test_locations:
             return None
-
+        
         # find the closest contour to either of the guessed locations
         second_cont_index = None
-        distance = self.target_separation
+        distance = self.max_target_dist
         for ci in range(cand_index + 1, len(contour_list)):
             c = contour_list[ci]
 
             for test_loc in test_locations:
                 # negative is outside. I want the other sign
                 dist = -cv2.pointPolygonTest(c['contour'], test_loc, measureDist=True)
+                print("Dist from cadidate to surrounding contour is: %s" % dist)
+                print("Distance (target seperation) is: %s" % distance)
+                diff = dist < distance
+                print("Is dist < distance? %s" % diff)
                 if dist < distance:
                     second_cont_index = ci
                     distance = dist
-                    if dist <= 0:   #TODO: the docs say that dist is (-) when outside the contour, not inside?!
+                    if dist <= 0:   #WARNING: the docs say that dist is (-) when outside the contour, not inside?!
                         # guessed location is inside this contour, so this is the one. No need to search further
                         break
-
             if distance <= 0:
                 break
         if second_cont_index is None:
@@ -336,7 +347,7 @@ def process_files(line_finder, input_files, output_dir):
         result = line_finder.process_image(bgr_frame)
         #print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 
-        line_finder.prepare_output_image(bgr_frame)
+        bgr_frame = line_finder.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
