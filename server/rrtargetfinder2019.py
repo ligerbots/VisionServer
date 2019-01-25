@@ -22,7 +22,7 @@ class RRTargetFinder2019(object):
         self.exposure = 6
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((70, 100, 130), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # distance between the two target bars, in units of the width of a bar
@@ -56,10 +56,11 @@ class RRTargetFinder2019(object):
         # output results
         self.target_contour = None
 
-        with open(calib_file) as f:
-            json_data = json.load(f)
-            self.cameraMatrix = numpy.array(json_data["camera_matrix"])
-            self.distortionMatrix = numpy.array(json_data["distortion"])
+        if calib_file:
+            with open(calib_file) as f:
+                json_data = json.load(f)
+                self.cameraMatrix = numpy.array(json_data["camera_matrix"])
+                self.distortionMatrix = numpy.array(json_data["distortion"])
 
         # Corners of the switch target in real world dimensions
         # TODO: Change?
@@ -129,7 +130,7 @@ class RRTargetFinder2019(object):
         # OpenCV 3 returns 3 parameters!
         # Only need the contours variable
         _, contours, _ = cv2.findContours(self.threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+        
         contour_list = []
         for c in contours:
             center, widths = RRTargetFinder2019.contour_center_width(c)
@@ -149,7 +150,7 @@ class RRTargetFinder2019(object):
             self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contour is not None:
                 break
-
+        print(self.target_contour is None)
         if self.target_contour is not None:
             # The target was found. Convert to real world co-ordinates.
 
@@ -168,7 +169,7 @@ class RRTargetFinder2019(object):
                 result = [1.0, self.finder_id, ]
                 result.extend(self.compute_output_values(rvec, tvec))
                 return result
-
+        
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
 
