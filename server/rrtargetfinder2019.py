@@ -28,7 +28,7 @@ class RRTargetFinder2019(object):
         # distance between the two target bars, in units of the width of a bar
         # self.target_separation = 3.0  # theoretical value
         # tuned value. Seems to work better on pictures from our field elements.
-        self.target_separation = 3.0    #distance from inside corners of the rr strips
+        self.target_separation = 3.0    # distance from inside corners of the rr strips
         self.width_separation_ratio_max = 0.7
 
         # max distance in pixels that a contour can from the guessed location
@@ -131,7 +131,7 @@ class RRTargetFinder2019(object):
         # OpenCV 3 returns 3 parameters!
         # Only need the contours variable
         _, contours, _ = cv2.findContours(self.threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
+
         contour_list = []
         for c in contours:
             center, widths = RRTargetFinder2019.contour_center_width(c)
@@ -148,7 +148,7 @@ class RRTargetFinder2019(object):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contours = self.test_candidate_contour(contour_list, candidate_index, width=shape[0])   #shape[0] is width, shape[1] is the height
+            self.target_contours = self.test_candidate_contour(contour_list, candidate_index, width=shape[0])   # shape[0] is width, shape[1] is the height
             if self.target_contours is not None:
                 break
 
@@ -177,7 +177,7 @@ class RRTargetFinder2019(object):
             #     result = [1.0, self.finder_id, ]
             #     result.extend(self.compute_output_values(rvec, tvec))
             #     return result
-        
+
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
 
@@ -199,7 +199,7 @@ class RRTargetFinder2019(object):
 
     def test_candidate_contour(self, contour_list, cand_index, width):
         '''Given a contour as the candidate for the closest (unobscured) target region,
-        try to find 1 or 2 other regions which makes up the other side of the target (due to the 
+        try to find 1 or 2 other regions which makes up the other side of the target (due to the
         possible splitting of the target by cables lifting the elevator)
 
         In any test over the list of contours, start *after* cand_index. Those above it have
@@ -237,7 +237,7 @@ class RRTargetFinder2019(object):
         # if neither location is inside the image, reject
         if not test_locations:
             return None
-        
+
         # find the closest contour to either of the guessed locations
         second_cont_index = None
         distance = self.max_target_dist
@@ -256,7 +256,7 @@ class RRTargetFinder2019(object):
                     second_cont_index = ci
                     print("Resetting the second_cont_index to", c['center'][0], c['center'][1])
                     distance = dist
-                    if dist <= 0:   #WARNING: the docs say that dist is (-) when outside the contour, not inside?!
+                    if dist <= 0:   # WARNING: the docs say that dist is (-) when outside the contour, not inside?!
                         # guessed location is inside this contour, so this is the one. No need to search further
                         break
             if distance <= 0:
@@ -283,7 +283,7 @@ class RRTargetFinder2019(object):
             delta_x = abs(second_cont_x - center3[0])
 
             # 2nd and 3rd contour need to have almost the same X and almost the same width (correct??)
-            if (not delta_x > cand_width) and abs(second_cont_y - center3[1]) < 10 and abs(second_cont_height - width3[0]) < 10: # too wide to be split contour
+            if (not delta_x > cand_width) and abs(second_cont_y - center3[1]) < 10 and abs(second_cont_height - width3[0]) < 10:  # too wide to be split contour
                 third_cont_index = cont3
                 break
 
@@ -295,7 +295,8 @@ class RRTargetFinder2019(object):
         ave_second_bar_width = second_cont_width
         if third_cont_index is not None:
             ave_second_bar_x = (ave_second_bar_x + contour_list[third_cont_index]['center'][0]) / 2
-            ave_second_bar_width = (ave_second_bar_width + contour_list[third_cont_index]['widths'][0]) #just add because side by side they should add to the actual target width
+            # just add because side by side they should add to the actual target width
+            ave_second_bar_width = (ave_second_bar_width + contour_list[third_cont_index]['widths'][0])
 
         delta_x = abs(cand_x - ave_second_bar_x)
         ave_width = (cand_width + ave_second_bar_width) / 2
@@ -320,13 +321,13 @@ class RRTargetFinder2019(object):
         else:
             hull_a = cv2.convexHull(all_contours[1])
 
-        #combined = numpy.vstack(all_contours)
+        # combined = numpy.vstack(all_contours)
         hull_b = cv2.convexHull(all_contours[0])
 
         target_contour_a = RRTargetFinder2019.quad_fit(hull_a, self.approx_polydp_error)
         target_contour_b = RRTargetFinder2019.quad_fit(hull_b, self.approx_polydp_error)
 
-        if len(target_contour_a) == 4 and len(target_contour_b) == 4:    #TODO: decide on if use seperate target strip point or combined points only
+        if len(target_contour_a) == 4 and len(target_contour_b) == 4:    # TODO: decide on if use seperate target strip point or combined points only
             print("****returning the 2 contours :-)")
             return [target_contour_a, target_contour_b]
         print("****returning None")
