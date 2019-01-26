@@ -15,6 +15,9 @@ ARGS="--calib ../data/calibration/c930e_qvga_calib.json"
 LOG_DIR="logs"
 LOG_BASE="visionserver"
 
+# place VisionServer saves images. Must match the value in the Python code.
+IMAGE_SAVE_DIR='saved_images'
+
 logfile_name() {
     if [ ! -d $LOG_DIR ]; then
         mkdir $LOG_DIR
@@ -63,6 +66,10 @@ case "$1" in
 
     start)
         cd $DIR
+        
+        # make sure the image save directory is always there, and read/write for everyone
+        mkdir -m a=rwx -p $IMAGE_SAVE_DIR
+        
         LOG_FILE=$( logfile_name )
 
 	date > $LOG_FILE
