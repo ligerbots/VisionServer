@@ -55,7 +55,7 @@ class RRTargetFinder2019(object):
         self.target_locations = None
 
         # output results
-        self.target_contour = None
+        self.target_contours = None
 
         if calib_file:
             with open(calib_file) as f:
@@ -64,7 +64,7 @@ class RRTargetFinder2019(object):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         # Corners of the switch target in real world dimensions
-        # TODO: Change?
+        # TODO: Update these coords to be accurate
         self.target_coords = numpy.array([[-RRTargetFinder2019.TARGET_WIDTH/2.0,  RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
                                           [-RRTargetFinder2019.TARGET_WIDTH/2.0, -RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
                                           [ RRTargetFinder2019.TARGET_WIDTH/2.0, -RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
@@ -114,7 +114,7 @@ class RRTargetFinder2019(object):
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
-        self.target_contour = None
+        self.target_contours = None
 
         # DEBUG values
         self.top_contours = None
@@ -148,29 +148,34 @@ class RRTargetFinder2019(object):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[0])   #shape[0] is width, shape[1] is the height
-            if self.target_contour is not None:
+            self.target_contours = self.test_candidate_contour(contour_list, candidate_index, width=shape[0])   #shape[0] is width, shape[1] is the height
+            if self.target_contours is not None:
                 break
 
-        if self.target_contour is not None:
+        if self.target_contours is not None:
             # The target was found. Convert to real world co-ordinates.
+
+            cnt_a = self.target_contours[0]
+            cnt_b = self.target_contours[1]
 
             # Need to convert the contour (integer) into a matrix of corners (float)
             # Contour starts at arbitary place around the quad, so need to sort after
             # Could also do this by finding the first point, but that is complicated, probably no faster
             cnrlist = []
-            for cnr in self.target_contour:
+            for cnr in cnt_a:
+                cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
+            for cnr in cnt_b:
                 cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
             RRTargetFinder2019.sort_corners(cnrlist)   # in place sort
             image_corners = numpy.array(cnrlist)
+            print("All image corners:\n", image_corners)
 
-            """retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
+            retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
                                               self.cameraMatrix, self.distortionMatrix)
             if retval:
                 result = [1.0, self.finder_id, ]
                 result.extend(self.compute_output_values(rvec, tvec))
-                return result"""
-            return [1.0, self.finder_id, 0.0, 0.0, 0.0]
+                return result
         
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
@@ -186,8 +191,8 @@ class RRTargetFinder2019(object):
         if self.top_contours:
             cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
-        if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
+        if self.target_contours is not None:
+            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 2)
 
         return output_frame
 
@@ -241,12 +246,14 @@ class RRTargetFinder2019(object):
             for test_loc in test_locations:
                 # negative is outside. I want the other sign
                 dist = -cv2.pointPolygonTest(c['contour'], test_loc, measureDist=True)
-                print("Dist from cadidate to surrounding contour is: %s" % dist)
+                print("Current center:", c['center'][0], c['center'][1])
+                print("Dist from cadidate to test location is: %s" % dist)
                 print("Distance (target seperation) is: %s" % distance)
                 diff = dist < distance
                 print("Is dist < distance? %s" % diff)
                 if dist < distance:
                     second_cont_index = ci
+                    print("Resetting the second_cont_index to", c['center'][0], c['center'][1])
                     distance = dist
                     if dist <= 0:   #WARNING: the docs say that dist is (-) when outside the contour, not inside?!
                         # guessed location is inside this contour, so this is the one. No need to search further
@@ -302,16 +309,26 @@ class RRTargetFinder2019(object):
         # First, combine them using convexHull and the fit a polygon to it. If we get a 4-sided shape we are set.
 
         all_contours = [candidate['contour'], contour_list[second_cont_index]['contour']]
+
+        print("third_cont_index is None? " + str(third_cont_index is None))
+
         if third_cont_index is not None:
             all_contours.append(contour_list[third_cont_index]['contour'])
+            full_strip = numpy.concentate(all_contours[1], all_contours[2])
+            hull_a = cv2.convexHull(full_strip)
+        else:
+            hull_a = cv2.convexHull(all_contours[1])
 
-        combined = numpy.vstack(all_contours)
-        hull = cv2.convexHull(combined)
+        #combined = numpy.vstack(all_contours)
+        hull_b = cv2.convexHull(all_contours[0])
 
-        target_contour = RRTargetFinder2019.quad_fit(hull, self.approx_polydp_error)
-        if len(target_contour) == 4:    #TODO: decide on if use seperate target strip point or combined points only
-            return target_contour
+        target_contour_a = RRTargetFinder2019.quad_fit(hull_a, self.approx_polydp_error)
+        target_contour_b = RRTargetFinder2019.quad_fit(hull_b, self.approx_polydp_error)
 
+        if len(target_contour_a) == 4 and len(target_contour_b) == 4:    #TODO: decide on if use seperate target strip point or combined points only
+            print("****returning the 2 contours :-)")
+            return [target_contour_a, target_contour_b]
+        print("****returning None")
         return None
 
     def compute_output_values(self, rvec, tvec):
@@ -345,7 +362,7 @@ def process_files(line_finder, input_files, output_dir):
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
         result = line_finder.process_image(bgr_frame)
-        #print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
+        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 
         bgr_frame = line_finder.prepare_output_image(bgr_frame)
 
