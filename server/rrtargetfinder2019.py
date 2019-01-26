@@ -169,13 +169,14 @@ class RRTargetFinder2019(object):
             RRTargetFinder2019.sort_corners(cnrlist)   # in place sort
             image_corners = numpy.array(cnrlist)
             print("All image corners:\n", image_corners)
+            print("target_coord:\n", self.target_coords)
 
-            retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
-                                              self.cameraMatrix, self.distortionMatrix)
-            if retval:
-                result = [1.0, self.finder_id, ]
-                result.extend(self.compute_output_values(rvec, tvec))
-                return result
+            # retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
+            #                                   self.cameraMatrix, self.distortionMatrix)
+            # if retval:
+            #     result = [1.0, self.finder_id, ]
+            #     result.extend(self.compute_output_values(rvec, tvec))
+            #     return result
         
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
@@ -314,7 +315,7 @@ class RRTargetFinder2019(object):
 
         if third_cont_index is not None:
             all_contours.append(contour_list[third_cont_index]['contour'])
-            full_strip = numpy.concentate(all_contours[1], all_contours[2])
+            full_strip = numpy.vstack((all_contours[1], all_contours[2]))
             hull_a = cv2.convexHull(full_strip)
         else:
             hull_a = cv2.convexHull(all_contours[1])
