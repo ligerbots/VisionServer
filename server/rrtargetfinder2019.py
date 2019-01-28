@@ -11,31 +11,27 @@ class RRTargetFinder2019(object):
 
     # real world dimensions of the switch target
     # These are the full dimensions around both strips
-    
-    #TARGET_WIDTH = 8.0                  # inches
-    #TARGET_HEIGHT = 15.3                # inches
+
     TARGET_STRIP_WIDTH = 2.0             # inches
     TARGET_STRIP_LENGTH = 5.5            # inches
     TARGET_STRIP_CORNER_OFFSET = 4.0     # inches
     TARGET_STRIP_ROT = math.radians(14.5)
-    
+
     cos_a = math.cos(TARGET_STRIP_ROT)
     sin_a = math.sin(TARGET_STRIP_ROT)
 
-    pt=[0.0,0.0]
-    right_strip0=[tuple(pt),]# this makes a copy, so we are safe
-    pt[0]+= TARGET_STRIP_WIDTH * cos_a
-    pt[1]+= TARGET_STRIP_WIDTH * sin_a
-    right_strip0.append(tuple(pt))
-    pt[0]+= TARGET_STRIP_LENGTH * sin_a
-    pt[1]-= TARGET_STRIP_LENGTH * cos_a
-    right_strip0.append(tuple(pt))
-    pt[0]-= TARGET_STRIP_WIDTH * cos_a
-    pt[1]-= TARGET_STRIP_WIDTH * sin_a
-    right_strip0.append(tuple(pt))
+    pt = [TARGET_STRIP_CORNER_OFFSET, 0.0]
+    right_strip = [tuple(pt), ]  # this makes a copy, so we are safe
+    pt[0] += TARGET_STRIP_WIDTH * cos_a
+    pt[1] += TARGET_STRIP_WIDTH * sin_a
+    right_strip.append(tuple(pt))
+    pt[0] += TARGET_STRIP_LENGTH * sin_a
+    pt[1] -= TARGET_STRIP_LENGTH * cos_a
+    right_strip.append(tuple(pt))
+    pt[0] -= TARGET_STRIP_WIDTH * cos_a
+    pt[1] -= TARGET_STRIP_WIDTH * sin_a
+    right_strip.append(tuple(pt))
 
-    # offset to the right
-    right_strip = [(p[0] + TARGET_STRIP_CORNER_OFFSET, p[1]) for p in right_strip0]
     # left strip is mirror of right strip
     left_strip = [(-p[0], p[1]) for p in right_strip]
 
@@ -62,9 +58,9 @@ class RRTargetFinder2019(object):
         self.contour_min_area = 80
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     #TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
+        self.approx_polydp_error = 0.06     # TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
 
-        # ratio of height to width of one retroreflective strip 
+        # ratio of height to width of one retroreflective strip
         # TODO is this still correct???
         self.one_strip_height_ratio = RRTargetFinder2019.TARGET_STRIP_LENGTH / RRTargetFinder2019.TARGET_STRIP_WIDTH
 
@@ -90,7 +86,7 @@ class RRTargetFinder2019(object):
 
         # Corners of the switch target in real world dimensions
         # TODO: Which of the eight to choose???
-        self.target_coords = numpy.concatenate([right_strip, left_strip])
+        self.target_coords = numpy.concatenate([self.right_strip, self.left_strip])
 
         return
 
@@ -114,24 +110,12 @@ class RRTargetFinder2019(object):
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
     @staticmethod
-    def sort_corners(cnrlist):
-        '''Sort a list of 4 corners so that it goes in a known order. Does it in place!!'''
-        cnrlist.sort()
-
-        # now, swap the pairs to make sure in proper Y order
-        if cnrlist[0][1] > cnrlist[1][1]:
-            cnrlist[0], cnrlist[1] = cnrlist[1], cnrlist[0]
-        if cnrlist[2][1] < cnrlist[3][1]:
-            cnrlist[2], cnrlist[3] = cnrlist[3], cnrlist[2]
-        return
-    
-    @staticmethod
     def outside_corners(cnrlist):
         '''Return the outer two corners of a contour'''
 
         cnrs = sorted(numpy.squeeze(cnrlist), key=lambda x: x[1])
         print("cnt_b cnrs sorted by y", cnrs)
-        
+
         # WARNING: sometimes the y values of the top two corners of a contour end up the same, causing
         # a sort of the corners by y values to not completely work.
         if cnrs[0][0] < cnrs[1][0]:
@@ -146,7 +130,7 @@ class RRTargetFinder2019(object):
             print(cnrs[1][0])
             cnrs = sorted(cnrs, key=lambda c: c[0])
             return numpy.array([cnrs[0], cnrs[1]])
-        
+
         return None
 
     def preallocate_arrays(self, shape):
@@ -207,8 +191,8 @@ class RRTargetFinder2019(object):
             # Need to convert the contour (integer) into a matrix of corners (float)
             # Contour starts at arbitary place around the quad, so need to sort after
             # Could also do this by finding the first point, but that is complicated, probably no faster
-            
-            image_corners = numpy.concatenate( [self.outside_corners(cnt_a), self.outside_corners(cnt_b)] )
+
+            image_corners = numpy.concatenate([self.outside_corners(cnt_a), self.outside_corners(cnt_b)])
             print()
             print("all cnt_a corners:\n", numpy.squeeze(cnt_a))
             print("all cnt_b corners:\n", numpy.squeeze(cnt_b))
@@ -371,8 +355,6 @@ class RRTargetFinder2019(object):
 
         # combined = numpy.vstack(all_contours)
         hull_b = cv2.convexHull(all_contours[0])
-
-        #TODO: chop off all inside corners
 
         target_contour_a = RRTargetFinder2019.quad_fit(hull_a, self.approx_polydp_error)
         target_contour_b = RRTargetFinder2019.quad_fit(hull_b, self.approx_polydp_error)
