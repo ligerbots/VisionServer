@@ -38,7 +38,7 @@ class RRTargetFinder2019(object):
         self.contour_min_area = 100
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06
+        self.approx_polydp_error = 0.06     #TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
 
         # ratio of height to width of one retroreflective strip
         self.one_strip_height_ratio = RRTargetFinder2019.TARGET_HEIGHT / RRTargetFinder2019.TARGET_STRIP_WIDTH
@@ -64,7 +64,7 @@ class RRTargetFinder2019(object):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         # Corners of the switch target in real world dimensions
-        # TODO: Update these coords to be accurate
+        # TODO: Update these coords to be accurate -- all 4 corners (2 on outside top and 2 on outside bottom)
         self.target_coords = numpy.array([[-RRTargetFinder2019.TARGET_WIDTH/2.0,  RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
                                           [-RRTargetFinder2019.TARGET_WIDTH/2.0, -RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
                                           [ RRTargetFinder2019.TARGET_WIDTH/2.0, -RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
@@ -321,6 +321,8 @@ class RRTargetFinder2019(object):
 
         #combined = numpy.vstack(all_contours)
         hull_b = cv2.convexHull(all_contours[0])
+
+        #TODO: chop off all inside corners
 
         target_contour_a = RRTargetFinder2019.quad_fit(hull_a, self.approx_polydp_error)
         target_contour_b = RRTargetFinder2019.quad_fit(hull_b, self.approx_polydp_error)
