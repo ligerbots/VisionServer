@@ -11,9 +11,33 @@ class RRTargetFinder2019(object):
 
     # real world dimensions of the switch target
     # These are the full dimensions around both strips
-    TARGET_WIDTH = 8.0           # inches       #TODO: Change all dimentions
-    TARGET_HEIGHT = 15.3         # inches
-    TARGET_STRIP_WIDTH = 2.0     # inches
+    
+    #TARGET_WIDTH = 8.0                  # inches
+    #TARGET_HEIGHT = 15.3                # inches
+    TARGET_STRIP_WIDTH = 2.0             # inches
+    TARGET_STRIP_LENGTH = 5.5            # inches
+    TARGET_STRIP_CORNER_OFFSET = 4.0     # inches
+    TARGET_STRIP_ROT = math.radians(14.5)
+    
+    cos_a = math.cos(TARGET_STRIP_ROT)
+    sin_a = math.sin(TARGET_STRIP_ROT)
+
+    pt=[0.0,0.0]
+    right_strip0=[tuple(pt),]# this makes a copy, so we are safe
+    pt[0]+= TARGET_STRIP_WIDTH * cos_a
+    pt[1]+= TARGET_STRIP_WIDTH * sin_a
+    right_strip0.append(tuple(pt))
+    pt[0]+= TARGET_STRIP_LENGTH * sin_a
+    pt[1]-= TARGET_STRIP_LENGTH * cos_a
+    right_strip0.append(tuple(pt))
+    pt[0]-= TARGET_STRIP_WIDTH * cos_a
+    pt[1]-= TARGET_STRIP_WIDTH * sin_a
+    right_strip0.append(tuple(pt))
+
+    # offset to the right
+    right_strip = [(p[0] + TARGET_STRIP_CORNER_OFFSET, p[1]) for p in right_strip0]
+    # left strip is mirror of right strip
+    left_strip = [(-p[0], p[1]) for p in right_strip]
 
     def __init__(self, calib_file):
         self.name = 'rrtargetfinder'
@@ -22,7 +46,7 @@ class RRTargetFinder2019(object):
         self.exposure = 6
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((65, 75, 140), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # distance between the two target bars, in units of the width of a bar
@@ -35,13 +59,14 @@ class RRTargetFinder2019(object):
         self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 100
+        self.contour_min_area = 80
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06     #TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
 
-        # ratio of height to width of one retroreflective strip
-        self.one_strip_height_ratio = RRTargetFinder2019.TARGET_HEIGHT / RRTargetFinder2019.TARGET_STRIP_WIDTH
+        # ratio of height to width of one retroreflective strip 
+        # TODO is this still correct???
+        self.one_strip_height_ratio = RRTargetFinder2019.TARGET_STRIP_LENGTH / RRTargetFinder2019.TARGET_STRIP_WIDTH
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
@@ -64,11 +89,8 @@ class RRTargetFinder2019(object):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         # Corners of the switch target in real world dimensions
-        # TODO: Update these coords to be accurate -- all 4 corners (2 on outside top and 2 on outside bottom)
-        self.target_coords = numpy.array([[-RRTargetFinder2019.TARGET_WIDTH/2.0,  RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
-                                          [-RRTargetFinder2019.TARGET_WIDTH/2.0, -RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
-                                          [ RRTargetFinder2019.TARGET_WIDTH/2.0, -RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0],
-                                          [ RRTargetFinder2019.TARGET_WIDTH/2.0,  RRTargetFinder2019.TARGET_HEIGHT/2.0, 0.0]])
+        # TODO: Which of the eight to choose???
+        self.target_coords = numpy.concatenate([right_strip, left_strip])
 
         return
 
@@ -102,6 +124,30 @@ class RRTargetFinder2019(object):
         if cnrlist[2][1] < cnrlist[3][1]:
             cnrlist[2], cnrlist[3] = cnrlist[3], cnrlist[2]
         return
+    
+    @staticmethod
+    def outside_corners(cnrlist):
+        '''Return the outer two corners of a contour'''
+
+        cnrs = sorted(numpy.squeeze(cnrlist), key=lambda x: x[1])
+        print("cnt_b cnrs sorted by y", cnrs)
+        
+        # WARNING: sometimes the y values of the top two corners of a contour end up the same, causing
+        # a sort of the corners by y values to not completely work.
+        if cnrs[0][0] < cnrs[1][0]:
+            print(cnrs[0][0])
+            print("***** is less than ")
+            print(cnrs[1][0])
+            cnrs = sorted(cnrs, key=lambda c: c[0], reverse=True)
+            return numpy.array([cnrs[0], cnrs[1]])
+        elif cnrs[0][0] > cnrs[1][0]:
+            print(cnrs[0][0])
+            print("***** is greater than ")
+            print(cnrs[1][0])
+            cnrs = sorted(cnrs, key=lambda c: c[0])
+            return numpy.array([cnrs[0], cnrs[1]])
+        
+        return None
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -161,15 +207,14 @@ class RRTargetFinder2019(object):
             # Need to convert the contour (integer) into a matrix of corners (float)
             # Contour starts at arbitary place around the quad, so need to sort after
             # Could also do this by finding the first point, but that is complicated, probably no faster
-            cnrlist = []
-            for cnr in cnt_a:
-                cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
-            for cnr in cnt_b:
-                cnrlist.append((float(cnr[0][0]), float(cnr[0][1])))
-            RRTargetFinder2019.sort_corners(cnrlist)   # in place sort
-            image_corners = numpy.array(cnrlist)
-            print("All image corners:\n", image_corners)
-            print("target_coord:\n", self.target_coords)
+            
+            image_corners = numpy.concatenate( [self.outside_corners(cnt_a), self.outside_corners(cnt_b)] )
+            print()
+            print("all cnt_a corners:\n", numpy.squeeze(cnt_a))
+            print("all cnt_b corners:\n", numpy.squeeze(cnt_b))
+            print("Outside corners:\n", image_corners)
+            print("target_coords:\n", self.target_coords)
+            self.outer_corners = image_corners
 
             # retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
             #                                   self.cameraMatrix, self.distortionMatrix)
@@ -186,14 +231,17 @@ class RRTargetFinder2019(object):
 
         output_frame = input_frame.copy()
 
-        for loc in self.target_locations:
+        for cnr in self.outer_corners:
+            cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+
+        """for loc in self.target_locations:
             cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         if self.top_contours:
             cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
         if self.target_contours is not None:
-            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 2)
+            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 2)"""
 
         return output_frame
 
@@ -329,10 +377,10 @@ class RRTargetFinder2019(object):
         target_contour_a = RRTargetFinder2019.quad_fit(hull_a, self.approx_polydp_error)
         target_contour_b = RRTargetFinder2019.quad_fit(hull_b, self.approx_polydp_error)
 
-        if len(target_contour_a) == 4 and len(target_contour_b) == 4:    # TODO: decide on if use seperate target strip point or combined points only
+        if (len(target_contour_a) == 4 or len(target_contour_a) == 5) and (len(target_contour_b) == 4 or len(target_contour_b) == 5):
             print("****returning the 2 contours :-)")
             return [target_contour_a, target_contour_b]
-        print("****returning None")
+        print("****returning None :-(")
         return None
 
     def compute_output_values(self, rvec, tvec):
@@ -416,7 +464,7 @@ def main():
     '''Main routine'''
     import argparse
 
-    parser = argparse.ArgumentParser(description='2018 cube finder')
+    parser = argparse.ArgumentParser(description='2019 rrtarget finder')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
     parser.add_argument('--calib_file', help='Calibration file')
