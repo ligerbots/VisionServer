@@ -269,17 +269,17 @@ class RRTargetFinder2019(object):
 
         output_frame = input_frame.copy()
 
-        for cnr in self.outer_corners:
+        '''for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
-        """for loc in self.target_locations:
+        for loc in self.target_locations:
             cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)'''
 
         if self.target_contours is not None:
-            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 2)"""
+            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
 
         return output_frame
 
