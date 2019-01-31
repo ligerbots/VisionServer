@@ -42,7 +42,7 @@ class RRTargetFinder2019(object):
         self.exposure = 6
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((65, 75, 140), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # distance between the two target bars, in units of the width of a bar
@@ -110,6 +110,35 @@ class RRTargetFinder2019(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
+
+    @staticmethod
+    def get_outside_corners_single(contour, is_left):
+        '''For a single contour, find the 2 corners to the farside of the middle.
+        Split the set vertically and the find the farthest in each set.'''
+
+        y_ave = 0.0
+        for cnr in contour:
+            y_ave += cnr[1]
+        y_ave /= len(contour)
+
+        corners = [None, None]
+
+        # split the loop on left/right on the outside
+        #  much faster and simpler than trying to figure out how to flip the comparison on every iteration
+        if is_left:
+            for cnr in contour:
+                # larger y (lower in picture) at index 1
+                index = 1 if cnr[1] > y_ave else 0
+                if corners[index] is None or cnr[0] < corners[index][0]:
+                    corners[index] = cnr
+        else:
+            for cnr in contour:
+                # larger y (lower in picture) at index 1
+                index = 1 if cnr[1] > y_ave else 0
+                if corners[index] is None or cnr[0] > corners[index][0]:
+                    corners[index] = cnr
+
+        return corners
 
     @staticmethod
     def get_outside_corners(cnt_left, cnt_right):
@@ -198,9 +227,10 @@ class RRTargetFinder2019(object):
 
         self.target_contours = None
 
-        # DEBUG values
+        # DEBUG values; clear any values from previous image
         self.top_contours = None
         self.target_locations = []
+        self.outer_corners = []
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -226,15 +256,15 @@ class RRTargetFinder2019(object):
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
         # DEBUG
-        self.top_contours = [x['contour'] for x in contour_list[0:2]]
+        self.top_contours = [x['contour'] for x in contour_list]
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contours = self.test_candidate_contour(contour_list, candidate_index, width=shape[0])   # shape[0] is width, shape[1] is the height
+            # shape[0] is height, shape[1] is the width
+            self.target_contours = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contours is not None:
                 break
 
-        
         if self.target_contours is not None:
             # The target was found. Convert to real world co-ordinates.
 
@@ -243,9 +273,13 @@ class RRTargetFinder2019(object):
 
             # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
 
-            #image_corners = numpy.concatenate([self.outside_corners(cnt_left, True), self.outside_corners(cnt_right, False)])
-            
-            image_corners = RRTargetFinder2019.get_outside_corners(cnt_left, cnt_right)
+            # image_corners = RRTargetFinder2019.get_outside_corners(cnt_left, cnt_right)
+
+            # Important to get the corners in the right order, matching the real world ones
+            # Remember that y in the image increases *down*
+            left = RRTargetFinder2019.get_outside_corners_single(cnt_left, True)
+            right = RRTargetFinder2019.get_outside_corners_single(cnt_right, False)
+            image_corners = numpy.array((left[1], left[0], right[0], right[1]))
 
             print()
             print("all cnt_left corners:\n", cnt_left)
@@ -269,17 +303,17 @@ class RRTargetFinder2019(object):
 
         output_frame = input_frame.copy()
 
-        '''for cnr in self.outer_corners:
+        if self.top_contours:
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
+
+        for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
-        for loc in self.target_locations:
-            cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
+        # for loc in self.target_locations:
+        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)'''
-
-        if self.target_contours is not None:
-            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
+        #if self.target_contours is not None:
+        #    cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
 
         return output_frame
 
@@ -304,6 +338,7 @@ class RRTargetFinder2019(object):
 
         # print('ratio:', cand_width / candidate['widths'][1])
         if cand_width / cand_height > self.width_separation_ratio_max:
+            # print('failed ratio test:', cand_width / cand_height)
             return None
 
         # Based on the candidate location and x-width, compute guesses where the other bar should be
@@ -322,6 +357,7 @@ class RRTargetFinder2019(object):
         # print("Test location coord is: ", test_locations)
         # if neither location is inside the image, reject
         if not test_locations:
+            # print('failed: no valid locations')
             return None
 
         # find the closest contour to either of the guessed locations
@@ -348,6 +384,8 @@ class RRTargetFinder2019(object):
             if distance <= 0:
                 break
         if second_cont_index is None:
+            # print('failed: no second contour found')
+            # print('test locations:', test_locations)
             return None
 
         # see if there is a second contour below. This happens if the peg obscures part of it.
@@ -390,6 +428,7 @@ class RRTargetFinder2019(object):
         # print('deltaX', deltaX, aveW, ratio)
         if ratio > 1.3 or ratio < 0.7:
             # not close enough to 1
+            # print('failed: bad deltax ratio:', ratio)
             return None
 
         # DONE! We have a winner! Maybe!
@@ -398,7 +437,7 @@ class RRTargetFinder2019(object):
 
         all_contours = [candidate['contour'], contour_list[second_cont_index]['contour']]
 
-        print("Is third contour present: ", (third_cont_index is None))
+        print("Is third contour present: ", (third_cont_index is not None))
 
         if third_cont_index is not None:    #TODO: if 2 cables on elevator, introduces possibility of perhaps 4 contours
             all_contours.append(contour_list[third_cont_index]['contour'])
