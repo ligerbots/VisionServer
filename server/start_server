@@ -6,11 +6,12 @@ DIR=/home/odroid/VisionServer/server
 
 SCRIPT=visionserver2018_new.py
 # For running standalone (not alongside a RoboRio), add the "--test" option
-# 640x480 value
-##ARGS="--calib ../data/calibration/c930e_calib.json"
 
-# 320x240 value
-ARGS="--calib ../data/calibration/c930e_qvga_calib.json"
+# 640x480 value (but should use the wide screen settings!!)
+##ARGS="--calib ../data/calibration/c930e_vga_calib.json"
+
+# 424x240 value
+ARGS="--calib ../data/calibration/c930e_424x240_calib.json"
 
 LOG_DIR="logs"
 LOG_BASE="visionserver"

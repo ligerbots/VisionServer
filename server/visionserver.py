@@ -30,8 +30,8 @@ class VisionServer:
                         doc='Tuning mode. Reads processing parameters each time.')
 
     # Logitech c930 are wide-screen cameras, so 320x180 has the biggest FOV
-    image_width = ntproperty('/SmartDashboard/vision/width', 320, writeDefault=False, doc='Image width')
-    image_height = ntproperty('/SmartDashboard/vision/height', 180, writeDefault=False, doc='Image height')
+    image_width = ntproperty('/SmartDashboard/vision/width', 424, writeDefault=False, doc='Image width')
+    image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
 
     image_writer_state = ntproperty('/SmartDashboard/vision/write_images', False, writeDefault=True,
