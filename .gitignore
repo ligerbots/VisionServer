@@ -1,3 +1,13 @@
 __pycache__
 *~
 server/output
+.project
+.pydevproject
+.settings/
+.vscode/
+data/test_images/2018/.DS_Store
+data/test_images/2018/cube/1455208244.27.jpg
+data/test_images/2019/
+server/output_dir/
+utils/.DS_Store
+data/calibration/c930e_320x180_2019-01-30

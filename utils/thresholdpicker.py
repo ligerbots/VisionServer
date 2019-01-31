@@ -20,11 +20,11 @@ def process_files(image_files):
     # cv2.namedWindow('image', cv2.WINDOW_NORMAL )
     cv2.namedWindow('image')
 
-    cv2.createTrackbar('Hlow', 'image', 25, 255, proceed)
-    cv2.createTrackbar('Hhigh', 'image', 75, 255, proceed)
+    cv2.createTrackbar('Hlow', 'image', 65, 255, proceed)
+    cv2.createTrackbar('Hhigh', 'image', 100, 255, proceed)
     cv2.createTrackbar('Slow', 'image', 75, 255, proceed)
     cv2.createTrackbar('Shigh', 'image', 255, 255, proceed)
-    cv2.createTrackbar('Vlow', 'image', 100, 255, proceed)
+    cv2.createTrackbar('Vlow', 'image', 140, 255, proceed)
     cv2.createTrackbar('Vhigh', 'image', 255, 255, proceed)
 
     image_id = -1
@@ -62,7 +62,7 @@ def process_files(image_files):
             _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             numpy.copyto(draw_frame, bgr_frame)
-            cv2.drawContours(draw_frame, contours, -1, (0, 0, 255), 2)
+            cv2.drawContours(draw_frame, contours, -1, (0, 0, 255), 1)
             run = False
 
         cv2.imshow('image', draw_frame)
