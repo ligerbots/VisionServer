@@ -112,6 +112,35 @@ class RRTargetFinder2019(object):
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
     @staticmethod
+    def get_outside_corners_single(contour, is_left):
+        '''For a single contour, find the 2 corners to the farside of the middle.
+        Split the set vertically and the find the farthest in each set.'''
+
+        y_ave = 0.0
+        for cnr in contour:
+            y_ave += cnr[1]
+        y_ave /= len(contour)
+
+        corners = [None, None]
+
+        # split the loop on left/right on the outside
+        #  much faster and simpler than trying to figure out how to flip the comparison on every iteration
+        if is_left:
+            for cnr in contour:
+                # larger y (lower in picture) at index 1
+                index = 1 if cnr[1] > y_ave else 0
+                if corners[index] is None or cnr[0] < corners[index][0]:
+                    corners[index] = cnr
+        else:
+            for cnr in contour:
+                # larger y (lower in picture) at index 1
+                index = 1 if cnr[1] > y_ave else 0
+                if corners[index] is None or cnr[0] > corners[index][0]:
+                    corners[index] = cnr
+
+        return corners
+
+    @staticmethod
     def get_outside_corners(cnt_left, cnt_right):
         '''Return the outer two corners of a contour'''
 
@@ -244,9 +273,13 @@ class RRTargetFinder2019(object):
 
             # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
 
-            # image_corners = numpy.concatenate([self.outside_corners(cnt_left, True), self.outside_corners(cnt_right, False)])
+            # image_corners = RRTargetFinder2019.get_outside_corners(cnt_left, cnt_right)
 
-            image_corners = RRTargetFinder2019.get_outside_corners(cnt_left, cnt_right)
+            # Important to get the corners in the right order, matching the real world ones
+            # Remember that y in the image increases *down*
+            left = RRTargetFinder2019.get_outside_corners_single(cnt_left, True)
+            right = RRTargetFinder2019.get_outside_corners_single(cnt_right, False)
+            image_corners = numpy.array((left[1], left[0], right[0], right[1]))
 
             print()
             print("all cnt_left corners:\n", cnt_left)
