@@ -20,7 +20,7 @@ class RRTargetFinder2019(object):
     cos_a = math.cos(TARGET_STRIP_ROT)
     sin_a = math.sin(TARGET_STRIP_ROT)
 
-    pt = [TARGET_STRIP_CORNER_OFFSET, 0.0]
+    pt = [TARGET_STRIP_CORNER_OFFSET, 0.0, 0.0]
     right_strip = [tuple(pt), ]  # this makes a copy, so we are safe
     pt[0] += TARGET_STRIP_WIDTH * cos_a
     pt[1] += TARGET_STRIP_WIDTH * sin_a
@@ -33,7 +33,7 @@ class RRTargetFinder2019(object):
     right_strip.append(tuple(pt))
 
     # left strip is mirror of right strip
-    left_strip = [(-p[0], p[1]) for p in right_strip]
+    left_strip = [(-p[0], p[1], p[2]) for p in right_strip]
 
     def __init__(self, calib_file):
         self.name = 'rrtargetfinder'
@@ -74,6 +74,7 @@ class RRTargetFinder2019(object):
         # DEBUG values
         self.top_contours = None
         self.target_locations = None
+        self.outer_corners = []
 
         # output results
         self.target_contours = None
@@ -85,10 +86,12 @@ class RRTargetFinder2019(object):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         # Corners of the switch target in real world dimensions
-        # TODO: Which of the eight to choose???
-        self.target_coords = numpy.concatenate([self.right_strip, self.left_strip])
-
-        self.outer_corners = []
+        
+        self.all_target_coords = numpy.concatenate([self.right_strip, self.left_strip])
+        self.outside_target_coords = numpy.float32(numpy.array([self.left_strip[2], self.left_strip[1],
+                                                  self.right_strip[1], self.right_strip[2]]))
+                                                  #[left_bottom, left_top, right_top, right_bottom]
+        print(self.outside_target_coords)
 
         return
 
@@ -279,21 +282,22 @@ class RRTargetFinder2019(object):
             # Remember that y in the image increases *down*
             left = RRTargetFinder2019.get_outside_corners_single(cnt_left, True)
             right = RRTargetFinder2019.get_outside_corners_single(cnt_right, False)
-            image_corners = numpy.array((left[1], left[0], right[0], right[1]))
+            image_corners = numpy.float32(numpy.array((left[1], left[0], right[0], right[1]))) 
+                                                    #[left_bottom, left_top, right_top, right_bottom]
 
             print()
             print("all cnt_left corners:\n", cnt_left)
             print("all cnt_right corners:\n", cnt_right)
             print("Outside corners:\n", image_corners)
-            print("Real World target_coords:\n", self.target_coords)
+            print("Real World target_coords:\n", self.outside_target_coords)
             self.outer_corners = image_corners
 
-            # retval, rvec, tvec = cv2.solvePnP(self.target_coords, image_corners,
-            #                                   self.cameraMatrix, self.distortionMatrix)
-            # if retval:
-            #     result = [1.0, self.finder_id, ]
-            #     result.extend(self.compute_output_values(rvec, tvec))
-            #     return result
+            retval, rvec, tvec = cv2.solvePnP(self.outside_target_coords, image_corners,
+                                              self.cameraMatrix, self.distortionMatrix)
+            if retval:
+                result = [1.0, self.finder_id, ]
+                result.extend(self.compute_output_values(rvec, tvec))
+                return result
 
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
