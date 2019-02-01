@@ -88,8 +88,9 @@ class RRTargetFinder2019(object):
         # Corners of the switch target in real world dimensions
         
         self.all_target_coords = numpy.concatenate([self.right_strip, self.left_strip])
-        self.outside_target_coords = numpy.float32(numpy.array([self.right_strip[1], self.right_strip[2],
-                                                  self.left_strip[1], self.left_strip[2]]))
+        self.outside_target_coords = numpy.float32(numpy.array([self.left_strip[2], self.left_strip[1],
+                                                  self.right_strip[1], self.right_strip[2]]))
+                                                  #[left_bottom, left_top, right_top, right_bottom]
         print(self.outside_target_coords)
 
         return
@@ -281,7 +282,8 @@ class RRTargetFinder2019(object):
             # Remember that y in the image increases *down*
             left = RRTargetFinder2019.get_outside_corners_single(cnt_left, True)
             right = RRTargetFinder2019.get_outside_corners_single(cnt_right, False)
-            image_corners = numpy.float32(numpy.array((left[1], left[0], right[0], right[1])))
+            image_corners = numpy.float32(numpy.array((left[1], left[0], right[0], right[1]))) 
+                                                    #[left_bottom, left_top, right_top, right_bottom]
 
             print()
             print("all cnt_left corners:\n", cnt_left)
