@@ -146,6 +146,23 @@ class VisionServer:
             camera.setExposureManual(int(value))
         return
 
+    @staticmethod
+    def set_camera_property(camera, name, value):
+        '''Set a camera property, such as auto_focus'''
+
+        logging.info("Setting camera property '{}' to '{}'".format(name, value))
+        try:
+            try:
+                propVal = int(value)
+            except ValueError:
+                camera.getProperty(name).setString(value)
+            else:
+                camera.getProperty(name).set(propVal)
+        except Exception as e:
+            logging.warn("Unable to set property '{}': {}".format(name, e))
+
+        return
+
     def add_camera(self, name, device, active=True):
         '''Add a single camera and set it to active/disabled as indicated.
         Cameras are referenced by their name, so pick something unique'''
@@ -161,6 +178,12 @@ class VisionServer:
 
         camera.setResolution(int(self.image_width), int(self.image_height))
         camera.setFPS(int(self.camera_fps))
+
+        # set the camera for no auto focus, focus at infinity
+        # TODO: different cameras have different properties
+        # NOTE: order does matter
+        VisionServer.set_camera_property(camera, 'focus_auto', 0)
+        VisionServer.set_camera_property(camera, 'focus_absolute', 0)
 
         mode = camera.getVideoMode()
         logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
