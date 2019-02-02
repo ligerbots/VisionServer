@@ -77,10 +77,11 @@ case "$1" in
         ls -l /dev/v4l/by-id >> $LOG_FILE
         echo '' >> $LOG_FILE
 
-        setup_camera /dev/video0 >> $LOG_FILE 2>&1
-        if [ -c /dev/video1 ]; then
-            setup_camera /dev/video1 >> $LOG_FILE 2>&1
-        fi
+        # Now done in the Python
+        # setup_camera /dev/video0 >> $LOG_FILE 2>&1
+        # if [ -c /dev/video1 ]; then
+        #     setup_camera /dev/video1 >> $LOG_FILE 2>&1
+        # fi
 
         python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
