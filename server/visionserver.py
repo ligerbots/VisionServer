@@ -160,6 +160,9 @@ class VisionServer:
         camera.setResolution(int(self.image_width), int(self.image_height))
         camera.setFPS(int(self.camera_fps))
 
+        # keep the camera open for faster switching
+        camera.setConnectionStrategy(cscore.KeepOpen)
+
         mode = camera.getVideoMode()
         logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
                      mode.pixelFormat, mode.width, mode.height, mode.fps)
@@ -169,9 +172,10 @@ class VisionServer:
         if active:
             self.current_sink = sink
             self.active_camera = name
-        else:
-            # if not active, disable it to save CPU
-            sink.setEnabled(False)
+        # keep camera active for faster switching
+        # else:
+        #     # if not active, disable it to save CPU
+        #     sink.setEnabled(False)
 
         return
 
@@ -181,7 +185,7 @@ class VisionServer:
         new_sink = self.video_sinks.get(name, None)
         if new_sink is not None:
             # disable the old camera feed
-            self.current_sink.setEnabled(False)
+            # self.current_sink.setEnabled(False)
             # enable the new one. Do this 2nd in case it is the same as the old one.
             new_sink.setEnabled(True)
             self.current_sink = new_sink
