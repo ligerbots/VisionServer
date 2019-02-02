@@ -7,8 +7,8 @@ from networktables.util import ntproperty
 from visionserver import VisionServer, main
 from genericfinder import GenericFinder
 from rrtargetfinder2019 import RRTargetFinder2019
-from hatchfinder2019 import HatchFinder2019
-from linefinder2019 import LineFinder2019
+# from hatchfinder2019 import HatchFinder2019
+# from linefinder2019 import LineFinder2019
 
 
 class VisionServer2019(VisionServer):
