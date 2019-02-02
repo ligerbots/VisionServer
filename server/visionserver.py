@@ -14,6 +14,8 @@ from networktables import NetworkTables
 
 
 class VisionServer:
+    '''Base class for the VisionServer'''
+
     # NetworkTable parameters
 
     # frame rate is pretty variable, so set this a fair bit higher than what you really want
@@ -294,10 +296,7 @@ class VisionServer:
                         errors += 1
                     else:   # if 10 or more iterations without any stream switch cameras
                         logging.warning(self.active_camera + " camera is no longer streaming. Switching cameras...")
-                        if self.active_camera == 'intake':
-                            self.switch_mode('driver')
-                        else:
-                            self.switch_mode('intake')
+                        self.switch_mode(self.mode_after_error())
                         errors = 0
 
                     target_res = [time.time(), ]

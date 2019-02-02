@@ -4,7 +4,7 @@
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2018_new.py
+SCRIPT=visionserver2019.py
 # For running standalone (not alongside a RoboRio), add the "--test" option
 
 # 640x480 value (but should use the wide screen settings!!)
