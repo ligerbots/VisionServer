@@ -310,8 +310,11 @@ class RRTargetFinder2019(object):
         if self.top_contours:
             cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
-        for cnr in self.outer_corners:
-            cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+        if self.outer_corners:
+            cv2.drawContours(output_frame, self.outer_corners, -1, (255, 0, 0), 1)
+
+        # for cnr in self.outer_corners:
+        #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
