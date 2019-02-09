@@ -74,7 +74,7 @@ class RRTargetFinder2019(object):
         # DEBUG values
         self.top_contours = None
         self.target_locations = None
-        self.outer_corners = []
+        self.outer_corners = None
 
         # output results
         self.target_contours = None
@@ -233,7 +233,7 @@ class RRTargetFinder2019(object):
         # DEBUG values; clear any values from previous image
         self.top_contours = None
         self.target_locations = []
-        self.outer_corners = []
+        self.outer_corners = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -310,8 +310,11 @@ class RRTargetFinder2019(object):
         if self.top_contours:
             cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
-        for cnr in self.outer_corners:
-            cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+        if self.outer_corners is not None:
+            cv2.drawContours(output_frame, [numpy.int32(self.outer_corners), ], -1, (0, 255, 0), 1)
+
+        # for cnr in self.outer_corners:
+        #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
