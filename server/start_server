@@ -4,7 +4,7 @@
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2018_new.py
+SCRIPT=visionserver2019.py
 # For running standalone (not alongside a RoboRio), add the "--test" option
 
 # 640x480 value (but should use the wide screen settings!!)
@@ -77,10 +77,11 @@ case "$1" in
         ls -l /dev/v4l/by-id >> $LOG_FILE
         echo '' >> $LOG_FILE
 
-        setup_camera /dev/video0 >> $LOG_FILE 2>&1
-        if [ -c /dev/video1 ]; then
-            setup_camera /dev/video1 >> $LOG_FILE 2>&1
-        fi
+        # Now done in the Python
+        # setup_camera /dev/video0 >> $LOG_FILE 2>&1
+        # if [ -c /dev/video1 ]; then
+        #     setup_camera /dev/video1 >> $LOG_FILE 2>&1
+        # fi
 
         python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
