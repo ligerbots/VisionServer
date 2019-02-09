@@ -180,7 +180,7 @@ class VisionServer:
         camera.setFPS(int(self.camera_fps))
 
         # keep the camera open for faster switching
-        camera.setConnectionStrategy(cscore.KeepOpen)
+        camera.setConnectionStrategy(cscore.VideoSource.ConnectionStrategy.kKeepOpen)
 
         # set the camera for no auto focus, focus at infinity
         # TODO: different cameras have different properties
