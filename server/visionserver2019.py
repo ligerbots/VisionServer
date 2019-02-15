@@ -37,14 +37,18 @@ class VisionServer2019(VisionServer):
         super().__init__(initial_mode='driver', test_mode=test_mode)
 
         self.camera_device_front = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for driver and rrtarget processing
-        self.camera_device_floor = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
+        self.camera_device_side = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
 
         self.add_cameras()
 
-        self.generic_finder = GenericFinder("driver", "front")
-        self.add_target_finder(self.generic_finder)
+        self.generic_finder_front = GenericFinder("driver_front", "front")  `   #finder_id=1.0
+        self.add_target_finder(self.generic_finder_front)                       #TODO make it a seperate finder to draw a line down the screen where 
+                                                                                #the line at the bottom of the rocket will be
 
-        self.rrtarget_finder = RRTargetFinder2019(calib_file)
+        self.generic_finder_side = GenericFinder("driver_side", "side", finder_id=2.0, rotation=cv2.ROTATE_90_CLOCKWISE)
+        self.add_target_finder(self.generic_finder_side)
+
+        self.rrtarget_finder = RRTargetFinder2019(calib_file)       #finder_id=3.0
         self.add_target_finder(self.rrtarget_finder)
 
         # self.hatch_finder = HatchFinder2019(calib_file)
@@ -74,7 +78,7 @@ class VisionServer2019(VisionServer):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
         self.add_camera('front', self.camera_device_front, True)
-        self.add_camera('floor', self.camera_device_floor, False)
+        self.add_camera('side', self.camera_device_side, False)
         return
 
     def mode_after_error(self):
