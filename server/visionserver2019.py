@@ -2,6 +2,7 @@
 
 '''Vision server for 2019 Deep Space'''
 
+import cv2
 from networktables.util import ntproperty
 
 from visionserver import VisionServer, main
@@ -34,14 +35,14 @@ class VisionServer2019(VisionServer):
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     def __init__(self, calib_file, test_mode=False):
-        super().__init__(initial_mode='driver', test_mode=test_mode)
+        super().__init__(initial_mode='driver_front', test_mode=test_mode)
 
         self.camera_device_front = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for driver and rrtarget processing
         self.camera_device_side = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
 
         self.add_cameras()
 
-        self.generic_finder_front = GenericFinder("driver_front", "front")  `   #finder_id=1.0
+        self.generic_finder_front = GenericFinder("driver_front", "front")      #finder_id=1.0
         self.add_target_finder(self.generic_finder_front)                       #TODO make it a seperate finder to draw a line down the screen where 
                                                                                 #the line at the bottom of the rocket will be
 
@@ -82,7 +83,9 @@ class VisionServer2019(VisionServer):
         return
 
     def mode_after_error(self):
-        return 'driver'
+        if self.active_mode == 'driver_side':
+            return 'driver_front'
+        return 'driver_side'
 
 
 # Main routine
