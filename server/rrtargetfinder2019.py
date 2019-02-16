@@ -10,30 +10,20 @@ class RRTargetFinder2019(object):
     '''Find switch target for Deep Space 2019'''
 
     # real world dimensions of the switch target
-    # These are the full dimensions around both strips
-
+    # These are the dimensions of one strip
     TARGET_STRIP_WIDTH = 2.0             # inches
     TARGET_STRIP_LENGTH = 5.5            # inches
+
+    # offset from center of the upper corner
     TARGET_STRIP_CORNER_OFFSET = 4.0     # inches
+
+    # tilt of strip from vertical
     TARGET_STRIP_ROT = math.radians(14.5)
 
-    cos_a = math.cos(TARGET_STRIP_ROT)
-    sin_a = math.sin(TARGET_STRIP_ROT)
-
-    pt = [TARGET_STRIP_CORNER_OFFSET, 0.0, 0.0]
-    right_strip = [tuple(pt), ]  # this makes a copy, so we are safe
-    pt[0] += TARGET_STRIP_WIDTH * cos_a
-    pt[1] += TARGET_STRIP_WIDTH * sin_a
-    right_strip.append(tuple(pt))
-    pt[0] += TARGET_STRIP_LENGTH * sin_a
-    pt[1] -= TARGET_STRIP_LENGTH * cos_a
-    right_strip.append(tuple(pt))
-    pt[0] -= TARGET_STRIP_WIDTH * cos_a
-    pt[1] -= TARGET_STRIP_WIDTH * sin_a
-    right_strip.append(tuple(pt))
-
-    # left strip is mirror of right strip
-    left_strip = [(-p[0], p[1], p[2]) for p in right_strip]
+    # parameters of the camera mount: tilt (up/down) and offset from the robot center (To Be Determined!)
+    CAMERA_TILT = math.radians(-7.5)
+    CAMERA_OFFSET_X = 0.0                # inches left/right from center of rotation
+    CAMERA_OFFSET_Z = 0.0                # inches front/back from C.o.R.
 
     def __init__(self, calib_file):
         self.name = 'rrtarget'
@@ -50,10 +40,10 @@ class RRTargetFinder2019(object):
         self.target_separation = 3.45
 
         # self.width_height_ratio_max = 0.7
-        # Allow this to a bit large to accommodate partially block tape, which appears square
+        # Allow this to be a bit large to accommodate partially block tape, which appears square
         self.width_height_ratio_max = 1.0
 
-        # max distance in pixels that a contour can from the guessed location
+        # max distance in pixels that a contour can be from the guessed location
         self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
@@ -65,10 +55,6 @@ class RRTargetFinder2019(object):
         # ratio of height to width of one retroreflective strip
         # TODO is this still correct???
         self.one_strip_height_ratio = RRTargetFinder2019.TARGET_STRIP_LENGTH / RRTargetFinder2019.TARGET_STRIP_WIDTH
-
-        # camera mount angle (radians)
-        # NOTE: not sure if this should be positive or negative
-        self.tilt_angle = math.radians(-7.5)
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -95,6 +81,39 @@ class RRTargetFinder2019(object):
         self.outside_target_coords = numpy.array([self.left_strip[2], self.left_strip[1],
                                                   self.right_strip[1], self.right_strip[2]])
         # print(self.outside_target_coords)
+
+        return
+
+    @classmethod
+    def init_class_variables(cls):
+        '''Initialize class-level statics.
+        This requires a bit of code, so keep it in a routine.'''
+
+        cos_a = math.cos(cls.TARGET_STRIP_ROT)
+        sin_a = math.sin(cls.TARGET_STRIP_ROT)
+
+        pt = [cls.TARGET_STRIP_CORNER_OFFSET, 0.0, 0.0]
+        strip = [tuple(pt), ]  # this makes a copy, so we are safe
+        pt[0] += cls.TARGET_STRIP_WIDTH * cos_a
+        pt[1] += cls.TARGET_STRIP_WIDTH * sin_a
+        strip.append(tuple(pt))
+        pt[0] += cls.TARGET_STRIP_LENGTH * sin_a
+        pt[1] -= cls.TARGET_STRIP_LENGTH * cos_a
+        strip.append(tuple(pt))
+        pt[0] -= cls.TARGET_STRIP_WIDTH * cos_a
+        pt[1] -= cls.TARGET_STRIP_WIDTH * sin_a
+        strip.append(tuple(pt))
+
+        cls.right_strip = strip
+        # left strip is mirror of right strip
+        cls.left_strip = [(-p[0], p[1], p[2]) for p in cls.right_strip]
+
+        # matrices used to compute coordinates
+        t_robot = numpy.array((cls.CAMERA_OFFSET_X, 0.0, cls.CAMERA_OFFSET_Z))
+        c_t = math.cos(cls.CAMERA_TILT)
+        s_t = math.sin(cls.CAMERA_TILT)
+        r_robot_T = numpy.array(((1.0, 0.0, 0.0), (0.0, c_t, -s_t), (0.0, s_t, c_t)))
+        cls.camera_offset_rotated = numpy.matmul(r_robot_T, -t_robot)
 
         return
 
@@ -347,7 +366,7 @@ class RRTargetFinder2019(object):
 
         # print('ratio:', cand_width / candidate['widths'][1])
         if cand_width / cand_height > self.width_height_ratio_max:
-            print('failed ratio test:', cand_width / cand_height)
+            # print('failed ratio test:', cand_width / cand_height)
             return None
 
         # Based on the candidate location and x-width, compute guesses where the other bar should be
@@ -438,7 +457,7 @@ class RRTargetFinder2019(object):
         # print('deltaX', deltaX, aveW, ratio)
         if ratio > 1.3 or ratio < 0.7:
             # not close enough to 1
-            print('failed: bad deltax ratio:', ratio)
+            # print('failed: bad deltax ratio:', ratio)
             return None
 
         # DONE! We have a winner! Maybe!
@@ -476,23 +495,32 @@ class RRTargetFinder2019(object):
     def compute_output_values(self, rvec, tvec):
         '''Compute the necessary output distance and angles'''
 
-        # The tilt angle only affects the distance and angle1 calcs
+        x = tvec[0][0] + RRTargetFinder2019.CAMERA_OFFSET_X
+        z = math.sin(self.CAMERA_TILT) * tvec[1][0] + math.cos(self.CAMERA_TILT) * tvec[2][0] + RRTargetFinder2019.CAMERA_OFFSET_Z
 
-        x = tvec[0][0]
-        z = math.sin(self.tilt_angle) * tvec[1][0] + math.cos(self.tilt_angle) * tvec[2][0]
-
-        # distance in the horizontal plane between camera and target
+        # distance in the horizontal plane between robot center and target
         distance = math.sqrt(x**2 + z**2)
 
-        # horizontal angle between camera center line and target
+        # horizontal angle between robot center line and target
         angle1 = math.atan2(x, z)
 
         rot, _ = cv2.Rodrigues(rvec)
         rot_inv = rot.transpose()
-        pzero_world = numpy.matmul(rot_inv, -tvec)
+
+        # version if there is not offset for the camera (VERY slightly faster)
+        # #pzero_world = numpy.matmul(rot_inv, -tvec)
+
+        # version if camera is offset
+        pzero_world = numpy.matmul(rot_inv, RRTargetFinder2019.camera_offset_rotated - tvec)
+
         angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
 
         return distance, angle1, angle2
+
+
+# initialize the class-level "static" variables
+# needs to be called after the class definition is loaded.
+RRTargetFinder2019.init_class_variables()
 
 
 def process_files(line_finder, input_files, output_dir):
