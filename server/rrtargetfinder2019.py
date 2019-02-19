@@ -47,7 +47,8 @@ class RRTargetFinder2019(object):
         self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 80
+        self.contour_min_area = 120
+        self.contour_max_area = 6000
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06     # TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
@@ -269,10 +270,14 @@ class RRTargetFinder2019(object):
         _, contours, _ = cv2.findContours(self.threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         contour_list = []
+        rightlim = shape[1] - 20
         for c in contours:
             center, widths = RRTargetFinder2019.contour_center_width(c)
             area = widths[0] * widths[1]
-            if area > self.contour_min_area:
+            left = center[0] - widths[0]/2.0
+            right = center[0] + widths[0]/2.0
+            # print('area', area, 'left', left)
+            if area > self.contour_min_area and area < self.contour_max_area and left > 20 and right < rightlim:
                 # TODO: use a simple class? Maybe use "attrs" package?
                 contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
 
@@ -283,7 +288,7 @@ class RRTargetFinder2019(object):
         self.top_contours = [x['contour'] for x in contour_list]
 
         # try only the 3 biggest regions at most
-        for candidate_index in range(min(3, len(contour_list))):
+        for candidate_index in range(min(5, len(contour_list))):
             # shape[0] is height, shape[1] is the width
             self.target_contours = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
             if self.target_contours is not None:
@@ -413,8 +418,8 @@ class RRTargetFinder2019(object):
             if distance <= 0:
                 break
         if second_cont_index is None:
-            print('failed: no second contour found')
-            print('test locations:', test_locations)
+            # print('failed: no second contour found')
+            # print('test locations:', test_locations)
             return None
 
         # see if there is a second contour below. This happens if the peg obscures part of it.
