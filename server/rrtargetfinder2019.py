@@ -22,14 +22,14 @@ class RRTargetFinder2019(object):
 
     # parameters of the camera mount: tilt (up/down) and offset from the robot center (To Be Determined!)
     CAMERA_TILT = math.radians(-7.5)
-    CAMERA_OFFSET_X = 0.0                # inches left/right from center of rotation
-    CAMERA_OFFSET_Z = 0.0                # inches front/back from C.o.R.
+    CAMERA_OFFSET_X = 2.0                # inches left/right from center of rotation
+    CAMERA_OFFSET_Z = -4.0                # inches front/back from C.o.R.
 
     def __init__(self, calib_file):
         self.name = 'rrtarget'
         self.finder_id = 3.0
         self.camera = 'front'
-        self.exposure = 6
+        self.exposure = 1
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
@@ -42,12 +42,13 @@ class RRTargetFinder2019(object):
         # self.width_height_ratio_max = 0.7
         # Allow this to be a bit large to accommodate partially block tape, which appears square
         self.width_height_ratio_max = 1.0
-
+        self.width_height_ratio_min = 0.3
+        
         # max distance in pixels that a contour can be from the guessed location
         self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 120
+        self.contour_min_area = 100
         self.contour_max_area = 6000
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
@@ -369,9 +370,10 @@ class RRTargetFinder2019(object):
 
         # print("Target center at: (" + str(cand_x) + ", " + str(cand_y) + ")")
 
-        # print('ratio:', cand_width / candidate['widths'][1])
-        if cand_width / cand_height > self.width_height_ratio_max:
-            # print('failed ratio test:', cand_width / cand_height)
+        wh_ratio = cand_width / cand_height
+        # print('wh_ratio:', wh_ratio)
+        if wh_ratio > self.width_height_ratio_max or wh_ratio < self.width_height_ratio_min:
+            # print('failed ratio test:', wh_ratio)
             return None
 
         # Based on the candidate location and x-width, compute guesses where the other bar should be
