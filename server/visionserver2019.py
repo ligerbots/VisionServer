@@ -17,17 +17,17 @@ class VisionServer2019(VisionServer):
     # Retro-reflective targer finding parameters
 
     # Color threshold values, in HSV space
-    rrtarget_hue_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/hue_low_limit', 25,
+    rrtarget_hue_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/hue_low_limit', 65,
                                         doc='Hue low limit for thresholding (rrtarget mode)')
-    rrtarget_hue_high_limit = ntproperty('/SmartDashboard/vision/rrtarget/hue_high_limit', 75,
+    rrtarget_hue_high_limit = ntproperty('/SmartDashboard/vision/rrtarget/hue_high_limit', 100,
                                          doc='Hue high limit for thresholding (rrtarget mode)')
 
-    rrtarget_saturation_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/saturation_low_limit', 95,
+    rrtarget_saturation_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/saturation_low_limit', 75,
                                                doc='Saturation low limit for thresholding (rrtarget mode)')
     rrtarget_saturation_high_limit = ntproperty('/SmartDashboard/vision/rrtarget/saturation_high_limit', 255,
                                                 doc='Saturation high limit for thresholding (rrtarget mode)')
 
-    rrtarget_value_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/value_low_limit', 95,
+    rrtarget_value_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/value_low_limit', 135,
                                           doc='Value low limit for thresholding (rrtarget mode)')
     rrtarget_value_high_limit = ntproperty('/SmartDashboard/vision/rrtarget/value_high_limit', 255,
                                            doc='Value high limit for thresholding (rrtarget mode)')
@@ -35,7 +35,7 @@ class VisionServer2019(VisionServer):
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     def __init__(self, calib_file, test_mode=False):
-        super().__init__(initial_mode='driver_front', test_mode=test_mode)
+        super().__init__(initial_mode='rrtarget', test_mode=test_mode)
 
         self.camera_device_front = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for driver and rrtarget processing
         self.camera_device_side = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
@@ -46,7 +46,7 @@ class VisionServer2019(VisionServer):
         self.add_target_finder(self.generic_finder_front)                       #TODO make it a seperate finder to draw a line down the screen where 
                                                                                 #the line at the bottom of the rocket will be
 
-        self.generic_finder_side = GenericFinder("driver_side", "side", finder_id=2.0, rotation=cv2.ROTATE_90_CLOCKWISE)
+        self.generic_finder_side = GenericFinder("driver_side", "side", finder_id=2.0, rotation=cv2.ROTATE_90_COUNTERCLOCKWISE)
         self.add_target_finder(self.generic_finder_side)
 
         self.rrtarget_finder = RRTargetFinder2019(calib_file)       #finder_id=3.0
@@ -61,7 +61,7 @@ class VisionServer2019(VisionServer):
         self.update_parameters()
 
         # start in rrtarget mode to get cameras going. Will switch to 'driver' after 1 sec.
-        self.switch_mode('rrtarget')
+        self.switch_mode('driver_front')
         return
 
     def update_parameters(self):
