@@ -5,7 +5,9 @@
 DIR=/home/odroid/VisionServer/server
 
 SCRIPT=visionserver2019.py
+
 # For running standalone (not alongside a RoboRio), add the "--test" option
+# For serious debugging, add the "--verbose" option, but it is very noisy
 
 # 640x480 value (but should use the wide screen settings!!)
 ##ARGS="--calib ../data/calibration/c930e_vga_calib.json"
