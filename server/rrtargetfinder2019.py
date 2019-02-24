@@ -20,8 +20,11 @@ class RRTargetFinder2019(object):
     # tilt of strip from vertical
     TARGET_STRIP_ROT = math.radians(14.5)
 
-    # parameters of the camera mount: tilt (up/down) and offset from the robot center (To Be Determined!)
+    # parameters of the camera mount: tilt (up/down), angle inward, and offset from the robot center
+    # NOTE: the rotation matrix for going "camera coord" -> "robot coord" is computed as R_inward * R_tilt
+    #   Make sure angles are measured in the right order
     CAMERA_TILT = math.radians(-7.5)
+    CAMERA_ANGLE_INWARD = math.radians(0.0)
     CAMERA_OFFSET_X = 2.0                # inches left/right from center of rotation
     CAMERA_OFFSET_Z = -4.0                # inches front/back from C.o.R.
 
@@ -43,7 +46,7 @@ class RRTargetFinder2019(object):
         # Allow this to be a bit large to accommodate partially block tape, which appears square
         self.width_height_ratio_max = 1.0
         self.width_height_ratio_min = 0.3
-        
+
         # max distance in pixels that a contour can be from the guessed location
         self.max_target_dist = 50
 
@@ -111,11 +114,18 @@ class RRTargetFinder2019(object):
         cls.left_strip = [(-p[0], p[1], p[2]) for p in cls.right_strip]
 
         # matrices used to compute coordinates
-        t_robot = numpy.array((cls.CAMERA_OFFSET_X, 0.0, cls.CAMERA_OFFSET_Z))
-        c_t = math.cos(cls.CAMERA_TILT)
-        s_t = math.sin(cls.CAMERA_TILT)
-        r_robot_T = numpy.array(((1.0, 0.0, 0.0), (0.0, c_t, -s_t), (0.0, s_t, c_t)))
-        cls.camera_offset_rotated = numpy.matmul(r_robot_T, -t_robot)
+        cls.t_robot = numpy.array((cls.CAMERA_OFFSET_X, 0.0, cls.CAMERA_OFFSET_Z))
+
+        c_a = math.cos(cls.CAMERA_TILT)
+        s_a = math.sin(cls.CAMERA_TILT)
+        r_tilt = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, s_a), (0.0, -s_a, c_a)))
+
+        c_a = math.cos(cls.CAMERA_ANGLE_INWARD)
+        s_a = math.sin(cls.CAMERA_ANGLE_INWARD)
+        r_inward = numpy.array(((c_a, 0.0, s_a), (0.0, 1.0, 0.0), (-s_a, 0.0, c_a)))
+
+        cls.rot_robot = numpy.matmul(r_inward, r_tilt)
+        cls.camera_offset_rotated = numpy.matmul(cls.rot_robot.transpose(), -cls.t_robot)
 
         return
 
@@ -502,8 +512,9 @@ class RRTargetFinder2019(object):
     def compute_output_values(self, rvec, tvec):
         '''Compute the necessary output distance and angles'''
 
-        x = tvec[0][0] + RRTargetFinder2019.CAMERA_OFFSET_X
-        z = math.sin(self.CAMERA_TILT) * tvec[1][0] + math.cos(self.CAMERA_TILT) * tvec[2][0] + RRTargetFinder2019.CAMERA_OFFSET_Z
+        x_r_w0 = numpy.matmul(RRTargetFinder2019.rot_robot, tvec) + RRTargetFinder2019.t_robot
+        x = x_r_w0[0][0]
+        z = x_r_w0[2][0]
 
         # distance in the horizontal plane between robot center and target
         distance = math.sqrt(x**2 + z**2)
