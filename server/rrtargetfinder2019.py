@@ -43,7 +43,7 @@ class RRTargetFinder2019(object):
         # Allow this to be a bit large to accommodate partially block tape, which appears square
         self.width_height_ratio_max = 1.0
         self.width_height_ratio_min = 0.3
-        
+
         # max distance in pixels that a contour can be from the guessed location
         self.max_target_dist = 50
 
@@ -111,10 +111,10 @@ class RRTargetFinder2019(object):
         cls.left_strip = [(-p[0], p[1], p[2]) for p in cls.right_strip]
 
         # matrices used to compute coordinates
-        t_robot = numpy.array((cls.CAMERA_OFFSET_X, 0.0, cls.CAMERA_OFFSET_Z))
+        t_robot = numpy.array(((cls.CAMERA_OFFSET_X,), (0.0,), (cls.CAMERA_OFFSET_Z,)))
         c_t = math.cos(cls.CAMERA_TILT)
         s_t = math.sin(cls.CAMERA_TILT)
-        r_robot_T = numpy.array(((1.0, 0.0, 0.0), (0.0, c_t, -s_t), (0.0, s_t, c_t)))
+        r_robot_T = numpy.array(((1.0, 0.0, 0.0), (0.0, c_t, s_t), (0.0, -s_t, c_t)))
         cls.camera_offset_rotated = numpy.matmul(r_robot_T, -t_robot)
 
         return
