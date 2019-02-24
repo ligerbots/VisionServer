@@ -114,15 +114,15 @@ class RRTargetFinder2019(object):
         cls.left_strip = [(-p[0], p[1], p[2]) for p in cls.right_strip]
 
         # matrices used to compute coordinates
-        cls.t_robot = numpy.array((cls.CAMERA_OFFSET_X, 0.0, cls.CAMERA_OFFSET_Z))
+        cls.t_robot = numpy.array(((cls.CAMERA_OFFSET_X,), (0.0,), (cls.CAMERA_OFFSET_Z,)))
 
         c_a = math.cos(cls.CAMERA_TILT)
         s_a = math.sin(cls.CAMERA_TILT)
-        r_tilt = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, s_a), (0.0, -s_a, c_a)))
+        r_tilt = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, -s_a), (0.0, s_a, c_a)))
 
         c_a = math.cos(cls.CAMERA_ANGLE_INWARD)
         s_a = math.sin(cls.CAMERA_ANGLE_INWARD)
-        r_inward = numpy.array(((c_a, 0.0, s_a), (0.0, 1.0, 0.0), (-s_a, 0.0, c_a)))
+        r_inward = numpy.array(((c_a, 0.0, -s_a), (0.0, 1.0, 0.0), (s_a, 0.0, c_a)))
 
         cls.rot_robot = numpy.matmul(r_inward, r_tilt)
         cls.camera_offset_rotated = numpy.matmul(cls.rot_robot.transpose(), -cls.t_robot)
@@ -525,13 +525,10 @@ class RRTargetFinder2019(object):
         rot, _ = cv2.Rodrigues(rvec)
         rot_inv = rot.transpose()
 
-        # version if there is not offset for the camera (VERY slightly faster)
-        # #pzero_world = numpy.matmul(rot_inv, -tvec)
+        # location of Robot (0,0,0) in World coordinates
+        x_w_r0 = numpy.matmul(rot_inv, RRTargetFinder2019.camera_offset_rotated - tvec)
 
-        # version if camera is offset
-        pzero_world = numpy.matmul(rot_inv, RRTargetFinder2019.camera_offset_rotated - tvec)
-
-        angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
+        angle2 = math.atan2(x_w_r0[0][0], x_w_r0[2][0])
 
         return distance, angle1, angle2
 
