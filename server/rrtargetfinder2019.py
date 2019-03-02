@@ -52,7 +52,7 @@ class RRTargetFinder2019(object):
         self.contour_max_area = 6000
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     # TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
+        self.approx_polydp_error = 0.05     # TODO: maybe tighten this value to get a 5 sided quad fit rather than 4 (tighter=more sides + more accurately)
 
         # ratio of height to width of one retroreflective strip
         # TODO is this still correct???
@@ -144,9 +144,18 @@ class RRTargetFinder2019(object):
         Split the set vertically and the find the farthest in each set.'''
 
         y_ave = 0.0
+        y_min = 10000
+        y_max = 0
         for cnr in contour:
-            y_ave += cnr[1]
+            y = cnr[1]
+            y_ave += y
+            if y > y_max:
+                y_max = y
+            if y < y_min:
+                y_min = y
+
         y_ave /= len(contour)
+        y_delta = (y_max - y_min) / 4
 
         corners = [None, None]
 
@@ -155,15 +164,21 @@ class RRTargetFinder2019(object):
         if is_left:
             for cnr in contour:
                 # larger y (lower in picture) at index 1
-                index = 1 if cnr[1] > y_ave else 0
-                if corners[index] is None or cnr[0] < corners[index][0]:
-                    corners[index] = cnr
+                if abs(cnr[1] - y_ave) > y_delta:
+                    index = 1 if cnr[1] > y_ave else 0
+                    if corners[index] is None or cnr[0] < corners[index][0]:
+                        corners[index] = cnr
+                # else:
+                #     print('middle corner:', cnr)
         else:
             for cnr in contour:
                 # larger y (lower in picture) at index 1
-                index = 1 if cnr[1] > y_ave else 0
-                if corners[index] is None or cnr[0] > corners[index][0]:
-                    corners[index] = cnr
+                if abs(cnr[1] - y_ave) > y_delta:
+                    index = 1 if cnr[1] > y_ave else 0
+                    if corners[index] is None or cnr[0] > corners[index][0]:
+                        corners[index] = cnr
+                # else:
+                #     print('middle corner:', cnr)
 
         return corners
 
@@ -339,9 +354,8 @@ class RRTargetFinder2019(object):
 
         if self.outer_corners is not None:
             cv2.drawContours(output_frame, [numpy.int32(self.outer_corners), ], -1, (0, 255, 0), 1)
-
-        # for cnr in self.outer_corners:
-        #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+            # for cnr in self.outer_corners:
+            #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
         # for loc in self.target_locations:
         #    cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 5, 1)
