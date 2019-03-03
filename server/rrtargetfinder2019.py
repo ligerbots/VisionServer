@@ -23,8 +23,8 @@ class RRTargetFinder2019(object):
     # parameters of the camera mount: tilt (up/down), angle inward, and offset from the robot center
     # NOTE: the rotation matrix for going "camera coord" -> "robot coord" is computed as R_inward * R_tilt
     #   Make sure angles are measured in the right order
-    CAMERA_TILT = math.radians(-7.5)
-    CAMERA_ANGLE_INWARD = math.radians(10.0)
+    CAMERA_TILT = math.radians(-10.0)
+    CAMERA_ANGLE_INWARD = math.radians(18.0)
     CAMERA_OFFSET_X = 9.25                 # inches left/right from center of rotation
     CAMERA_OFFSET_Z = -3.0                 # inches front/back from C.o.R.
 
@@ -51,7 +51,7 @@ class RRTargetFinder2019(object):
         self.max_target_dist = 50
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 100
+        self.contour_min_area = 60
         self.contour_max_area = 6000
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
@@ -145,8 +145,10 @@ class RRTargetFinder2019(object):
     def quad_fit(contour, approx_dp_error):
         '''Simple polygon fit to contour with error related to perimeter'''
 
-        peri = cv2.arcLength(contour, True)
-        return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
+        rr = cv2.minAreaRect(contour)
+        return numpy.array(cv2.boxPoints(rr))
+        # peri = cv2.arcLength(contour, True)
+        # return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
     @staticmethod
     def get_outside_corners_single(contour, is_left):
@@ -359,16 +361,16 @@ class RRTargetFinder2019(object):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
+        #if self.top_contours:
+        #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
         if self.outer_corners is not None:
-            cv2.drawContours(output_frame, [numpy.int32(self.outer_corners), ], -1, (0, 255, 0), 1)
+            cv2.drawContours(output_frame, [numpy.int32(self.outer_corners), ], -1, (0, 0, 255), 1)
             # for cnr in self.outer_corners:
             #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
         # for loc in self.target_locations:
-        #    cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 5, 1)
+        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 5, 1)
 
         # if self.target_contours is not None:
         #     cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
