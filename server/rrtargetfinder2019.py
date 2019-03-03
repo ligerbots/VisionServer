@@ -24,9 +24,9 @@ class RRTargetFinder2019(object):
     # NOTE: the rotation matrix for going "camera coord" -> "robot coord" is computed as R_inward * R_tilt
     #   Make sure angles are measured in the right order
     CAMERA_TILT = math.radians(-7.5)
-    CAMERA_ANGLE_INWARD = math.radians(0.0)
-    CAMERA_OFFSET_X = 2.0                # inches left/right from center of rotation
-    CAMERA_OFFSET_Z = -4.0                # inches front/back from C.o.R.
+    CAMERA_ANGLE_INWARD = math.radians(10.0)
+    CAMERA_OFFSET_X = 9.25                 # inches left/right from center of rotation
+    CAMERA_OFFSET_Z = -3.0                 # inches front/back from C.o.R.
 
     def __init__(self, calib_file):
         self.name = 'rrtarget'
