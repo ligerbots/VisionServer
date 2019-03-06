@@ -31,7 +31,7 @@ class RRTargetFinder2019(object):
     def __init__(self, calib_file):
         self.name = 'rrtarget'
         self.finder_id = 3.0
-        self.camera = 'front'
+        self.camera = 'target'
         self.exposure = 1
 
         # Color threshold values, in HSV space
