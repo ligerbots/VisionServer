@@ -24,8 +24,8 @@ class RRTargetFinder2019(object):
     # NOTE: the rotation matrix for going "camera coord" -> "robot coord" is computed as R_inward * R_tilt
     #   Make sure angles are measured in the right order
     CAMERA_TILT = math.radians(-10.0)
-    CAMERA_ANGLE_INWARD = math.radians(18.0)
-    CAMERA_OFFSET_X = 9.25                 # inches left/right from center of rotation
+    CAMERA_ANGLE_INWARD = math.radians(-10.0)
+    CAMERA_OFFSET_X = -9.25                # inches left/right from center of rotation
     CAMERA_OFFSET_Z = -3.0                 # inches front/back from C.o.R.
 
     def __init__(self, calib_file):
@@ -563,8 +563,12 @@ def process_files(line_finder, input_files, output_dir):
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
         result = line_finder.process_image(bgr_frame)
-        # print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
-        print("{},{},{},{:.2f},{:.2f},{:.2f}".format(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4])))
+        strafe_dist = result[2] * math.sin(result[3])
+        perp_dist = result[2] * math.cos(result[3])
+        print("{},{},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(
+            image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]),
+            perp_dist, strafe_dist)
+        )
 
         bgr_frame = line_finder.prepare_output_image(bgr_frame)
 
