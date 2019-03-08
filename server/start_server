@@ -62,6 +62,44 @@ setup_camera() {
     # uvcdynctrl -d "$1" -g 'White Balance Temperature'
 }
 
+ping_address() {
+    local addr="$1"
+
+    local count=0
+    local success=0
+    local endtime=$(date +%s -d '+90 seconds')  # not sure how long radio takes. Time it later.
+    local sleep=0
+
+    while true; do
+        count=$(($count + 1))
+        if ping -W 1 -c 1 $addr > /dev/null; then
+            success=$((success + 1))
+            sleep=1
+        else
+            success=0
+            # if it timed out, no need to wait between tries
+            sleep=0
+        fi
+
+        if [ $success -ge 3 ]; then
+            echo "Success. $addr responded 3 times. Ping count = $count"
+            return
+        fi
+
+        # Exit conditions. Either 120 tries, or 90 seconds
+        if [ $count -ge 120 ]; then
+            echo "$addr did not answer in $count pings. Giving up"
+            return
+        fi
+        if [ $(date +%s) -ge $endtime ]; then
+            echo "$addr did not answer in 90 seconds. Giving up"
+            return
+        fi
+
+        sleep $sleep
+    done
+}
+
 case "$1" in
     stop)
 	pkill -f $SCRIPT
@@ -77,7 +115,14 @@ case "$1" in
 
 	date > $LOG_FILE
         ls -l /dev/v4l/by-id >> $LOG_FILE
-        echo '' >> $LOG_FILE
+
+        # Pinging the radio seems to be needed to get the Ethernet interface up reliably.
+        # Wait until radio is completely up.
+        radio=$(route -n | grep '^0\.0\.0\.0' | tr -s '/ /' | cut -d' ' -f2)
+        ping_address "$radio" >> $LOG_FILE 2>&1
+
+        # Alternate: just keep pinging
+        ##ping $radio > /dev/null 2>&1 < /dev/null &
 
         # Now done in the Python
         # setup_camera /dev/video0 >> $LOG_FILE 2>&1
@@ -85,6 +130,7 @@ case "$1" in
         #     setup_camera /dev/video1 >> $LOG_FILE 2>&1
         # fi
 
+        echo '' >> $LOG_FILE
         python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
 
