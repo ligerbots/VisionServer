@@ -28,11 +28,12 @@ class RRTargetFinder2019(object):
     CAMERA_OFFSET_X = -9.25                # inches left/right from center of rotation
     CAMERA_OFFSET_Z = -3.0                 # inches front/back from C.o.R.
 
-    def __init__(self, calib_file):
-        self.name = 'rrtarget'
-        self.finder_id = 3.0
+    def __init__(self, calib_file, name='rrtarget', finder_id=3.0, stream_other_camera=True):
+        self.name = name
+        self.finder_id = finder_id
+        self.stream_other_camera = stream_other_camera
         self.camera = 'target'
-        self.stream_camera = 'intake'
+        self.stream_camera = 'intake' if stream_other_camera else None
         self.exposure = 1
 
         # Color threshold values, in HSV space
@@ -360,12 +361,23 @@ class RRTargetFinder2019(object):
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
 
-    def prepare_output_image(self, input_frame, draw_contours=False):
+    def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
 
         output_frame = input_frame.copy()
 
-        if draw_contours:
+        if self.stream_other_camera:
+            # hack for now: other camera is rotated!
+            output_frame = cv2.rotate(input_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+            dotrad = 8 if min(output_frame.shape[0], output_frame.shape[1]) < 400 else 12
+            if self.target_found:
+                # green dot
+                cv2.circle(output_frame, (20, 20), dotrad, (0, 255, 0), thickness=dotrad)
+            else:
+                # red x
+                cv2.drawMarker(output_frame, (20, 20), (0, 0, 255), cv2.MARKER_TILTED_CROSS, 2*dotrad, 5)
+        else:
             # if self.top_contours:
             #     cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
@@ -379,13 +391,6 @@ class RRTargetFinder2019(object):
 
             # if self.target_contours is not None:
             #     cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
-        else:
-            # must be called from the server. Just indicate if the target was found
-            dotrad = 3 if output_frame.shape[0] < 400 else 5
-            if self.target_found:
-                cv2.circle(output_frame, (20, 20), dotrad, (0, 255, 0), thickness=2*dotrad, lineType=8, shift=0)
-            else:
-                cv2.circle(output_frame, (20, 20), dotrad, (0, 0, 255), thickness=2*dotrad, lineType=8, shift=0)
 
         return output_frame
 
@@ -566,7 +571,7 @@ class RRTargetFinder2019(object):
 RRTargetFinder2019.init_class_variables()
 
 
-def process_files(line_finder, input_files, output_dir):
+def process_files(finder, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
 
@@ -574,7 +579,7 @@ def process_files(line_finder, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
-        result = line_finder.process_image(bgr_frame)
+        result = finder.process_image(bgr_frame)
         strafe_dist = result[2] * math.sin(result[3])
         perp_dist = result[2] * math.cos(result[3])
         print("{},{},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(
@@ -582,7 +587,7 @@ def process_files(line_finder, input_files, output_dir):
             perp_dist, strafe_dist)
         )
 
-        bgr_frame = line_finder.prepare_output_image(bgr_frame, draw_contours=True)
+        bgr_frame = finder.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
@@ -595,7 +600,7 @@ def process_files(line_finder, input_files, output_dir):
     return
 
 
-def time_processing(cube_processor, input_files):
+def time_processing(finder, input_files):
     '''Time the processing of the test files'''
 
     from codetimer import CodeTimer
@@ -614,7 +619,7 @@ def time_processing(cube_processor, input_files):
                 bgr_frame = cv2.imread(image_file)
 
             with CodeTimer("Main Processing"):
-                cube_processor.process_image(bgr_frame)
+                finder.process_image(bgr_frame)
 
             cnt += 1
 
@@ -638,7 +643,8 @@ def main():
 
     args = parser.parse_args()
 
-    rrtarget_finder = RRTargetFinder2019(args.calib_file)
+    # for testing, want all the found contour drawn on this image
+    rrtarget_finder = RRTargetFinder2019(args.calib_file, stream_other_camera=False)
 
     if args.output_dir is not None:
         process_files(rrtarget_finder, args.input_files, args.output_dir)

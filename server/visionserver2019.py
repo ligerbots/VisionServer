@@ -8,8 +8,6 @@ from networktables.util import ntproperty
 from visionserver import VisionServer, main
 from genericfinder import GenericFinder
 from rrtargetfinder2019 import RRTargetFinder2019
-# from hatchfinder2019 import HatchFinder2019
-# from linefinder2019 import LineFinder2019
 
 
 class VisionServer2019(VisionServer):
@@ -52,15 +50,12 @@ class VisionServer2019(VisionServer):
         self.rrtarget_finder = RRTargetFinder2019(calib_file)       # finder_id=3.0
         self.add_target_finder(self.rrtarget_finder)
 
-        # self.hatch_finder = HatchFinder2019(calib_file)
-        # self.add_target_finder(self.hatch_finder)
-
-        # self.line_finder = LineFinder2019(calib_file)
-        # self.add_target_finder(self.line_finder)
+        self.rrtarget_finder_plain = RRTargetFinder2019(calib_file, name='rrtarget_plain', finder_id=4.0, stream_other_camera=False)
+        self.add_target_finder(self.rrtarget_finder_plain)
 
         self.update_parameters()
 
-        # start in rrtarget mode to get cameras going. Will switch to 'driver' after 1 sec.
+        # start in driver_intake mode to get cameras going. Will switch to 'driver_target' after 1 sec.
         self.switch_mode('driver_intake')
         return
 
@@ -73,10 +68,13 @@ class VisionServer2019(VisionServer):
         self.rrtarget_finder.set_color_thresholds(self.rrtarget_hue_low_limit, self.rrtarget_hue_high_limit,
                                                   self.rrtarget_saturation_low_limit, self.rrtarget_saturation_high_limit,
                                                   self.rrtarget_value_low_limit, self.rrtarget_value_high_limit)
+        self.rrtarget_finder_plain.set_color_thresholds(self.rrtarget_hue_low_limit, self.rrtarget_hue_high_limit,
+                                                        self.rrtarget_saturation_low_limit, self.rrtarget_saturation_high_limit,
+                                                        self.rrtarget_value_low_limit, self.rrtarget_value_high_limit)
         return
 
     def add_cameras(self):
-        '''add a single camera at /dev/videoN, N=camera_device'''
+        '''add the cameras'''
 
         self.add_camera('intake', self.camera_device_intake, True)
         self.add_camera('target', self.camera_device_target, False)
