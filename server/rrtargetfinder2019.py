@@ -32,6 +32,7 @@ class RRTargetFinder2019(object):
         self.name = 'rrtarget'
         self.finder_id = 3.0
         self.camera = 'target'
+        self.stream_camera = 'intake'
         self.exposure = 1
 
         # Color threshold values, in HSV space
@@ -68,6 +69,7 @@ class RRTargetFinder2019(object):
         self.top_contours = None
         self.target_locations = None
         self.outer_corners = None
+        self.target_found = False
 
         # output results
         self.target_contours = None
@@ -284,6 +286,7 @@ class RRTargetFinder2019(object):
         self.top_contours = None
         self.target_locations = []
         self.outer_corners = None
+        self.target_found = False
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -351,29 +354,38 @@ class RRTargetFinder2019(object):
             if retval:
                 result = [1.0, self.finder_id, ]
                 result.extend(self.compute_output_values(rvec, tvec))
+                self.target_found = True
                 return result
 
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
 
-    def prepare_output_image(self, input_frame):
+    def prepare_output_image(self, input_frame, draw_contours=False):
         '''Prepare output image for drive station. Draw the found target contour.'''
 
         output_frame = input_frame.copy()
 
-        #if self.top_contours:
-        #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
+        if draw_contours:
+            # if self.top_contours:
+            #     cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
-        if self.outer_corners is not None:
-            cv2.drawContours(output_frame, [numpy.int32(self.outer_corners), ], -1, (0, 0, 255), 1)
-            # for cnr in self.outer_corners:
-            #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+            if self.outer_corners is not None:
+                cv2.drawContours(output_frame, [numpy.int32(self.outer_corners), ], -1, (0, 0, 255), 1)
+                # for cnr in self.outer_corners:
+                #     cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
-        # for loc in self.target_locations:
-        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 5, 1)
+            # for loc in self.target_locations:
+            #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 5, 1)
 
-        # if self.target_contours is not None:
-        #     cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
+            # if self.target_contours is not None:
+            #     cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
+        else:
+            # must be called from the server. Just indicate if the target was found
+            dotrad = 3 if output_frame.shape[0] < 400 else 5
+            if self.target_found:
+                cv2.circle(output_frame, (20, 20), dotrad, (0, 255, 0), thickness=2*dotrad, lineType=8, shift=0)
+            else:
+                cv2.circle(output_frame, (20, 20), dotrad, (0, 0, 255), thickness=2*dotrad, lineType=8, shift=0)
 
         return output_frame
 
@@ -570,7 +582,7 @@ def process_files(line_finder, input_files, output_dir):
             perp_dist, strafe_dist)
         )
 
-        bgr_frame = line_finder.prepare_output_image(bgr_frame)
+        bgr_frame = line_finder.prepare_output_image(bgr_frame, draw_contours=True)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))

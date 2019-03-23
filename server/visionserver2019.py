@@ -37,19 +37,19 @@ class VisionServer2019(VisionServer):
     def __init__(self, calib_file, test_mode=False):
         super().__init__(initial_mode='driver_target', test_mode=test_mode)
 
-        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for driver and rrtarget processing
-        self.camera_device_target = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
+        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for driver and rrtarget processing
+        self.camera_device_target = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for line and hatch processing
 
         self.add_cameras()
 
-        self.generic_finder_target = GenericFinder("driver_target", "target")      #finder_id=1.0
-        self.add_target_finder(self.generic_finder_target)                       #TODO make it a seperate finder to draw a line down the screen where 
-                                                                                #the line at the bottom of the rocket will be
+        self.generic_finder_target = GenericFinder("driver_target", "target")      # finder_id=1.0
+        self.add_target_finder(self.generic_finder_target)                         # TODO make it a seperate finder to draw a line down the screen where
+                                                                                   # the line at the bottom of the rocket will be
 
         self.generic_finder_intake = GenericFinder("driver_intake", "intake", finder_id=2.0, rotation=cv2.ROTATE_90_COUNTERCLOCKWISE)
         self.add_target_finder(self.generic_finder_intake)
 
-        self.rrtarget_finder = RRTargetFinder2019(calib_file)       #finder_id=3.0
+        self.rrtarget_finder = RRTargetFinder2019(calib_file)       # finder_id=3.0
         self.add_target_finder(self.rrtarget_finder)
 
         # self.hatch_finder = HatchFinder2019(calib_file)
@@ -78,8 +78,8 @@ class VisionServer2019(VisionServer):
     def add_cameras(self):
         '''add a single camera at /dev/videoN, N=camera_device'''
 
-        self.add_camera('intake', self.camera_device_target, True)
-        self.add_camera('target', self.camera_device_intake, False)
+        self.add_camera('intake', self.camera_device_intake, True)
+        self.add_camera('target', self.camera_device_target, False)
         return
 
     def mode_after_error(self):

@@ -12,6 +12,8 @@ from cscore.imagewriter import ImageWriter
 from networktables.util import ntproperty
 from networktables import NetworkTables
 
+from threadedcamera import ThreadedCamera
+
 
 class VisionServer:
     '''Base class for the VisionServer'''
@@ -63,8 +65,8 @@ class VisionServer:
         self.camera_server = cscore.CameraServer.getInstance()
         self.camera_server.enableLogging()
 
-        self.video_sinks = {}
-        self.current_sink = None
+        self.video_readers = {}
+        self.current_reader = None
         self.cameras = {}
         self.active_camera = None
 
@@ -118,9 +120,9 @@ class VisionServer:
         '''Preallocate the intermediate result image arrays'''
 
         # NOTE: shape is (height, width, #bytes)
-        self.camera_frame = numpy.zeros(shape=(int(self.image_height), int(self.image_width), 3),
-                                        dtype=numpy.uint8)
-        # self.output_frame = self.camera_frame
+        # self.camera_frame = numpy.zeros(shape=(int(self.image_height), int(self.image_width), 3),
+        #                                 dtype=numpy.uint8)
+
         return
 
     def create_output_stream(self):
@@ -192,28 +194,20 @@ class VisionServer:
         logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
                      mode.pixelFormat, mode.width, mode.height, mode.fps)
 
-        sink = self.camera_server.getVideo(camera=camera)
-        self.video_sinks[name] = sink
+        reader = ThreadedCamera(self.camera_server.getVideo(camera=camera)).start()
+        self.video_readers[name] = reader
         if active:
-            self.current_sink = sink
+            self.current_reader = reader
             self.active_camera = name
-        # keep camera active for faster switching
-        # else:
-        #     # if not active, disable it to save CPU
-        #     sink.setEnabled(False)
 
         return
 
     def switch_camera(self, name):
         '''Switch the active camera, and disable the previously active one'''
 
-        new_sink = self.video_sinks.get(name, None)
-        if new_sink is not None:
-            # disable the old camera feed
-            # self.current_sink.setEnabled(False)
-            # enable the new one. Do this 2nd in case it is the same as the old one.
-            new_sink.setEnabled(True)
-            self.current_sink = new_sink
+        new_reader = self.video_readers.get(name, None)
+        if new_reader is not None:
+            self.current_reader = new_reader
             self.active_camera = name
         else:
             logging.error('Unknown camera %s' % name)
@@ -264,10 +258,19 @@ class VisionServer:
             if self.curr_finder is None:
                 self.output_frame = self.camera_frame.copy()
             else:
-                self.output_frame = self.curr_finder.prepare_output_image(self.camera_frame)
+                base_frame = self.camera_frame
+
+                # Finders are allowed to designate a different image to stream to the DS
+                cam = self.curr_finder.stream_camera
+                if cam is not None:
+                    rdr = self.video_readers.get(cam, None)
+                    if rdr is not None:
+                        _, base_frame = rdr.get_frame()  # does not wait
+
+                self.output_frame = self.curr_finder.prepare_output_image(base_frame)
 
             image_shape = self.output_frame.shape
-            if image_shape[0] < 400: # test on height
+            if image_shape[0] < 400:  # test on height
                 dotrad = 3
                 fontscale = 0.4
                 fontthick = 1
@@ -298,6 +301,9 @@ class VisionServer:
 
         frame_num = 0
         errors = 0
+
+        fps_count = 0
+        fps_startt = time.time()
         while True:
             try:
                 # Check whether DS has asked for a different camera
@@ -305,20 +311,20 @@ class VisionServer:
                 if ntmode != self.active_mode:
                     self.switch_mode(ntmode)
 
-                if self.camera_frame is None:
-                    self.preallocate_arrays()
+                # if self.camera_frame is None:
+                #     self.preallocate_arrays()
 
                 if self.tuning:
                     self.update_parameters()
 
-                # Tell the CvSink to grab a frame from the camera and put it
+                # Tell the CvReader to grab a frame from the camera and put it
                 # in the source image.  Frametime==0 on error
-                frametime, self.camera_frame = self.current_sink.grabFrame(self.camera_frame)
+                frametime, self.camera_frame = self.current_reader.next_frame()
                 frame_num += 1
 
                 if frametime == 0:
                     # ERROR!!
-                    self.error_msg = self.current_sink.getError()
+                    self.error_msg = self.current_reader.sink.getError()
 
                     if errors < 10:
                         errors += 1
@@ -367,6 +373,14 @@ class VisionServer:
                     # This is a bit stupid, but you need to poke the camera *after* the first
                     #  bunch of frames has been collected.
                     self.switch_mode(self.initial_mode)
+
+                fps_count += 1
+                if fps_count == 150:
+                    endt = time.time()
+                    dt = endt - fps_startt
+                    logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
+                    fps_count = 0
+                    fps_startt = endt
 
             except Exception as e:
                 # major exception. Try to keep going
