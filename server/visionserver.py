@@ -238,9 +238,10 @@ class VisionServer:
                 self.curr_finder = finder
                 self.set_exposure(self.cameras[finder.camera], finder.exposure)
                 self.active_mode = new_mode
-                self.nt_active_mode = self.active_mode  # make sure they are in sync
             else:
                 logging.error("Unknown mode '%s'" % new_mode)
+
+            self.nt_active_mode = self.active_mode  # make sure they are in sync
         except Exception as e:
             logging.error('Exception when switching mode: %s', e)
 
@@ -439,11 +440,8 @@ def main(server_type):
     args = parser.parse_args()
 
     # To see messages from networktables, you must setup logging
-    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s')
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s')
 
     if args.test:
         # FOR TESTING, set this box as the server
