@@ -418,6 +418,25 @@ class VisionServer:
 # -----------------------------------------------------------------------------
 
 
+def wait_on_nt_connect(max_delay=10):
+    cnt = 0
+    while True:
+        if NetworkTables.isConnected():
+            logging.info('Connect to NetworkTables after %d seconds', cnt)
+            return
+
+        if cnt >= max_delay:
+            break
+
+        if cnt > 0 and cnt % 5 == 0:
+            logging.warning("Still waiting to connect to NT (%d sec)", cnt)
+        time.sleep(1)
+        cnt += 1
+
+    logging.warning("Failed to connect to NetworkTables after %d seconds. Continuing", cnt)
+    return
+
+
 # syntax checkers don't like global variables, so use a simple function
 def main(server_type):
     '''Main routine'''
@@ -426,6 +445,7 @@ def main(server_type):
     parser = argparse.ArgumentParser(description='2018 Vision Server')
     parser.add_argument('--calib', required=True, help='Calibration file for camera')
     parser.add_argument('--test', action='store_true', help='Run in local test mode')
+    parser.add_argument('--delay', type=int, default=0, help='Max delay trying to connect to NT server (seconds)')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose. Turn up debug messages')
     parser.add_argument('--files', action='store_true', help='Process input files instead of camera')
     parser.add_argument('input_files', nargs='*', help='input files')
@@ -433,6 +453,7 @@ def main(server_type):
     args = parser.parse_args()
 
     # To see messages from networktables, you must setup logging
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s')
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -441,13 +462,17 @@ def main(server_type):
     if args.test:
         # FOR TESTING, set this box as the server
         NetworkTables.enableVerboseLogging()
-        NetworkTables.initialize()
+        NetworkTables.startServer()
     else:
         if args.verbose:
             # Turn up the noise from NetworkTables. VERY noisy!
             # DO NOT do this during competition, unless you are really sure
             NetworkTables.enableVerboseLogging()
-        NetworkTables.initialize(server='10.28.77.2')
+        # NetworkTables.startClient('10.28.77.2')
+        # Try startClientTeam() method; it auto tries a whole bunch of standard addresses
+        NetworkTables.startClientTeam(2877)
+        if args.delay > 0:
+            wait_on_nt_connect(args.delay)
 
     server = server_type(calib_file=args.calib, test_mode=args.test)
 
