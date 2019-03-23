@@ -271,7 +271,7 @@ class VisionServer:
                 self.output_frame = self.curr_finder.prepare_output_image(base_frame)
 
             image_shape = self.output_frame.shape
-            if image_shape[0] < 400:                  # test on height
+            if image_shape[0] < 400:  # test on height
                 dotrad = 3
                 fontscale = 0.4
                 fontthick = 1
