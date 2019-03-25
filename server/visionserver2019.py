@@ -74,7 +74,7 @@ class VisionServer2019(VisionServer):
         return
 
     def add_cameras(self):
-        '''add the cameras'''
+        '''Add the cameras'''
 
         self.add_camera('intake', self.camera_device_intake, True)
         self.add_camera('target', self.camera_device_target, False)
