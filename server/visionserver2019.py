@@ -47,10 +47,10 @@ class VisionServer2019(VisionServer):
         self.generic_finder_intake = GenericFinder("driver_intake", "intake", finder_id=2.0, rotation=cv2.ROTATE_90_COUNTERCLOCKWISE)
         self.add_target_finder(self.generic_finder_intake)
 
-        self.rrtarget_finder = RRTargetFinder2019(calib_file)       # finder_id=3.0
+        self.rrtarget_finder = RRTargetFinder2019(calib_file, intake_finder=self.generic_finder_intake)  # finder_id=3.0
         self.add_target_finder(self.rrtarget_finder)
 
-        self.rrtarget_finder_plain = RRTargetFinder2019(calib_file, name='rrtarget_plain', finder_id=4.0, stream_other_camera=False)
+        self.rrtarget_finder_plain = RRTargetFinder2019(calib_file, name='rrtarget_plain', finder_id=4.0)
         self.add_target_finder(self.rrtarget_finder_plain)
 
         self.update_parameters()

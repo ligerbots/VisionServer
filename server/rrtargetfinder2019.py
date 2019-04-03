@@ -28,13 +28,14 @@ class RRTargetFinder2019(object):
     CAMERA_OFFSET_X = -9.25                # inches left/right from center of rotation
     CAMERA_OFFSET_Z = -3.0                 # inches front/back from C.o.R.
 
-    def __init__(self, calib_file, name='rrtarget', finder_id=3.0, stream_other_camera=True):
+    def __init__(self, calib_file, name='rrtarget', finder_id=3.0, intake_finder=None):
         self.name = name
         self.finder_id = finder_id
-        self.stream_other_camera = stream_other_camera
         self.camera = 'target'
-        self.stream_camera = 'intake' if stream_other_camera else None
         self.exposure = 1
+
+        self.intake_finder = intake_finder
+        self.stream_camera = 'intake' if intake_finder is not None else None
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
@@ -364,11 +365,9 @@ class RRTargetFinder2019(object):
     def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
 
-        output_frame = input_frame.copy()
-
-        if self.stream_other_camera:
+        if self.intake_finder is not None:
             # hack for now: other camera is rotated!
-            output_frame = cv2.rotate(input_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            output_frame = self.intake_finder.prepare_output_image(input_frame)
 
             dotrad = 8 if min(output_frame.shape[0], output_frame.shape[1]) < 400 else 12
             if self.target_found:
@@ -378,6 +377,8 @@ class RRTargetFinder2019(object):
                 # red x
                 cv2.drawMarker(output_frame, (20, 20), (0, 0, 255), cv2.MARKER_TILTED_CROSS, 2*dotrad, 5)
         else:
+            output_frame = input_frame.copy()
+
             # if self.top_contours:
             #     cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
@@ -644,7 +645,7 @@ def main():
     args = parser.parse_args()
 
     # for testing, want all the found contour drawn on this image
-    rrtarget_finder = RRTargetFinder2019(args.calib_file, stream_other_camera=False)
+    rrtarget_finder = RRTargetFinder2019(args.calib_file, intake_finder=None)
 
     if args.output_dir is not None:
         process_files(rrtarget_finder, args.input_files, args.output_dir)
