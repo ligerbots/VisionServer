@@ -50,6 +50,9 @@ class VisionServer2019(VisionServer):
         self.rrtarget_finder = RRTargetFinder2019(calib_file)       # finder_id=3.0
         self.add_target_finder(self.rrtarget_finder)
 
+        self.rrtarget_finder_plain = RRTargetFinder2019(calib_file, name='rrtarget_plain', finder_id=4.0, stream_other_camera=False)
+        self.add_target_finder(self.rrtarget_finder_plain)
+
         self.update_parameters()
 
         # start in driver_intake mode to get cameras going. Will switch to 'driver_target' after 1 sec.
@@ -65,6 +68,9 @@ class VisionServer2019(VisionServer):
         self.rrtarget_finder.set_color_thresholds(self.rrtarget_hue_low_limit, self.rrtarget_hue_high_limit,
                                                   self.rrtarget_saturation_low_limit, self.rrtarget_saturation_high_limit,
                                                   self.rrtarget_value_low_limit, self.rrtarget_value_high_limit)
+        self.rrtarget_finder_plain.set_color_thresholds(self.rrtarget_hue_low_limit, self.rrtarget_hue_high_limit,
+                                                        self.rrtarget_saturation_low_limit, self.rrtarget_saturation_high_limit,
+                                                        self.rrtarget_value_low_limit, self.rrtarget_value_high_limit)
         return
 
     def add_cameras(self):

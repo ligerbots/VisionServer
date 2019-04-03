@@ -14,6 +14,7 @@ class GenericFinder(object):
         self.name = name
         self.finder_id = float(finder_id)   # id needs to be float! "id" is a reserved word.
         self.camera = camera                # string with camera name
+        self.stream_camera = None           # None means same camera
         self.exposure = exposure
         self.rotation = rotation            # cv2.ROTATE_90_CLOCKWISE = 0, cv2.ROTATE_180 = 1, cv2.ROTATE_90_COUNTERCLOCKWISE = 2
         return
