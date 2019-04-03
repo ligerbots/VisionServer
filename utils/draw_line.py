@@ -13,6 +13,7 @@ def proceed(x):
 
 
 def process_image(image, x1, y1, x2, y2, rotation=None):
+    # WARNING rotation=0 is actually 90deg clockwise (dumb!!)
     if rotation is not None:
         out_frame = cv2.rotate(image, rotation)
     else:

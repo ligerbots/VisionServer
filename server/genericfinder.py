@@ -26,6 +26,7 @@ class GenericFinder(object):
     def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Rotate image if needed, otherwise nothing to do.'''
 
+        # WARNING rotation=0 is actually 90deg clockwise (dumb!!)
         if self.rotation is not None:
             # rotate function makes a copy, so no need to do that ahead.
             output_frame = cv2.rotate(input_frame, self.rotation)
