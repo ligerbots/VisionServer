@@ -30,8 +30,8 @@ def process_files(image_files, rotation):
     shape = out_frame.shape
     print(shape)
     # Create a black image, a window
-    # cv2.namedWindow('image', cv2.WINDOW_NORMAL )
-    cv2.namedWindow('image')
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL )
+    # cv2.namedWindow('image')
 
     cv2.createTrackbar('X1', 'image', shape[1]//2, shape[1], proceed)
     cv2.createTrackbar('Y1', 'image', 0, shape[0], proceed)
@@ -39,7 +39,8 @@ def process_files(image_files, rotation):
     cv2.createTrackbar('Y2', 'image', shape[0], shape[0], proceed)
 
     image_id = -1
-    cv2.createTrackbar('Image#', 'image', 0, len(image_files)-1, proceed)
+    mn = max(1, len(image_files)-1)
+    cv2.createTrackbar('Image#', 'image', 0, mn, proceed)
 
     # # create switch for ON/OFF functionality
     # switch = '0 : OFF \n1 : ON'
