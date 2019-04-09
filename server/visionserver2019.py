@@ -33,7 +33,7 @@ class VisionServer2019(VisionServer):
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     intake_center_line = ((126, 0), (99, 424))
-    intake_center_line = None
+    # intake_center_line = None
 
     def __init__(self, calib_file, test_mode=False):
         super().__init__(initial_mode='driver_target', test_mode=test_mode)
