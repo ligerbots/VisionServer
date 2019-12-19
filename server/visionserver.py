@@ -2,14 +2,16 @@
 
 '''Defines a class for which each year's subclass vision server inherits from'''
 
+import sys
 import time
 import cv2
 import numpy
 import logging
 
 import cscore
+from wpilib import SmartDashboard, SendableChooser
 from cscore.imagewriter import ImageWriter
-from networktables.util import ntproperty
+from networktables.util import ntproperty, ChooserControl
 from networktables import NetworkTables
 
 from threadedcamera import ThreadedCamera
@@ -19,6 +21,9 @@ class VisionServer:
     '''Base class for the VisionServer'''
 
     # NetworkTable parameters
+
+    # this will be under /SmartDashboard, but the SendableChooser code does not allow full paths
+    ACTIVE_MODE_KEY = "vision/active_mode"
 
     # frame rate is pretty variable, so set this a fair bit higher than what you really want
     # using a large number for no limit
@@ -40,11 +45,6 @@ class VisionServer:
 
     image_writer_state = ntproperty('/SmartDashboard/vision/write_images', False, writeDefault=True,
                                     doc='Turn on saving of images')
-
-    # This ought to be a Choosable, but the Python implementation is lame. Use a string for now.
-    # This is the NT variable, which can be set from the Driver's station
-    # Use "0" for the initial value; needs to be set by the subclass.
-    nt_active_mode = ntproperty('/SmartDashboard/vision/active_mode', 'default', doc='Active mode')
 
     # Targeting info sent to RoboRio
     # Send the results as one big array in order to guarantee that the results
@@ -80,7 +80,12 @@ class VisionServer:
         self.initial_mode = initial_mode
         self.nt_active_mode = self.initial_mode
 
-        # active mode. To be compared to nt_active_mode to see if it has changed
+        # SendableChooser creates a dropdown chooser in ShuffleBoard
+        self.mode_chooser = SendableChooser()
+        SmartDashboard.putData(self.ACTIVE_MODE_KEY, self.mode_chooser)
+        self.mode_chooser_ctrl = ChooserControl(self.ACTIVE_MODE_KEY)
+
+        # active mode. To be compared to the value from mode_chooser to see if it has changed
         self.active_mode = None
 
         self.curr_finder = None
@@ -215,8 +220,14 @@ class VisionServer:
         return
 
     def add_target_finder(self, finder):
-        logging.info("Adding target finder '{}' id {}".format(finder.name, finder.finder_id))
-        self.target_finders[finder.name] = finder
+        n = finder.name
+        logging.info("Adding target finder '{}' id {}".format(n, finder.finder_id))
+        self.target_finders[n] = finder
+        NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/options').setStringArray(self.target_finders.keys())
+
+        if n == self.initial_mode:
+            NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/default').setString(n)
+            self.mode_chooser_ctrl.setSelected(n)
         return
 
     def switch_mode(self, new_mode):
@@ -235,7 +246,7 @@ class VisionServer:
             else:
                 logging.error("Unknown mode '%s'" % new_mode)
 
-            self.nt_active_mode = self.active_mode  # make sure they are in sync
+            self.mode_chooser_ctrl.setSelected(self.active_mode)  # make sure they are in sync
         except Exception as e:
             logging.error('Exception when switching mode: %s', e)
 
@@ -290,7 +301,8 @@ class VisionServer:
 
             # If test mode (ie running the NT server), give a warning
             if self.test_mode:
-                cv2.putText(self.output_frame, "TEST MODE", (5, image_shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX, fontscale, (0, 255, 255), thickness=fontthick)
+                cv2.putText(self.output_frame, "TEST MODE", (5, image_shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX,
+                            fontscale, (0, 255, 255), thickness=fontthick)
 
         except Exception as e:
             logging.error("Exception caught in prepare_output_image(): %s", e)
@@ -308,7 +320,8 @@ class VisionServer:
         while True:
             try:
                 # Check whether DS has asked for a different camera
-                ntmode = self.nt_active_mode  # temp, for efficiency
+                # ntmode = self.nt_active_mode  # temp, for efficiency
+                ntmode = self.mode_chooser_ctrl.getSelected()
                 if ntmode != self.active_mode:
                     self.switch_mode(ntmode)
 
