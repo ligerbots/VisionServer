@@ -13,10 +13,9 @@ All values are floats, because NT arrays need to be a uniform type. Values are:
   * target_info[4] = angle1 to target (radians) -- angle displacement of robot to target
   * target_info[5] = angle2 of target (radians) -- angle displacement of target to robot
 
-* /SmartDashboard/vision/active_mode = current vision processing mode (to retrieve the value from NT, use 'vision/active_mode')
-This is a **string**, with specific values.
-  * "driver" = Front camera, no target finding
-  * "rrtarget" = Front camera, try to find the rrtarget. NOTE: RoboRio needs to turn **on** LED ring.
+* /SmartDashboard/vision/active_mode = current vision processing mode 
+  This is a "sendablechooser", so it appears as a dropdown in ShuffleBoard.
+  The Java code needs to use a monitor the value /SmartDashboard/vision/active_mode/selected
 
 * /SmartDashboard/vision/camera_height = current height of Front camera (inches)
 
