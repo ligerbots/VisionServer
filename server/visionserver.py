@@ -358,7 +358,7 @@ class VisionServer:
 
                 # Try to force an update of NT to the RoboRio. Docs say this may be rate-limited,
                 #  so it might not happen every call.
-                # NetworkTables.flush()
+                NetworkTables.flush()
 
                 # Done. Output the marked up image, if needed
                 # Note this can also be done via the URL, but this is more efficient

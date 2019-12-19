@@ -32,6 +32,9 @@ class VisionServer2019(VisionServer):
 
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
+    intake_center_line = ((126, 0), (99, 424))
+    # intake_center_line = None
+
     def __init__(self, calib_file, test_mode=False):
         super().__init__(initial_mode='driver_target', test_mode=test_mode)
 
@@ -44,13 +47,13 @@ class VisionServer2019(VisionServer):
         self.add_target_finder(self.generic_finder_target)                         # TODO make it a seperate finder to draw a line down the screen where
                                                                                    # the line at the bottom of the rocket will be
 
-        self.generic_finder_intake = GenericFinder("driver_intake", "intake", finder_id=2.0, rotation=cv2.ROTATE_90_COUNTERCLOCKWISE)
+        self.generic_finder_intake = GenericFinder("driver_intake", "intake", finder_id=2.0, rotation=cv2.ROTATE_90_COUNTERCLOCKWISE, line_coords=self.intake_center_line)
         self.add_target_finder(self.generic_finder_intake)
 
-        self.rrtarget_finder = RRTargetFinder2019(calib_file)       # finder_id=3.0
+        self.rrtarget_finder = RRTargetFinder2019(calib_file, intake_finder=self.generic_finder_intake)  # finder_id=3.0
         self.add_target_finder(self.rrtarget_finder)
 
-        self.rrtarget_finder_plain = RRTargetFinder2019(calib_file, name='rrtarget_plain', finder_id=4.0, stream_other_camera=False)
+        self.rrtarget_finder_plain = RRTargetFinder2019(calib_file, name='rrtarget_plain', finder_id=4.0)
         self.add_target_finder(self.rrtarget_finder_plain)
 
         self.update_parameters()
