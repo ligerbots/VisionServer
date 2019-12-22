@@ -1,4 +1,3 @@
-import os.path
 import numpy
 
 from distutils.core import setup

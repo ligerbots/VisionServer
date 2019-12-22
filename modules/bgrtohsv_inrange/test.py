@@ -12,31 +12,39 @@ from cbgrtohsv_inrange import *
 from codetimer import CodeTimer
 
 
-def bgrtohsv_inrange_cv2(image, lowLimitHSV, highLimitHSV, hsv_frame, thres_frame ):
+def bgrtohsv_inrange_cv2(image, lowLimitHSV, highLimitHSV, hsv_frame, thres_frame):
     hsv_frame = cv2.cvtColor(image, cv2.COLOR_BGR2HSV, dst=hsv_frame)
     thres_frame = cv2.inRange(hsv_frame, lowLimitHSV, highLimitHSV, dst=thres_frame)
     return thres_frame
 
+
 def main():
     parser = argparse.ArgumentParser(description='bgrtohsv_inrange test program')
-    parser.add_argument('files', nargs='*', help='input files')
+    parser.add_argument('files', nargs='+', help='input files')
 
     args = parser.parse_args()
+
+    print("haveOpenCL =", cv2.ocl.haveOpenCL())
 
     # Color threshold values, in HSV space
     low_limit_hsv = numpy.array((70, 60, 30), dtype=numpy.uint8)
     high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
-    #if args.no_opencl:
-    #    print('Disabling OpenCL')
-    #    cv2.ocl.setUseOpenCL(False)
+    # if args.no_opencl:
+    #     print('Disabling OpenCL')
+    #     cv2.ocl.setUseOpenCL(False)
 
     # prime the routines for more accurate timing
     bgr_frame = cv2.imread(args.files[0])
 
-    with CodeTimer("TableInit"):
-        lookup_table = bgrtohsv_inrange_preparetable(low_limit_hsv, high_limit_hsv)
-        print('lookup table:', lookup_table.shape)
+    for _ in range(5):
+        with CodeTimer("TableInit_GPU"):
+            lookup_table = bgrtohsv_inrange_preparetable_gpu(low_limit_hsv, high_limit_hsv)
+            print('lookup table:', lookup_table.shape)
+
+        with CodeTimer("TableInit"):
+            lookup_table = bgrtohsv_inrange_preparetable(low_limit_hsv, high_limit_hsv)
+            print('lookup table:', lookup_table.shape)
 
     func_out = numpy.empty(shape=bgr_frame.shape[0:2], dtype=numpy.uint8)
     table_out = numpy.empty(shape=bgr_frame.shape[0:2], dtype=numpy.uint8)
@@ -55,13 +63,14 @@ def main():
                 bgrtohsv_inrange_table(lookup_table, bgr_frame, table_out)
 
             ##print(image_file, "equal =", checkEqualHSV(cv2Out, func_out))
-            if not numpy.array_equal(thres_frame, func_out):
-                print(image_file, " function conversion failed")
+            # if not numpy.array_equal(thres_frame, func_out):
+            #    print(image_file, " function conversion failed")
             if not numpy.array_equal(thres_frame, table_out):
                 print(image_file, " table conversion failed")
 
     CodeTimer.outputTimers()
     return
+
 
 if __name__ == '__main__':
     main()
