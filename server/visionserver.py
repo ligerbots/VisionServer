@@ -2,7 +2,6 @@
 
 '''Defines a class for which each year's subclass vision server inherits from'''
 
-import sys
 import time
 import cv2
 import numpy
@@ -317,8 +316,12 @@ class VisionServer:
 
         fps_count = 0
         fps_startt = time.time()
+        delay_nettime = 0
+
         while True:
             try:
+                delay_startt = time.time()
+
                 # Check whether DS has asked for a different camera
                 # ntmode = self.nt_active_mode  # temp, for efficiency
                 ntmode = self.mode_chooser_ctrl.getSelected()
@@ -389,12 +392,15 @@ class VisionServer:
                     self.switch_mode(self.initial_mode)
 
                 fps_count += 1
+                delay_nettime += now - delay_startt
                 if fps_count == 150:
                     endt = time.time()
                     dt = endt - fps_startt
                     logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
+                    logging.info("Processing delay = {0:.2f} msec".format(1000.0 * delay_nettime / fps_count))
                     fps_count = 0
                     fps_startt = endt
+                    delay_nettime = 0
 
             except Exception as e:
                 # major exception. Try to keep going
@@ -469,6 +475,9 @@ def main(server_type):
     # To see messages from networktables, you must setup logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s')
+
+    logging.info("cscore version '%s'" % cscore.__version__)
+    logging.info("OpenCV version '%s'" % cv2.__version__)
 
     if args.test:
         # FOR TESTING, set this box as the server
