@@ -1,0 +1,73 @@
+<grip:Pipeline>
+  <sources>
+    <grip:MultiImageFile>
+      <property name="path[2]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-108in-Up.jpg"/>
+      <property name="path[5]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-156in-Up.jpg"/>
+      <property name="path[8]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-228in-ProtectedZone.jpg"/>
+      <property name="path[12]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-030in-Down.jpg"/>
+      <property name="path[15]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-060in.jpg"/>
+      <property name="index" value="0"/>
+      <property name="path[0]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-060in-Up.jpg"/>
+      <property name="path[3]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-132in-Up.jpg"/>
+      <property name="path[6]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-180in-Up.jpg"/>
+      <property name="path[9]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-330in-ProtectedZone.jpg"/>
+      <property name="path[10]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-Far-ProtectedZone.jpg"/>
+      <property name="path[13]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-048in-Down.jpg"/>
+      <property name="path[16]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-084in.jpg"/>
+      <property name="numImages" value="18"/>
+      <property name="path[1]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-084in-Up.jpg"/>
+      <property name="path[4]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-156in-Left.jpg"/>
+      <property name="path[7]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/BlueGoal-224in-Left.jpg"/>
+      <property name="path[11]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-016in-Down.jpg"/>
+      <property name="path[14]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-048in.jpg"/>
+      <property name="path[17]" value="/Users/austinshalit/Dropbox/FIRST/2020 Infinite Recharge/2020VisionSample/RedLoading-108in.jpg"/>
+    </grip:MultiImageFile>
+  </sources>
+  <steps>
+    <grip:Step name="HSV Threshold">
+      <grip:Input step="0" socket="0"/>
+      <grip:Input step="0" socket="1">
+        <value>
+          <double>53.417266187050366</double>
+          <double>106.65534804753821</double>
+        </value>
+      </grip:Input>
+      <grip:Input step="0" socket="2">
+        <value>
+          <double>213.26438848920864</double>
+          <double>255.0</double>
+        </value>
+      </grip:Input>
+      <grip:Input step="0" socket="3">
+        <value>
+          <double>128.41726618705036</double>
+          <double>255.0</double>
+        </value>
+      </grip:Input>
+      <grip:Output step="0" socket="0" previewed="true"/>
+    </grip:Step>
+  </steps>
+  <connections>
+    <grip:Connection>
+      <grip:Output source="0" socket="0" previewed="true"/>
+      <grip:Input step="0" socket="0"/>
+    </grip:Connection>
+  </connections>
+  <settings>
+    <teamNumber>0</teamNumber>
+    <publishAddress>roboRIO-0-FRC.local</publishAddress>
+    <deployAddress>roboRIO-0-FRC.local</deployAddress>
+    <deployDir>/home/lvuser</deployDir>
+    <deployUser>lvuser</deployUser>
+    <deployJavaHome>/usr/local/frc/JRE/</deployJavaHome>
+    <deployJvmOptions>-Xmx50m -XX:-OmitStackTraceInFastThrow -XX:+HeapDumpOnOutOfMemoryError -XX:MaxNewSize=16m</deployJvmOptions>
+  </settings>
+  <codeGenerationSettings>
+    <language>Java</language>
+    <className>GripPipeline</className>
+    <implementWpilibPipeline>false</implementWpilibPipeline>
+    <saveDir>/Users/austinshalit/GRIP</saveDir>
+    <packageName></packageName>
+    <moduleName>grip</moduleName>
+  </codeGenerationSettings>
+</grip:Pipeline>
