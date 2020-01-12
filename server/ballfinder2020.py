@@ -5,6 +5,7 @@ import numpy
 import json
 import math
 
+
 class BallFinder2020(object):
     '''Ball finder for Infinite Recharge 2020'''
 
@@ -23,7 +24,7 @@ class BallFinder2020(object):
     def __init__(self, calib_file):
         self.name = 'ballfinder'
         self.finder_id = 2.0
-        self.camera = 'intake'      #TODO: change
+        self.camera = 'intake'      # TODO: change
         self.exposure = 0
 
         # individual properties
@@ -107,7 +108,7 @@ class BallFinder2020(object):
         for i in range(len(corners)):
             xs.append(corners[i][0])
             ys.append(corners[i][1])
-        #sort the lists highest to lowest
+        # sort the lists highest to lowest
         xs.sort(reverse=True)
         ys.sort(reverse=True)
         return xs, ys
@@ -123,9 +124,9 @@ class BallFinder2020(object):
 
         xs, ys = BallFinder2020.split_xs_ys(corners)
 
-        #lonely corner is green and happy corner is red
-        #cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
-        #cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+        # lonely corner is green and happy corner is red
+        # cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+        # cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
 
         corners = BallFinder2020.sort_corners(cnrlist, True)
 
@@ -133,30 +134,30 @@ class BallFinder2020(object):
             top_corner = corners[len(corners) - 1]
         else:
             top_corner = corners[0]
-        #top corner is in blue
-        #cv2.circle(img, (top_corner[0], top_corner[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        # top corner is in blue
+        # cv2.circle(img, (top_corner[0], top_corner[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
         return ([lonely_corner, happy_corner, top_corner])
 
     @staticmethod
     def get_cube_facecenter(img, cnrlist):
         '''Compute the center of a cube face from a list of the three face corners'''
-        #get the three corners of the front face
+        # get the three corners of the front face
         front_corners = BallFinder2020.choose_corners_frontface(img, cnrlist)
-        #average of x, y values of opposite corners of front face of cube
+        # average of x, y values of opposite corners of front face of cube
         x = int((front_corners[0][0] + front_corners[2][0]) / 2)
         y = int((front_corners[0][1] + front_corners[2][1]) / 2)
 
-        #middle point in white
-        #cv2.circle(img, (x, y), 5, (255, 255, 255), thickness=10, lineType=8, shift=0)
-        return [x, y]       #return center point of cube front face'''
-
+        # middle point in white
+        # cv2.circle(img, (x, y), 5, (255, 255, 255), thickness=10, lineType=8, shift=0)
+        return [x, y]       # return center point of cube front face'''
 
     @staticmethod
     def get_cube_center(img, cnrlist):
         '''return the center of the cube'''
-        #sort just to format correctly -- get rid of extra dimensions
+
+        # sort just to format correctly -- get rid of extra dimensions
         corners = BallFinder2020.sort_corners(cnrlist, True)
-        #xs and ys only needed for drawing the point on the image
+        # xs and ys only needed for drawing the point on the image
         xs, ys = BallFinder2020.split_xs_ys(corners)
 
         sum_x = 0
@@ -164,13 +165,14 @@ class BallFinder2020(object):
         for corner in corners:
             sum_x += corner[0]
             sum_y += corner[1]
-        center = numpy.array([ int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2)) ])
-        #cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
+        # center = numpy.array([int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2))])
+        # cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
         return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
 
     @staticmethod
     def get_cube_bottomcenter(cnrlist):
         '''return the center of the bottom-front side of the cube'''
+
         corners = BallFinder2020.sort_corners(cnrlist, False)
 
         bottom_corner_a = corners[-1]
@@ -298,9 +300,9 @@ class BallFinder2020(object):
 
         # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
-            return (0.0, BallFinder2020.CUBE_FINDER_MODE, 0.0, 0.0, 0.0)
+            return (0.0, self.finder_id, 0.0, 0.0, 0.0)
 
-        return (1.0, BallFinder2020.CUBE_FINDER_MODE, distance, angle, 0.0)
+        return (1.0, self.finder_id, distance, angle, 0.0)
 
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']

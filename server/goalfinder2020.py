@@ -7,17 +7,17 @@ import math
 
 
 class GoalFinder2020(object):
-    '''Find high goal target for Infinite Recharch 2020'''
+    '''Find high goal target for Infinite Recharge 2020'''
 
-    # real world dimensions of the switch target
+    # real world dimensions of the goal target
     # These are the full dimensions around both strips
     TARGET_STRIP_LENGTH = 19.625    # inches
     TARGET_HEIGHT = 17.0            # inches
     TARGET_TOP_WIDTH = 39.25        # inches
     TARGET_BOTTOM_WIDTH = math.acos(TARGET_HEIGHT / TARGET_STRIP_LENGTH)
 
-    #[0, 0] is center of the quadrilateral drawn around the high goal target
-    #[top_left, bottom_left, bottom_right, top_right]
+    # [0, 0] is center of the quadrilateral drawn around the high goal target
+    # [top_left, bottom_left, bottom_right, top_right]
     real_world_coordinates = [
         [-TARGET_TOP_WIDTH / 2, TARGET_HEIGHT / 2],
         [-TARGET_BOTTOM_WIDTH / 2, -TARGET_HEIGHT / 2],
@@ -26,10 +26,10 @@ class GoalFinder2020(object):
     ]
 
     def __init__(self, calib_file):
-        self.name = 'rrgoalfinder'
+        self.name = 'goalfinder'
         self.finder_id = 1.0
-        self.camera = 'driver'      #TODO: change this
-        self.exposure = 6
+        self.camera = 'driver'      # TODO: change this
+        self.exposure = 1
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
@@ -42,7 +42,7 @@ class GoalFinder2020(object):
         self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
 
         # ratio of height to width of one retroreflective strip
-        self.height_width_ratio = RRGoalFinder2020.TARGET_HEIGHT / RRGoalFinder2020.TARGET_TOP_WIDTH
+        self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
@@ -91,7 +91,7 @@ class GoalFinder2020(object):
     def get_outer_corners(cnt):
         '''Return the outer four corners of a contour'''
 
-        return sorted(cnt, key=lambda x: x[0])  #Sort by x value of cnr in increasing value        
+        return sorted(cnt, key=lambda x: x[0])  # Sort by x value of cnr in increasing value
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -124,9 +124,9 @@ class GoalFinder2020(object):
 
         contour_list = []
         for c in contours:
-            center, widths = RRGoalFinder2020.contour_center_width(c)
+            center, widths = GoalFinder2020.contour_center_width(c)
             area = widths[0] * widths[1]
-            if area > self.contour_min_area:        #area cut
+            if area > self.contour_min_area:        # area cut
                 contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
 
         # Sort the list of contours from biggest area to smallest
@@ -137,8 +137,7 @@ class GoalFinder2020(object):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            # shape[0] is height, shape[1] is the width
-            self.target_contour = self.test_candidate_contour(contour_list, candidate_index, width=shape[1])
+            self.target_contour = self.test_candidate_contour(contour_list[candidate_index])
             if self.target_contour is not None:
                 break
 
@@ -151,7 +150,7 @@ class GoalFinder2020(object):
 
             # Important to get the corners in the right order, ***matching the real world ones***
             # Remember that y in the image increases *down*
-            self.outer_corners = RRGoalFinder2020.get_outer_corners(cnt)
+            self.outer_corners = GoalFinder2020.get_outer_corners(cnt)
 
             print("Outside corners: ", self.outer_corners)
             print("Real World target_coords: ", self.real_world_coordinates)
@@ -180,26 +179,25 @@ class GoalFinder2020(object):
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
-        #if self.target_contours is not None:
+        # if self.target_contours is not None:
         #    cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 0), 1)
 
         return output_frame
 
-    def test_candidate_contour(self, contour_list, cand_index, width):
+    def test_candidate_contour(self, candidate):
         '''Determine the true target contour out of potential candidates'''
 
-        candidate = contour_list[cand_index]
-
-        cand_width = candidate['widths'][0]
-        cand_height = candidate['widths'][1]
+        # cand_width = candidate['widths'][0]
+        # cand_height = candidate['widths'][1]
 
         # TODO: make addition cuts here
 
         contour = cv2.approxPolyDP(candidate, self.approx_polydp_error, True)
 
+        # TODO: what is the right number of edges?
         if len(contour) == 4:
             return contour
-        
+
         return None
 
     def compute_output_values(self, rvec, tvec):
@@ -291,7 +289,7 @@ def main():
 
     args = parser.parse_args()
 
-    rrtarget_finder = RRTargetFinder2019(args.calib_file)
+    rrtarget_finder = GoalFinder2020(args.calib_file)
 
     if args.output_dir is not None:
         process_files(rrtarget_finder, args.input_files, args.output_dir)
