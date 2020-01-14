@@ -9,9 +9,7 @@ import math
 class BallFinder2020(object):
     '''Ball finder for Infinite Recharge 2020'''
 
-    # CUBE_HEIGHT = 11    #inches
-    # CUBE_WIDTH = 13     #inches
-    # CUBE_LENGTH = 13    #inches
+    BALL_DIAMETER = 7 #inches
 
     HFOV = 64.0                  # horizontal angle of the field of view
     VFOV = 52.0                  # vertical angle of the field of view
@@ -46,8 +44,7 @@ class BallFinder2020(object):
         self.erode_iterations = 0
 
         # some variables to save results for drawing
-        self.center = None
-        self.hull_fit = None
+        self.bottomPoint = None
         self.biggest_contour = None
 
         self.cameraMatrix = None
@@ -71,7 +68,7 @@ class BallFinder2020(object):
 
     @staticmethod
     def contour_center_width(contour):
-        '''Find boundingRect of contour, but return center, width, and height'''
+        '''Find boundingRect of contour and return center, width, and height'''
 
         x, y, w, h = cv2.boundingRect(contour)
         return (x + int(w / 2), y + int(h / 2)), (w, h)
@@ -83,105 +80,7 @@ class BallFinder2020(object):
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
-    @staticmethod
-    def sort_corners(cnrlist, check):
-        '''Sort a list of corners -- if check == true then returns x sorted 1st, y sorted 2nd. Otherwise the opposite'''
-
-        # recreate the list of corners to get rid of excess dimensions
-        corners = []
-        for c in cnrlist:
-            corners.append(c[0].tolist())
-
-        # sort the corners by x values (1st column) first and then by y values (2nd column)
-        if check:
-            return sorted(corners, key=lambda x: (x[0], x[1]))
-        # y's first then x's
-        else:
-            return sorted(corners, key=lambda x: (x[1], x[0]))
-
-    @staticmethod
-    def split_xs_ys(corners):
-        '''Split a list of corners into sorted lists of x and y values'''
-        xs = []
-        ys = []
-
-        for i in range(len(corners)):
-            xs.append(corners[i][0])
-            ys.append(corners[i][1])
-        # sort the lists highest to lowest
-        xs.sort(reverse=True)
-        ys.sort(reverse=True)
-        return xs, ys
-
-    @staticmethod
-    def choose_corners_frontface(img, cnrlist):
-        '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
-        of front face'''
-        corners = BallFinder2020.sort_corners(cnrlist, False)    # get rid of extra dimensions
-
-        happy_corner = corners[len(corners) - 1]
-        lonely_corner = corners[len(corners) - 2]
-
-        xs, ys = BallFinder2020.split_xs_ys(corners)
-
-        # lonely corner is green and happy corner is red
-        # cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
-        # cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
-
-        corners = BallFinder2020.sort_corners(cnrlist, True)
-
-        if happy_corner[0] > lonely_corner[0]:
-            top_corner = corners[len(corners) - 1]
-        else:
-            top_corner = corners[0]
-        # top corner is in blue
-        # cv2.circle(img, (top_corner[0], top_corner[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
-        return ([lonely_corner, happy_corner, top_corner])
-
-    @staticmethod
-    def get_cube_facecenter(img, cnrlist):
-        '''Compute the center of a cube face from a list of the three face corners'''
-        # get the three corners of the front face
-        front_corners = BallFinder2020.choose_corners_frontface(img, cnrlist)
-        # average of x, y values of opposite corners of front face of cube
-        x = int((front_corners[0][0] + front_corners[2][0]) / 2)
-        y = int((front_corners[0][1] + front_corners[2][1]) / 2)
-
-        # middle point in white
-        # cv2.circle(img, (x, y), 5, (255, 255, 255), thickness=10, lineType=8, shift=0)
-        return [x, y]       # return center point of cube front face'''
-
-    @staticmethod
-    def get_cube_center(img, cnrlist):
-        '''return the center of the cube'''
-
-        # sort just to format correctly -- get rid of extra dimensions
-        corners = BallFinder2020.sort_corners(cnrlist, True)
-        # xs and ys only needed for drawing the point on the image
-        xs, ys = BallFinder2020.split_xs_ys(corners)
-
-        sum_x = 0
-        sum_y = 0
-        for corner in corners:
-            sum_x += corner[0]
-            sum_y += corner[1]
-        # center = numpy.array([int(sum_x / (len(corners) / 2)), int(sum_y / (len(corners) / 2))])
-        # cv2.circle(img, (center[0], center[1]), 5, (255, 0, 0), thickness=50, lineType=8, shift=0)
-        return sum_x / (len(corners) / 2), sum_y / (len(corners) / 2)
-
-    @staticmethod
-    def get_cube_bottomcenter(cnrlist):
-        '''return the center of the bottom-front side of the cube'''
-
-        corners = BallFinder2020.sort_corners(cnrlist, False)
-
-        bottom_corner_a = corners[-1]
-        bottom_corner_b = corners[-2]
-
-        center = [int((bottom_corner_a[0] + bottom_corner_b[0]) / 2), int((bottom_corner_a[1] + bottom_corner_b[1]) / 2)]
-        return center
-
-    def get_cube_values_calib(self, center):
+    def get_cube_values_calib(self):
         '''Calculate the angle and distance from the camera to the center point of the robot
         This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
 
@@ -190,7 +89,7 @@ class BallFinder2020(object):
         #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
         # (Needs lots of brackets! Buy shares in the Bracket Company now!)
 
-        center_np = numpy.array([[[float(self.center[0]), float(self.center[1])]]])
+        center_np = numpy.array([[[float(self.bottomPoint[0]), float(self.bottomPoint[1])]]])
         out_pt = cv2.undistortPoints(center_np, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
         undist_center = out_pt[0, 0]
 
@@ -254,7 +153,7 @@ class BallFinder2020(object):
         # clear out result variables
         angle = None
         distance = None
-        self.center = None
+        self.bottomPoint = None
         self.hull_fit = None
         self.biggest_contour = None
 
@@ -284,19 +183,18 @@ class BallFinder2020(object):
         # test first 3 biggest contours only (optimization)
         for cnt in contour_list[0:3]:
             self.hull_fit = self.test_candidate_contour(cnt)
+
+            # NOTE: testing a list returns true if there is something in the list
             if self.hull_fit is not None:
-                self.biggest_contour = cnt['contour']
+                self.biggest_contour = cnt['contour']        
+                self.bottomPoint = self.biggest_contour.sort(key=lambda c: c[1], reverse=True)[0]  #remember y goes up as you move down the image
+
+                if self.cameraMatrix is not None:
+                    angle, distance = self.get_cube_values_calib()
+                else:
+                    angle, distance = self.get_cube_values(self.bottomPoint, camera_frame.shape)
+
                 break
-
-        # NOTE: testing a list returns true if there is something in the list
-        if self.hull_fit is not None:
-            self.center = BallFinder2020.get_cube_bottomcenter(self.hull_fit)
-
-            # print('center', self.center)
-            if self.cameraMatrix is not None:
-                angle, distance = self.get_cube_values_calib(self.center)
-            else:
-                angle, distance = self.get_cube_values(self.center, camera_frame.shape)
 
         # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
@@ -314,9 +212,7 @@ class BallFinder2020(object):
             # hull_fit contains the corners for the contour
             hull_fit = BallFinder2020.quad_fit(hull, self.approx_polydp_error)
 
-            vertices = len(hull_fit)
-            if vertices >= 4 and vertices <= self.max_num_vertices:
-                return hull_fit
+            return hull_fit
 
         return None
 
@@ -332,9 +228,9 @@ class BallFinder2020(object):
         if self.hull_fit is not None:
             cv2.drawContours(output_frame, [self.hull_fit], -1, (255, 0, 0), 2)
 
-        if self.center is not None:
-            cv2.drawMarker(output_frame, tuple(self.center), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
-            # cv2.circle(output_frame, tuple(self.center), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        if self.bottomPoint is not None:
+            cv2.drawMarker(output_frame, tuple(self.bottomPoint), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
+            # cv2.circle(output_frame, tuple(self.bottomPoint), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
 
         return output_frame
 
