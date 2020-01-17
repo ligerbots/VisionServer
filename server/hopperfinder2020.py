@@ -127,26 +127,26 @@ class HopperFinder2020(object):
             if self.target_contour is not None:
                 break
 
-        if self.target_contour is not None:
-            # The target was found. Convert to real world co-ordinates.
+        # if self.target_contour is not None:
+        #     # The target was found. Convert to real world co-ordinates.
 
-            cnt = numpy.squeeze(self.target_contour).tolist()
+        #     cnt = numpy.squeeze(self.target_contour).tolist()
 
-            # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
+        #     # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
 
-            # Important to get the corners in the right order, ***matching the real world ones***
-            # Remember that y in the image increases *down*
-            self.outer_corners = HopperFinder2020.get_outer_corners(cnt)
+        #     # Important to get the corners in the right order, ***matching the real world ones***
+        #     # Remember that y in the image increases *down*
+        #     self.outer_corners = HopperFinder2020.get_outer_corners(cnt)
 
-            print("Outside corners: ", self.outer_corners)
-            print("Real World target_coords: ", self.real_world_coordinates)
+        #     print("Outside corners: ", self.outer_corners)
+        #     print("Real World target_coords: ", self.real_world_coordinates)
 
-            retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
-                                              self.cameraMatrix, self.distortionMatrix)
-            if retval:
-                result = [1.0, self.finder_id, ]
-                result.extend(self.compute_output_values(rvec, tvec))
-                return result
+        #     retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
+        #                                       self.cameraMatrix, self.distortionMatrix)
+        #     if retval:
+        #         result = [1.0, self.finder_id, ]
+        #         result.extend(self.compute_output_values(rvec, tvec))
+        #         return result
 
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
@@ -157,7 +157,7 @@ class HopperFinder2020(object):
         output_frame = input_frame.copy()
 
         if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
         for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
@@ -166,7 +166,7 @@ class HopperFinder2020(object):
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         if self.target_contour is not None:
-            cv2.drawContours(output_frame, self.target_contour, -1, (255, 0, 0), 1)
+            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
         return output_frame
 
@@ -178,7 +178,7 @@ class HopperFinder2020(object):
 
         # TODO: make addition cuts here
 
-        contour = cv2.approxPolyDP(candidate, self.approx_polydp_error, True)
+        contour = numpy.int0(cv2.boxPoints(cv2.minAreaRect(candidate['contour'])))
 
         # TODO: what is the right number of edges?
         if len(contour) == 4:
