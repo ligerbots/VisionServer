@@ -40,7 +40,8 @@ class GoalFinder2020(object):
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
-
+#0.06   
+        self.hull = None
         # ratio of height to width of one retroreflective strip
         self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
 
@@ -86,12 +87,36 @@ class GoalFinder2020(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
-
+    
     @staticmethod
-    def get_outer_corners(cnt):
-        '''Return the outer four corners of a contour'''
+    def dot_product(ax, ay, bx, by):
+        
+        return (ax * bx) + (ay * by)
 
-        return sorted(cnt, key=lambda x: x[0])  # Sort by x value of cnr in increasing value
+    def get_outer_corners(self, hull):
+        '''Return the four true corners of a contour'''
+
+        dps = []    #dot products
+        
+        for i in range(len(hull)):
+            prev_pt = hull[i - 1][0]
+            pt = hull[i][0]
+            next_pt = hull[(i + 1) % len(hull)][0]
+            ax = (pt[0] - prev_pt[0])
+            ay = (pt[1] - prev_pt[1])
+            bx = (pt[0] - next_pt[0])
+            by = (pt[1] - next_pt[1])
+
+            if math.hypot(ax,ay) > 3:
+                dps.append([i, 
+                        GoalFinder2020.dot_product( ax,ay,bx,by) / math.hypot(ax,ay) / math.hypot(bx,by)
+                       ])
+        
+        dps.sort(key=lambda pt: pt[1], reverse=True)
+
+        pts = [hull[pt[0]][0] for pt in dps[0:4]]
+        print(pts)
+        return pts
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -108,7 +133,8 @@ class GoalFinder2020(object):
 
         # DEBUG values; clear any values from previous image
         self.top_contours = None
-        self.outer_corners = []
+        self.hull = None
+        self.outer_corners = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -170,17 +196,25 @@ class GoalFinder2020(object):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        #if self.top_contours:
+        #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        
+        #if self.target_contour is not None:
+        #    cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
-        for cnr in self.outer_corners:
-            cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+        if self.hull is not None:
+            cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
+
+            #for cnr in self.hull:
+            #    cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 5, (0, 0, 255), -1, lineType=8, shift=0)
+
+        """if self.outer_corners is not None:
+            for i in range(4):
+                cv2.circle(output_frame, (self.outer_corners[i][0], self.outer_corners[i][1]), 4, (255, 0, 0), -1, lineType=8, shift=0)
+           """ 
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
-
-        if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
         return output_frame
 
@@ -191,10 +225,12 @@ class GoalFinder2020(object):
         # cand_height = candidate['widths'][1]
 
         # TODO: make addition cuts here
-        hull = cv2.convexHull(candidate['contour'])
-        contour = self.quad_fit(hull, self.approx_polydp_error)
+        self.hull = cv2.convexHull(candidate['contour'])
+        #print("Hull fit: " + str(self.hull))
+        self.outer_corners = self.get_outer_corners(self.hull)
+        contour = cv2.approxPolyDP(candidate['contour'], self.approx_polydp_error, True)
+        #contour = self.quad_fit(self.hull, self.approx_polydp_error)
 
-        # TODO: what is the right number of edges?
         print('found', len(contour), 'sides')
         if len(contour) <= 4:
             return contour
