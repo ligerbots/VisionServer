@@ -199,19 +199,19 @@ class GoalFinder2020(object):
         #if self.top_contours:
         #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
         
-        #if self.target_contour is not None:
-        #    cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
+        if self.target_contour is not None:
+            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
-        if self.hull is not None:
-            cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
+        #if self.hull is not None:
+        #    cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
 
             #for cnr in self.hull:
             #    cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 5, (0, 0, 255), -1, lineType=8, shift=0)
 
-        """if self.outer_corners is not None:
-            for i in range(4):
-                cv2.circle(output_frame, (self.outer_corners[i][0], self.outer_corners[i][1]), 4, (255, 0, 0), -1, lineType=8, shift=0)
-           """ 
+        if self.target_contour is not None:
+            for pt in self.target_contour:
+                cv2.circle(output_frame, (pt[0][0], pt[0][1]), 4, (0, 255, 0), -1, lineType=8, shift=0)
+           
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
@@ -227,12 +227,12 @@ class GoalFinder2020(object):
         # TODO: make addition cuts here
         self.hull = cv2.convexHull(candidate['contour'])
         #print("Hull fit: " + str(self.hull))
-        self.outer_corners = self.get_outer_corners(self.hull)
-        contour = cv2.approxPolyDP(candidate['contour'], self.approx_polydp_error, True)
+        #self.outer_corners = self.get_outer_corners(self.hull)
+        contour = cv2.approxPolyDP(self.hull, 0.015 * cv2.arcLength(candidate['contour'], True), True)
         #contour = self.quad_fit(self.hull, self.approx_polydp_error)
 
         print('found', len(contour), 'sides')
-        if len(contour) <= 4:
+        if len(contour) >= 4 or len(contour) <= 8:
             return contour
 
         return None

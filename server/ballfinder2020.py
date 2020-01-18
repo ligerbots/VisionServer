@@ -205,16 +205,16 @@ class BallFinder2020(object):
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']
 
-        real_area = cv2.contourArea(cnt)
+        """real_area = cv2.contourArea(cnt)
         # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
         if real_area / contour_entry['area'] > 0.5:
             hull = cv2.convexHull(cnt)
             # hull_fit contains the corners for the contour
             hull_fit = BallFinder2020.quad_fit(hull, self.approx_polydp_error)
 
-            return hull_fit
+            return hull_fit"""
 
-        return None
+        return cnt
 
     def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
