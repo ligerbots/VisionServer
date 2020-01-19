@@ -5,8 +5,10 @@ import numpy
 import json
 import math
 
+from genericfinder import GenericFinder, main
 
-class BallFinder2020(object):
+
+class BallFinder2020(GenericFinder):
     '''Ball finder for Infinite Recharge 2020'''
 
     # CUBE_HEIGHT = 11    #inches
@@ -22,10 +24,7 @@ class BallFinder2020(object):
     VP_HALF_HEIGHT = math.tan(math.radians(VFOV)/2.0)  # view plane 1/2 width
 
     def __init__(self, calib_file):
-        self.name = 'ballfinder'
-        self.finder_id = 2.0
-        self.camera = 'intake'      # TODO: change
-        self.exposure = 0
+        super().__init__('ballfinder', camera='floor', finder_id=2.0, exposure=0)
 
         # individual properties
         self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)
@@ -42,8 +41,8 @@ class BallFinder2020(object):
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.015
 
-        self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
-        self.erode_iterations = 0
+        # self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
+        # self.erode_iterations = 0
 
         # some variables to save results for drawing
         self.center = None
@@ -68,20 +67,6 @@ class BallFinder2020(object):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
         return
-
-    @staticmethod
-    def contour_center_width(contour):
-        '''Find boundingRect of contour, but return center, width, and height'''
-
-        x, y, w, h = cv2.boundingRect(contour)
-        return (x + int(w / 2), y + int(h / 2)), (w, h)
-
-    @staticmethod
-    def quad_fit(contour, approx_dp_error):
-        '''Simple polygon fit to contour with error related to perimeter'''
-
-        peri = cv2.arcLength(contour, True)
-        return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
     @staticmethod
     def sort_corners(cnrlist, check):
@@ -261,14 +246,14 @@ class BallFinder2020(object):
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
 
-        if self.erode_iterations > 0:
-            erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
-        else:
-            erode_frame = threshold_frame
+        # if self.erode_iterations > 0:
+        #     erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
+        # else:
+        #     erode_frame = threshold_frame
 
         # OpenCV 3 returns 3 parameters!
         # Only need the contours variable
-        _, contours, _ = cv2.findContours(erode_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, _ = cv2.findContours(threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         contour_list = []
         for c in contours:
@@ -339,84 +324,7 @@ class BallFinder2020(object):
         return output_frame
 
 
-def process_files(cube_processor, input_files, output_dir):
-    '''Process the files and output the marked up image'''
-    import os.path
-
-    for image_file in input_files:
-        # print()
-        # print(image_file)
-        bgr_frame = cv2.imread(image_file)
-        result = cube_processor.process_image(bgr_frame)
-        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
-
-        cube_processor.prepare_output_image(bgr_frame)
-
-        outfile = os.path.join(output_dir, os.path.basename(image_file))
-        # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, bgr_frame)
-
-        # cv2.imshow("Window", bgr_frame)
-        # q = cv2.waitKey(-1) & 0xFF
-        # if q == ord('q'):
-        #     break
-    return
-
-
-def time_processing(cube_processor, input_files):
-    '''Time the processing of the test files'''
-
-    from codetimer import CodeTimer
-    from time import time
-
-    startt = time()
-
-    cnt = 0
-
-    # Loop 100x over the files. This is needed to make it long enough
-    #  to get reasonable statistics. If we have 100s of files, we could reduce this.
-    # Need the total time to be many seconds so that the timing resolution is good.
-    for _ in range(100):
-        for image_file in input_files:
-            with CodeTimer("Read Image"):
-                bgr_frame = cv2.imread(image_file)
-
-            with CodeTimer("Main Processing"):
-                cube_processor.process_image(bgr_frame)
-
-            cnt += 1
-
-    deltat = time() - startt
-
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
-        cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.outputTimers()
-    return
-
-
-def main():
-    '''Main routine'''
-    import argparse
-
-    parser = argparse.ArgumentParser(description='2020 ball finder')
-    parser.add_argument('--output_dir', help='Output directory for processed images')
-    parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib_file', help='Calibration file')
-    parser.add_argument('input_files', nargs='+', help='input files')
-
-    args = parser.parse_args()
-
-    ball_processor = BallFinder2020(args.calib_file)
-
-    if args.output_dir is not None:
-        process_files(ball_processor, args.input_files, args.output_dir)
-    elif args.time:
-        time_processing(ball_processor, args.input_files)
-
-    return
-
-
 # Main routine
 # This is for development/testing
 if __name__ == '__main__':
-    main()
+    main(BallFinder2020)
