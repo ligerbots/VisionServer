@@ -40,7 +40,7 @@ class GoalFinder2020(object):
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
-#0.06   
+#0.06
         self.hull = None
         # ratio of height to width of one retroreflective strip
         self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
@@ -66,7 +66,7 @@ class GoalFinder2020(object):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         self.outer_corners = []
-
+        self.test_outer_corners=[];
         return
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
@@ -87,35 +87,87 @@ class GoalFinder2020(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
-    
+
     @staticmethod
     def dot_product(ax, ay, bx, by):
-        
+
         return (ax * bx) + (ay * by)
 
     def get_outer_corners(self, hull):
         '''Return the four true corners of a contour'''
+        if(len(hull)<4):
+            return None
 
         dps = []    #dot products
-        
-        for i in range(len(hull)):
+        for i in range(len(hull)):#for each hull point,
             prev_pt = hull[i - 1][0]
             pt = hull[i][0]
             next_pt = hull[(i + 1) % len(hull)][0]
             ax = (pt[0] - prev_pt[0])
             ay = (pt[1] - prev_pt[1])
+
+            da=math.hypot(ax,ay)
             bx = (pt[0] - next_pt[0])
             by = (pt[1] - next_pt[1])
+            db=math.hypot(bx,by)
 
-            if math.hypot(ax,ay) > 3:
-                dps.append([i, 
-                        GoalFinder2020.dot_product( ax,ay,bx,by) / math.hypot(ax,ay) / math.hypot(bx,by)
+            if(da>0):#Make sure non 0
+                dps.append([i,#keep index for sorting later
+                        GoalFinder2020.dot_product( ax,ay,bx,by) / da / db,#calculate dot prod with last
+                        da,db#also get dist info
                        ])
-        
-        dps.sort(key=lambda pt: pt[1], reverse=True)
+        if(len(dps)<4):
+            return None
 
-        pts = [hull[pt[0]][0] for pt in dps[0:4]]
-        print(pts)
+        self.test_outer_corners=[]
+
+        #group close points together
+        max_group_dist=7
+
+        nddps=[]
+        curr_max_group=-1
+        test_color=0;
+        for i in range(len(dps)):
+            if(dps[i][2]<max_group_dist or curr_max_group==-1):#
+                if(dps[curr_max_group][1]<dps[i][1] or curr_max_group==-1):
+                    curr_max_group=i
+            else:
+                nddps.append(dps[curr_max_group])
+                curr_max_group=i
+                test_color=i
+            self.test_outer_corners.append([hull[dps[i][0]][0],test_color]);
+        nddps.append(dps[curr_max_group])
+        if(len(nddps)<4):
+            return None
+        if(nddps[0][2]<max_group_dist):#special case for first and last points
+            if(nddps[0][1]<nddps[-1][1]):
+                del nddps[0]
+            else:
+                del nddps[-1]
+        if(len(nddps)<4):
+            return None
+        for i in range(len(nddps)):#redo dot prod calcs without close points
+            prev_pt = hull[nddps[i - 1][0]][0]
+            pt = hull[nddps[i][0]][0]
+            next_pt = hull[nddps[(i + 1) % len(nddps)][0]][0]
+            ax = (pt[0] - prev_pt[0])
+            ay = (pt[1] - prev_pt[1])
+
+            da=math.hypot(ax,ay)
+            bx = (pt[0] - next_pt[0])
+            by = (pt[1] - next_pt[1])
+            db=math.hypot(bx,by)
+            nddps[i][1]=GoalFinder2020.dot_product( ax,ay,bx,by) / da / db
+
+        print("nddps",len(nddps),nddps)
+
+        nddps.sort(key=lambda pt: pt[1], reverse=True) #sort it by max dot prod(=min angle)
+        print("selected",nddps)
+
+        pts = [numpy.concatenate([hull[pt[0]][0],[int(math.degrees(math.acos(pt[1]))),pt[0]]]) for pt in nddps[0:4]]
+
+        print("pts",len(pts),pts)
+
         return pts
 
     def preallocate_arrays(self, shape):
@@ -198,20 +250,26 @@ class GoalFinder2020(object):
 
         #if self.top_contours:
         #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
-        
+
         #if self.target_contour is not None:
         #    cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
         if self.hull is not None:
             cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
 
-            #for cnr in self.hull:
-            #    cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 5, (0, 0, 255), -1, lineType=8, shift=0)
+            for cnr in self.hull:
+                cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 0, (0, 0, 255), -1, lineType=8, shift=0)
+        if self.test_outer_corners is not None:
+            for e in self.test_outer_corners:
+                col=cv2.cvtColor(numpy.uint8([[[e[1]*12,255,255 ]]]), cv2.COLOR_HSV2RGB);
+                cv2.circle(output_frame, (e[0][0], e[0][1]), 4, (int(col[0][0][0]),int(col[0][0][1]),int(col[0][0][2])), -1, lineType=8, shift=0)
 
-        """if self.outer_corners is not None:
-            for i in range(4):
-                cv2.circle(output_frame, (self.outer_corners[i][0], self.outer_corners[i][1]), 4, (255, 0, 0), -1, lineType=8, shift=0)
-           """ 
+        if self.outer_corners is not None:
+            for i in range(len(self.outer_corners)):
+                cv2.circle(output_frame, (self.outer_corners[i][0], self.outer_corners[i][1]), 3, (255, 255, 255), -1, lineType=8, shift=0)
+                #cv2.putText(output_frame,str(self.outer_corners[i][2]), (self.outer_corners[i][0]-30, self.outer_corners[i][1]), 0, .4, (255,255,255))
+                #cv2.putText(output_frame,str(self.outer_corners[i][3]), (self.outer_corners[i][0], self.outer_corners[i][1]), 0, .4, (200,200,200))
+
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
