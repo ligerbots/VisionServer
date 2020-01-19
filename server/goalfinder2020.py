@@ -159,14 +159,14 @@ class GoalFinder2020(object):
             db=math.hypot(bx,by)
             nddps[i][1]=GoalFinder2020.dot_product( ax,ay,bx,by) / da / db
 
-        print("nddps",len(nddps),nddps)
+        #print("nddps",len(nddps),nddps)
 
         nddps.sort(key=lambda pt: pt[1], reverse=True) #sort it by max dot prod(=min angle)
-        print("selected",nddps)
+        #print("selected",nddps)
 
-        pts = [numpy.concatenate([hull[pt[0]][0],[int(math.degrees(math.acos(pt[1]))),pt[0]]]) for pt in nddps[0:4]]
+        pts = [numpy.concatenate([hull[pt[0]][0],[int(math.degrees(math.acos(pt[1]))),pt[0]]]) for pt in sorted(nddps[0:4], key=lambda pt: pt[0])]
 
-        print("pts",len(pts),pts)
+        #print("pts",len(pts),pts)
 
         return pts
 
@@ -251,24 +251,28 @@ class GoalFinder2020(object):
         #if self.top_contours:
         #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
-        #if self.target_contour is not None:
-        #    cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
+        if self.target_contour is not None:
+            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
-        if self.hull is not None:
-            cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
+        #if self.hull is not None:
+        #    cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
 
-            for cnr in self.hull:
-                cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 0, (0, 0, 255), -1, lineType=8, shift=0)
+        #    for cnr in self.hull:
+        #        cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 0, (0, 0, 255), -1, lineType=8, shift=0)
         if self.test_outer_corners is not None:
             for e in self.test_outer_corners:
                 col=cv2.cvtColor(numpy.uint8([[[e[1]*12,255,255 ]]]), cv2.COLOR_HSV2RGB);
-                cv2.circle(output_frame, (e[0][0], e[0][1]), 4, (int(col[0][0][0]),int(col[0][0][1]),int(col[0][0][2])), -1, lineType=8, shift=0)
+                cv2.circle(output_frame, (e[0][0], e[0][1]), 3, (int(col[0][0][0]),int(col[0][0][1]),int(col[0][0][2])), -1, lineType=8, shift=0)
 
         if self.outer_corners is not None:
             for i in range(len(self.outer_corners)):
                 cv2.circle(output_frame, (self.outer_corners[i][0], self.outer_corners[i][1]), 3, (255, 255, 255), -1, lineType=8, shift=0)
                 #cv2.putText(output_frame,str(self.outer_corners[i][2]), (self.outer_corners[i][0]-30, self.outer_corners[i][1]), 0, .4, (255,255,255))
                 #cv2.putText(output_frame,str(self.outer_corners[i][3]), (self.outer_corners[i][0], self.outer_corners[i][1]), 0, .4, (200,200,200))
+
+        #if self.target_contour is not None:
+        #    for pt in self.target_contour:
+        #        cv2.circle(output_frame, (pt[0][0], pt[0][1]), 4, (0, 255, 0), -1, lineType=8, shift=0)
 
 
         # for loc in self.target_locations:
@@ -286,12 +290,14 @@ class GoalFinder2020(object):
         self.hull = cv2.convexHull(candidate['contour'])
         #print("Hull fit: " + str(self.hull))
         self.outer_corners = self.get_outer_corners(self.hull)
-        contour = cv2.approxPolyDP(candidate['contour'], self.approx_polydp_error, True)
+        contour=numpy.array([[[pt[0],pt[1]]] for pt in self.outer_corners]);
+        return(contour)
+        #contour = cv2.approxPolyDP(self.hull, 0.015 * cv2.arcLength(candidate['contour'], True), True)
         #contour = self.quad_fit(self.hull, self.approx_polydp_error)
 
-        print('found', len(contour), 'sides')
-        if len(contour) <= 4:
-            return contour
+        #print('found', len(contour), 'sides')
+        #if len(contour) >= 4 or len(contour) <= 8:
+        #    return contour
 
         return None
 
