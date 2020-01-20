@@ -4,7 +4,8 @@ import cv2
 import numpy
 import json
 import math
-
+from polygon_fit import convex_polygon_fit
+import polygon_fit
 
 class GoalFinder2020(object):
     '''Find high goal target for Infinite Recharge 2020'''
@@ -192,10 +193,9 @@ class GoalFinder2020(object):
 
         # TODO: make addition cuts here
         hull = cv2.convexHull(candidate['contour'])
-        contour = self.quad_fit(hull, self.approx_polydp_error)
+        contour = convex_polygon_fit(hull, 4)
 
-        # TODO: what is the right number of edges?
-        print('found', len(contour), 'sides')
+        # print('found', len(contour), 'sides')
         if len(contour) <= 4:
             return contour
 
