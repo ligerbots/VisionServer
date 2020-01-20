@@ -12,12 +12,15 @@ import math
 import cv2
 import numpy
 
+from codetimer import CodeTimer
+
 
 def convex_polygon_fit(contour, nsides):
     '''Fit a polygon and then refine the sides.
     Refining only works if this a convex shape'''
 
-    start_contour = approxPolyDP_adaptive(contour, nsides)
+    with CodeTimer("approxPolyDP_adaptive"):
+        start_contour = approxPolyDP_adaptive(contour, nsides)
     if start_contour is None:
         # failed. Not much to do
         return None
@@ -96,7 +99,8 @@ def refine_convex_fit(contour, contour_fit):
 
             test_contour[iside1][0] = intersection1
             test_contour[iside2][0] = intersection2
-            area = cv2.contourArea(test_contour)
+            with CodeTimer("contourArea"):
+                area = cv2.contourArea(test_contour)
 
             if best_area is None or area < best_area:
                 best_area = area
@@ -125,17 +129,19 @@ def _intersection(hesse_vec, pt1, pt2):
     See https://stackoverflow.com/a/383527/5087436
     """
 
-    # Compute the Hesse form for the lines
-    rho1 = numpy.linalg.norm(hesse_vec)
-    norm1 = hesse_vec / rho1
+    with CodeTimer("_intersection"):
+        # Compute the Hesse form for the lines
+        rho1 = numpy.linalg.norm(hesse_vec)
+        norm1 = hesse_vec / rho1
 
-    hesse2 = _hesse_form(pt1, pt2)
-    rho2 = numpy.linalg.norm(hesse2)
-    norm2 = hesse2 / rho2
+        hesse2 = _hesse_form(pt1, pt2)
+        rho2 = numpy.linalg.norm(hesse2)
+        norm2 = hesse2 / rho2
 
-    A = numpy.array([[norm1[0], norm1[1]],
-                     [norm2[0], norm2[1]]])
-    b = numpy.array([[rho1], [rho2]])
-    res = numpy.transpose(numpy.linalg.solve(A, b))
+        A = numpy.array([[norm1[0], norm1[1]],
+                         [norm2[0], norm2[1]]])
+        b = numpy.array([[rho1], [rho2]])
+        res = numpy.transpose(numpy.linalg.solve(A, b))
 
-    return numpy.around(res).astype(int)
+        res = numpy.around(res).astype(int)
+    return res

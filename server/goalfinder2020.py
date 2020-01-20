@@ -4,8 +4,11 @@ import cv2
 import numpy
 import json
 import math
+
 from polygon_fit import convex_polygon_fit
-import polygon_fit
+from hough_fit import hough_fit
+from codetimer import CodeTimer
+
 
 class GoalFinder2020(object):
     '''Find high goal target for Infinite Recharge 2020'''
@@ -138,7 +141,7 @@ class GoalFinder2020(object):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contour = self.test_candidate_contour(contour_list[candidate_index])
+            self.target_contour = self.test_candidate_contour(contour_list[candidate_index], shape)
             if self.target_contour is not None:
                 break
 
@@ -181,11 +184,11 @@ class GoalFinder2020(object):
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
+            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 1)
 
         return output_frame
 
-    def test_candidate_contour(self, candidate):
+    def test_candidate_contour(self, candidate, shape):
         '''Determine the true target contour out of potential candidates'''
 
         # cand_width = candidate['widths'][0]
@@ -193,10 +196,14 @@ class GoalFinder2020(object):
 
         # TODO: make addition cuts here
         hull = cv2.convexHull(candidate['contour'])
-        contour = convex_polygon_fit(hull, 4)
 
-        # print('found', len(contour), 'sides')
-        if len(contour) <= 4:
+        # with CodeTimer("convex_polygon_fit"):
+        #     contour = convex_polygon_fit(hull, 4)
+
+        with CodeTimer("hough_fit"):
+            contour = hough_fit(hull, shape, output_frame=None, nsides=4)
+
+        if contour is not None and len(contour) == 4:
             return contour
 
         return None
@@ -274,7 +281,7 @@ def time_processing(cube_processor, input_files):
 
     print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
         cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.outputTimers()
+    CodeTimer.output_timers()
     return
 
 
