@@ -8,9 +8,10 @@
 #  getting the corners as close a possible is important.
 
 import copy
-import math
 import cv2
-import numpy
+from math import atan2, sin, cos, tan
+from numpy import array, amin, amax, sqrt, pi, round, dot
+from numpy.linalg import solve
 
 from codetimer import CodeTimer
 
@@ -23,6 +24,7 @@ def convex_polygon_fit(contour, nsides):
         start_contour = approxPolyDP_adaptive(contour, nsides)
     if start_contour is None:
         # failed. Not much to do
+        print('adapt failed')
         return None
 
     return refine_convex_fit(contour, start_contour)
@@ -56,7 +58,7 @@ def refine_convex_fit(contour, contour_fit):
     Each side is refined, without changing the other sides.
     The number of sides is not changed.'''
 
-    angle_step = math.pi / 180.0
+    angle_step = pi / 180.0
 
     nsides = len(contour_fit)
     for iside1 in range(nsides):
@@ -67,31 +69,34 @@ def refine_convex_fit(contour, contour_fit):
         hesse_vec = _hesse_form(contour_fit[iside1][0], contour_fit[iside2][0])
         midpt = (contour_fit[iside1][0] + contour_fit[iside2][0]) / 2.0
 
+        delta = contour_fit[iside1][0] - contour_fit[iside2][0]
+        line_length = sqrt(delta.dot(delta))
+        
+        start_area = cv2.contourArea(contour_fit)
+
         best_area = None
         best_pts = None
-        start_angle = math.atan2(hesse_vec[1], hesse_vec[0])
+        best_offset = None
+        start_angle = atan2(hesse_vec[1], hesse_vec[0])
 
         test_contour = copy.copy(contour_fit)
 
         for iangle in range(-5, 6):   # step angle by -5 to 5 inclusive
+            # for iangle in range(-3, 3, 3):   # step angle by -5 to 5 inclusive
             angle = start_angle + iangle * angle_step
-            perp_unit_vec = numpy.array([math.cos(angle), math.sin(angle)])
-            midpt_dist = numpy.dot(midpt, perp_unit_vec)
+            perp_unit_vec = array([cos(angle), sin(angle)])
+            midpt_dist = dot(midpt, perp_unit_vec)
 
-            min_dist = 1.0e8
-            max_dist = -1.0e8
-            for pt in contour:
-                dist_to_line = numpy.dot(pt[0], perp_unit_vec) - midpt_dist
-                min_dist = min(min_dist, dist_to_line)
-                max_dist = max(max_dist, dist_to_line)
+            perp_dists = contour.dot(perp_unit_vec)
+            min_dist = amin(perp_dists) - midpt_dist
+            max_dist = amax(perp_dists) - midpt_dist
 
             offset = min_dist if abs(min_dist) < abs(max_dist) else max_dist
             if abs(offset) > 20:
-                # print("offset too big", offset)
+                print("offset too big", offset)
                 continue
 
-            # print('dist:', counts, min_dist, max_dist, offset)
-            new_hesse = (numpy.dot(midpt, perp_unit_vec) + offset) * perp_unit_vec
+            new_hesse = (midpt.dot(perp_unit_vec) + offset) * perp_unit_vec
 
             # compute the intersections with the curve
             intersection1 = _intersection(new_hesse, contour_fit[iside0][0], contour_fit[iside1][0])
@@ -100,12 +105,25 @@ def refine_convex_fit(contour, contour_fit):
             test_contour[iside1][0] = intersection1
             test_contour[iside2][0] = intersection2
             with CodeTimer("contourArea"):
-                area = cv2.contourArea(test_contour)
+                area = cv2.contourArea(test_contour) - start_area
+            # print("area", iside1, iangle, offset, area, _delta_area(line_length, offset, iangle * angle_step))
 
-            if best_area is None or area < best_area:
-                best_area = area
+            # intersection1 = contour_fit[iside1][0]
+            # intersection2 = contour_fit[iside2][0]
+            # area = iangle**2
+
+            if best_area is None or area < best_area[0]:
+                best_area = (area, iangle)
                 best_pts = (intersection1, intersection2)
                 # print('new best', iside1, iangle, offset, area)
+
+            if best_offset is None or abs(offset) < best_offset[0]:
+                best_offset = (abs(offset), iangle)
+                best_pts = (intersection1, intersection2)
+                # print('new best', iside1, iangle, offset, area)
+
+        if best_offset[1] != best_area[1]:
+            print("Best offset and best area disagree")
 
         if best_pts is not None:
             contour_fit[iside1][0] = best_pts[0]
@@ -118,8 +136,8 @@ def _hesse_form(pt1, pt2):
     '''Compute the Hesse form vector for the line through the points'''
 
     delta = pt2 - pt1
-    parallel = delta / numpy.linalg.norm(delta)
-    return pt2 - numpy.dot(pt2, parallel) * parallel
+    mag2 = delta.dot(delta)
+    return pt2 - pt2.dot(delta) * delta / mag2
 
 
 def _intersection(hesse_vec, pt1, pt2):
@@ -131,17 +149,36 @@ def _intersection(hesse_vec, pt1, pt2):
 
     with CodeTimer("_intersection"):
         # Compute the Hesse form for the lines
-        rho1 = numpy.linalg.norm(hesse_vec)
+        rho1 = sqrt(hesse_vec.dot(hesse_vec))
         norm1 = hesse_vec / rho1
 
         hesse2 = _hesse_form(pt1, pt2)
-        rho2 = numpy.linalg.norm(hesse2)
+        rho2 = sqrt(hesse2.dot(hesse2))
         norm2 = hesse2 / rho2
 
-        A = numpy.array([[norm1[0], norm1[1]],
-                         [norm2[0], norm2[1]]])
-        b = numpy.array([[rho1], [rho2]])
-        res = numpy.transpose(numpy.linalg.solve(A, b))
+        A = array([[norm1[0], norm1[1]],
+                   [norm2[0], norm2[1]]])
+        b = array([[rho1], [rho2]])
+        res = solve(A, b).transpose()
 
-        res = numpy.around(res).astype(int)
+        res = round(res).astype(int)
     return res
+
+
+def _delta_area(line_length, offset, angle):
+    '''Compute an approx. change in area of the shape'''
+
+    l_half = line_length / 2.0
+
+    cos_a = cos(angle)
+    if abs(angle) < 1e-6:
+        # parallel to the original line
+        return line_length * offset / cos_a
+
+    sin_a = abs(angle)          # small angle approx. - faster
+    y0 = offset / sin_a
+    if y0 > l_half:
+        # does not intersect the original line segment
+        return line_length * offset / cos_a
+
+    return 0.5 * sin_a / cos_a * ((y0 + l_half)**2 - (l_half - y0)**2)

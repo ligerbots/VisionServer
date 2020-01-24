@@ -5,8 +5,8 @@ import numpy
 import json
 import math
 
-from polygon_fit import convex_polygon_fit
-from hough_fit import hough_fit
+import polygon_fit
+import hough_fit
 from codetimer import CodeTimer
 
 
@@ -36,7 +36,7 @@ class GoalFinder2020(object):
         self.exposure = 1
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((65, 75, 75), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
@@ -174,8 +174,8 @@ class GoalFinder2020(object):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        #if self.top_contours:
+        #   cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
         for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
@@ -195,13 +195,14 @@ class GoalFinder2020(object):
         # cand_height = candidate['widths'][1]
 
         # TODO: make addition cuts here
+
         hull = cv2.convexHull(candidate['contour'])
 
-        # with CodeTimer("convex_polygon_fit"):
-        #     contour = convex_polygon_fit(hull, 4)
+        with CodeTimer("convex_polygon_fit"):
+            contour = polygon_fit.convex_polygon_fit(hull, 4)
 
-        with CodeTimer("hough_fit"):
-            contour = hough_fit(hull, shape, output_frame=None, nsides=4)
+        # with CodeTimer("hough_fit"):
+        #     contour = hough_fit.hough_fit(hull, shape, nsides=4)
 
         if contour is not None and len(contour) == 4:
             return contour
