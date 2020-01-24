@@ -5,7 +5,6 @@ import numpy
 import json
 import math
 
-
 class BallFinder2020(object):
     '''Ball finder for Infinite Recharge 2020'''
 
@@ -26,11 +25,11 @@ class BallFinder2020(object):
         self.exposure = 0
 
         # individual properties
-        self.low_limit_hsv = numpy.array((25, 95, 95), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((20, 95, 95), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((75, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 250
+        self.contour_min_area = 80
 
         # maximum no. of vertices in the fitted contour
         # 12 = max # of corners if all corners are flat
@@ -45,7 +44,7 @@ class BallFinder2020(object):
 
         # some variables to save results for drawing
         self.bottomPoint = None
-        self.biggest_contour = None
+        self.biggest_contours = None
 
         self.cameraMatrix = None
         self.distortionMatrix = None
@@ -79,6 +78,17 @@ class BallFinder2020(object):
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
+    
+    @staticmethod
+    def get_bottom_center(contour):
+        left = contour[0]
+        right = contour[0]
+        for pt in contour:
+            if pt[0][1] > left[0][1] or ((pt[0][1] == left[0][1]) and (pt[0][0] < left[0][0])):
+                left=pt
+            if (pt[0][1]>right[0][1]) or ((pt[0][1]==right[0][1]) and (pt[0][0]>right[0][0])):
+                right=pt
+        return [[int((left[0][0] + right[0][0]) / 2), left[0][1]]]
 
     def get_cube_values_calib(self):
         '''Calculate the angle and distance from the camera to the center point of the robot
@@ -153,9 +163,9 @@ class BallFinder2020(object):
         # clear out result variables
         angle = None
         distance = None
-        self.bottomPoint = None
-        self.hull_fit = None
-        self.biggest_contour = None
+        self.bottomPoint =[[-1, -1]]
+        self.hull_fits = []
+        self.biggest_contours = None
 
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
@@ -176,26 +186,32 @@ class BallFinder2020(object):
             if area > self.contour_min_area:
                 # TODO: use a simple class? Maybe use "attrs" package?
                 contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
-
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
         # test first 3 biggest contours only (optimization)
         for cnt in contour_list[0:3]:
-            self.hull_fit = self.test_candidate_contour(cnt)
+            fit=self.test_candidate_contour(cnt)
 
             # NOTE: testing a list returns true if there is something in the list
-            if self.hull_fit is not None:
-                self.biggest_contour = cnt['contour']        
-                self.bottomPoint = self.biggest_contour.sort(key=lambda c: c[1], reverse=True)[0]  #remember y goes up as you move down the image
+            if fit is not None :
+                self.hull_fits.append(fit)
 
+                lowestPoint = BallFinder2020.get_bottom_center(fit)
+                
+                print("Lowest point: " + str(lowestPoint))
+                print("Bottom Point: " + str(self.bottomPoint))
+
+                self.bottomPoint = max([self.bottomPoint,lowestPoint], key=lambda c: c[0][1])  #remember y goes up as you move down the image
+                '''
                 if self.cameraMatrix is not None:
                     angle, distance = self.get_cube_values_calib()
                 else:
                     angle, distance = self.get_cube_values(self.bottomPoint, camera_frame.shape)
 
                 break
-
+                '''
+        
         # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
             return (0.0, self.finder_id, 0.0, 0.0, 0.0)
@@ -207,7 +223,10 @@ class BallFinder2020(object):
 
         real_area = cv2.contourArea(cnt)
         # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
-        if real_area / contour_entry['area'] > 0.5:
+        print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
+        ratio=contour_entry['widths'][1] / contour_entry['widths'][0]
+        if  ratio> 0.9 and ratio<3.1:
+            print("found")
             hull = cv2.convexHull(cnt)
             # hull_fit contains the corners for the contour
             hull_fit = BallFinder2020.quad_fit(hull, self.approx_polydp_error)
@@ -222,20 +241,17 @@ class BallFinder2020(object):
         output_frame = input_frame.copy()
 
         # Draw the contour on the image
-        if self.biggest_contour is not None:
-            cv2.drawContours(output_frame, [self.biggest_contour], -1, (0, 0, 255), 2)
-
-        if self.hull_fit is not None:
-            cv2.drawContours(output_frame, [self.hull_fit], -1, (255, 0, 0), 2)
-
+        print(self.hull_fits)
+        if self.hull_fits is not None:
+            cv2.drawContours(output_frame, self.hull_fits, -1, (255, 0, 0), 2)
         if self.bottomPoint is not None:
-            cv2.drawMarker(output_frame, tuple(self.bottomPoint), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
-            # cv2.circle(output_frame, tuple(self.bottomPoint), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+            #cv2.drawMarker(output_frame, tuple(self.bottomPoint), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
+            cv2.circle(output_frame, tuple(self.bottomPoint[0]), 2, (255, 255, 0), thickness=10, lineType=8, shift=0)
 
         return output_frame
 
 
-def process_files(cube_processor, input_files, output_dir):
+def process_files(ball_processor, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
 
@@ -243,14 +259,14 @@ def process_files(cube_processor, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
-        result = cube_processor.process_image(bgr_frame)
+        result = ball_processor.process_image(bgr_frame)
         print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 
-        cube_processor.prepare_output_image(bgr_frame)
+        output_image = ball_processor.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
         # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, bgr_frame)
+        cv2.imwrite(outfile, output_image)
 
         # cv2.imshow("Window", bgr_frame)
         # q = cv2.waitKey(-1) & 0xFF
@@ -259,7 +275,7 @@ def process_files(cube_processor, input_files, output_dir):
     return
 
 
-def time_processing(cube_processor, input_files):
+def time_processing(ball_processor, input_files):
     '''Time the processing of the test files'''
 
     from codetimer import CodeTimer
@@ -278,7 +294,7 @@ def time_processing(cube_processor, input_files):
                 bgr_frame = cv2.imread(image_file)
 
             with CodeTimer("Main Processing"):
-                cube_processor.process_image(bgr_frame)
+                ball_processor.process_image(bgr_frame)
 
             cnt += 1
 
