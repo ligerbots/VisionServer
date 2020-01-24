@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
+# Vision finder to find the retro-reflective target around the goal
+
 import cv2
 import numpy
 import json
 import math
+
+from genericfinder import GenericFinder, main
 
 import polygon_fit
 import hough_fit
 from codetimer import CodeTimer
 
 
-class GoalFinder2020(object):
+class GoalFinder2020(GenericFinder):
     '''Find high goal target for Infinite Recharge 2020'''
 
     # real world dimensions of the goal target
@@ -30,10 +34,7 @@ class GoalFinder2020(object):
     ]
 
     def __init__(self, calib_file):
-        self.name = 'goalfinder'
-        self.finder_id = 1.0
-        self.camera = 'driver'      # TODO: change this
-        self.exposure = 1
+        super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 75), dtype=numpy.uint8)
@@ -76,20 +77,6 @@ class GoalFinder2020(object):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
         return
-
-    @staticmethod
-    def contour_center_width(contour):
-        '''Find boundingRect of contour, but return center and width/height'''
-
-        x, y, w, h = cv2.boundingRect(contour)
-        return (x + int(w / 2), y + int(h / 2)), (w, h)
-
-    @staticmethod
-    def quad_fit(contour, approx_dp_error):
-        '''Simple polygon fit to contour with error related to perimeter'''
-
-        peri = cv2.arcLength(contour, True)
-        return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
 
     @staticmethod
     def get_outer_corners(cnt):
@@ -231,84 +218,7 @@ class GoalFinder2020(object):
         return distance, angle1, angle2
 
 
-def process_files(line_finder, input_files, output_dir):
-    '''Process the files and output the marked up image'''
-    import os.path
-
-    for image_file in input_files:
-        # print()
-        # print(image_file)
-        bgr_frame = cv2.imread(image_file)
-        result = line_finder.process_image(bgr_frame)
-        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
-
-        bgr_frame = line_finder.prepare_output_image(bgr_frame)
-
-        outfile = os.path.join(output_dir, os.path.basename(image_file))
-        # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, bgr_frame)
-
-        # cv2.imshow("Window", bgr_frame)
-        # q = cv2.waitKey(-1) & 0xFF
-        # if q == ord('q'):
-        #     break
-    return
-
-
-def time_processing(cube_processor, input_files):
-    '''Time the processing of the test files'''
-
-    from codetimer import CodeTimer
-    from time import time
-
-    startt = time()
-
-    cnt = 0
-
-    # Loop 100x over the files. This is needed to make it long enough
-    #  to get reasonable statistics. If we have 100s of files, we could reduce this.
-    # Need the total time to be many seconds so that the timing resolution is good.
-    for _ in range(100):
-        for image_file in input_files:
-            with CodeTimer("Read Image"):
-                bgr_frame = cv2.imread(image_file)
-
-            with CodeTimer("Main Processing"):
-                cube_processor.process_image(bgr_frame)
-
-            cnt += 1
-
-    deltat = time() - startt
-
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
-        cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.output_timers()
-    return
-
-
-def main():
-    '''Main routine'''
-    import argparse
-
-    parser = argparse.ArgumentParser(description='2019 rrtarget finder')
-    parser.add_argument('--output_dir', help='Output directory for processed images')
-    parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib_file', help='Calibration file')
-    parser.add_argument('input_files', nargs='+', help='input files')
-
-    args = parser.parse_args()
-
-    rrtarget_finder = GoalFinder2020(args.calib_file)
-
-    if args.output_dir is not None:
-        process_files(rrtarget_finder, args.input_files, args.output_dir)
-    elif args.time:
-        time_processing(rrtarget_finder, args.input_files)
-
-    return
-
-
 # Main routine
-# This is for development/testing
+# This is for development/testing without running the whole server
 if __name__ == '__main__':
-    main()
+    main(GoalFinder2020)
