@@ -3,6 +3,8 @@
 # import the necessary packages
 from threading import Thread
 import time
+import logging
+
 
 class ThreadedCamera:
     '''Threaded camera reader. For now, a thin wrapper around the CSCore classes.'''
@@ -34,6 +36,8 @@ class ThreadedCamera:
     def update(self):
         '''Threaded read loop'''
 
+        fps_startt = time.time()
+
         while True:
             # if the thread indicator variable is set, stop the thread
             if self.stopped:
@@ -42,6 +46,12 @@ class ThreadedCamera:
             # otherwise, read the next frame from the stream
             self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
             self.frame_number += 1
+
+            if self.frame_number % 150 == 0:
+                endt = time.time()
+                dt = endt - fps_startt
+                logging.info("threadedcamera: 150 frames in {0:.3f} seconds = {1:.2f} FPS".format(dt, 150.0 / dt))
+                fps_startt = endt
         return
 
     def next_frame(self):

@@ -2,6 +2,7 @@
 
 '''Defines a class for which each year's subclass vision server inherits from'''
 
+import sys
 import time
 import cv2
 import numpy
@@ -26,7 +27,7 @@ class VisionServer:
 
     # frame rate is pretty variable, so set this a fair bit higher than what you really want
     # using a large number for no limit
-    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 1000,
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 25,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -148,8 +149,10 @@ class VisionServer:
         logging.info("Setting camera exposure to '%d'" % value)
         if value == 0:
             camera.setExposureAuto()
+            camera.getProperty('exposure_auto_priority').set(1)
         else:
             camera.setExposureManual(int(value))
+            camera.getProperty('exposure_auto_priority').set(0)
         return
 
     @staticmethod
@@ -316,12 +319,10 @@ class VisionServer:
 
         fps_count = 0
         fps_startt = time.time()
-        delay_nettime = 0
+        imgproc_nettime = 0
 
         while True:
             try:
-                delay_startt = time.time()
-
                 # Check whether DS has asked for a different camera
                 # ntmode = self.nt_active_mode  # temp, for efficiency
                 ntmode = self.mode_chooser_ctrl.getSelected()
@@ -338,6 +339,8 @@ class VisionServer:
                 # in the source image.  Frametime==0 on error
                 frametime, self.camera_frame = self.current_reader.next_frame()
                 frame_num += 1
+
+                imgproc_startt = time.time()
 
                 if frametime == 0:
                     # ERROR!!
@@ -392,15 +395,15 @@ class VisionServer:
                     self.switch_mode(self.initial_mode)
 
                 fps_count += 1
-                delay_nettime += now - delay_startt
-                if fps_count == 150:
+                imgproc_nettime += now - imgproc_startt
+                if fps_count >= 150:
                     endt = time.time()
                     dt = endt - fps_startt
                     logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
-                    logging.info("Processing delay = {0:.2f} msec".format(1000.0 * delay_nettime / fps_count))
+                    logging.info("Image processing time = {0:.2f} msec/frame".format(1000.0 * imgproc_nettime / fps_count))
                     fps_count = 0
                     fps_startt = endt
-                    delay_nettime = 0
+                    imgproc_nettime = 0
 
             except Exception as e:
                 # major exception. Try to keep going
