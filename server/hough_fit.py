@@ -2,44 +2,71 @@
 
 # Use the Hough line algorithm to fix a contour
 
-import numpy
 import cv2
-import math
+
+# it is faster if you import the needed functions directly
+# these are used a lot, so it helps, a little
+from math import sin, cos, atan2  # , degrees
+from numpy import array, zeros, pi, round, sqrt, uint8
 
 from codetimer import CodeTimer
+two_pi = 2 * pi
 
 
-def hough_fit(contour, shape, nsides=4):
-    contour_plot = numpy.zeros(shape=shape[:2], dtype=numpy.uint8)
-    cv2.drawContours(contour_plot, [contour, ], -1, 255, 1)
+def hough_fit(contour, nsides=None, approx_fit=None):
+    '''Use the Hough line finding algorithm to find a polygon for contour.
+    It is faster if you can provide an decent initial fit.'''
+
+    if approx_fit is not None:
+        nsides = len(approx_fit)
+    if not nsides:
+        raise Exception("You need to set nsides or pass approx_fit")
+
+    x, y, w, h = cv2.boundingRect(contour)
+    offset_vec = array((x, y))
+
+    shifted_con = contour - offset_vec
 
     # the binning does affect the speed, so tune it....
     with CodeTimer("HoughLines"):
-        lines = cv2.HoughLines(contour_plot, 1, numpy.pi / 180, threshold=10)
+        contour_plot = zeros(shape=(h, w), dtype=uint8)
+        cv2.drawContours(contour_plot, [shifted_con, ], -1, 255, 1)
+        lines = cv2.HoughLines(contour_plot, 1, pi / 180, threshold=10)
+
     if lines is None or len(lines) < nsides:
         print("Hough found too few lines")
         return None
 
+    if approx_fit is not None:
+        res = _match_lines_to_fit(approx_fit - offset_vec, lines, w, h)
+    else:
+        res = _find_sides(nsides, lines, w, h)
+
+    if res is None:
+        return None
+    return array(res) + offset_vec
+
+
+def _find_sides(nsides, hough_lines, w, h):
     # The returned lines from HoughLines() are ordered by confidence, but there may/will be
     #  many variants of the best lines. Loop through the lines and pick the best from
     #  each cluster.
 
-    x, y, w, h = cv2.boundingRect(contour)
-    contour_center = (x + int(w / 2), y + int(h / 2))
-    boundaries = (x-5, x+w+5, y-5, y+h+5)
+    contour_center = (w / 2, h / 2)
+    boundaries = (-5, w+5, -5, h+5)
 
     dist_thres = 10
-    theta_thres = numpy.pi / 36  # 5 degrees
+    theta_thres = pi / 36  # 5 degrees
     best_lines = []
-    for linelist in lines:
+    for linelist in hough_lines:
         line = linelist[0]
         if line[0] < 0:
             line[0] *= -1
-            line[1] -= numpy.pi
+            line[1] -= pi
 
-        coord_near_ref = compute_line_near_reference(line, contour_center)
+        coord_near_ref = _compute_line_near_reference(line, contour_center)
 
-        if not best_lines or not is_close(best_lines, line, coord_near_ref, dist_thres, theta_thres):
+        if not best_lines or not _is_close(best_lines, line, coord_near_ref, dist_thres, theta_thres):
             # print('best line:', line[0], math.degrees(line[1]))
             best_lines.append((line, coord_near_ref))
 
@@ -47,8 +74,12 @@ def hough_fit(contour, shape, nsides=4):
             break
 
     if len(best_lines) != nsides:
-        print("hough_fit: found %s lines" % len(best_lines))
+        # print("hough_fit: found %s lines" % len(best_lines))
         return None
+
+    # print('best')
+    # for l in best_lines:
+    #     print('   ', l[0][0], degrees(l[0][1]))
 
     # Find the nsides vertices which are inside the bounding box (with a little slop).
     # There will be extra intersections. Assume the right ones (and only those) are within the bounding box.
@@ -62,7 +93,7 @@ def hough_fit(contour, shape, nsides=4):
             if iline2 in used:
                 continue
 
-            inter = intersection(best_lines[iline1][0], best_lines[iline2][0])
+            inter = _intersection(best_lines[iline1][0], best_lines[iline2][0])
             if inter is not None and \
                inter[0] >= boundaries[0] and inter[0] <= boundaries[1] and \
                inter[1] >= boundaries[2] and inter[1] <= boundaries[3]:
@@ -76,7 +107,7 @@ def hough_fit(contour, shape, nsides=4):
             return None
 
     # add in the last pair
-    inter = intersection(best_lines[0][0], best_lines[iline1][0])
+    inter = _intersection(best_lines[0][0], best_lines[iline1][0])
     if inter is not None and \
        inter[0] >= boundaries[0] and inter[0] <= boundaries[1] and \
        inter[1] >= boundaries[2] and inter[1] <= boundaries[3]:
@@ -84,17 +115,71 @@ def hough_fit(contour, shape, nsides=4):
 
     if len(vertices) != nsides:
         print('Not correct number of vertices:', len(vertices))
+        return None
 
-    return numpy.array(vertices)
+    # remember to unshift the resulting contour
+    return vertices
 
 
-def compute_line_near_reference(line, ref_point):
+def _delta_angle(a, b):
+    d = a - b
+    return (d + pi) % two_pi - pi
+
+
+def _match_lines_to_fit(approx_fit, hough_lines, w, h):
+    '''Given the approximate shape and a set of lines from the Hough algorithm
+    find the matching lines and rebuild the fit'''
+
+    theta_thres = pi / 36  # 5 degrees
+    nsides = len(approx_fit)
+    fit_sides = []
+    hough_used = set()
+    for ivrtx in range(nsides):
+        ivrtx2 = (ivrtx + 1) % nsides
+        pt1 = approx_fit[ivrtx][0]
+        pt2 = approx_fit[ivrtx2][0]
+
+        rho, theta = _hesse_form(pt1, pt2)
+
+        # Hough lines are in order of confidence, so look for the first unused one
+        #  which matches the line
+        for ih, linelist in enumerate(hough_lines):
+            if ih in hough_used:
+                continue
+            line = linelist[0]
+
+            # There is an ambiguity of -rho and adding 180deg to theta
+            # So test them both.
+
+            if (abs(rho - line[0]) < 10 and abs(_delta_angle(theta, line[1])) < theta_thres) or \
+               (abs(rho + line[0]) < 10 and abs(_delta_angle(theta, line[1] - pi)) < theta_thres):
+                fit_sides.append(line)
+                hough_used.add(ih)
+                break
+
+    if len(fit_sides) != nsides:
+        print("did not match enough lines")
+        return None
+
+    vertices = []
+    for ivrtx in range(nsides):
+        ivrtx2 = (ivrtx + 1) % nsides
+        inter = _intersection(fit_sides[ivrtx], fit_sides[ivrtx2])
+        if inter is None:
+            print("No intersection between lines")
+            return None
+        vertices.append(inter)
+
+    return vertices
+
+
+def _compute_line_near_reference(line, ref_point):
     with CodeTimer("compute_line_near_reference"):
         rho, theta = line
 
         # remember: theta is actually perpendicular to the line, so there is a sign flip
-        cos_theta = math.cos(theta)
-        sin_theta = math.sin(theta)
+        cos_theta = cos(theta)
+        sin_theta = sin(theta)
         x0 = cos_theta * rho
         y0 = sin_theta * rho
 
@@ -111,7 +196,7 @@ def compute_line_near_reference(line, ref_point):
     return x_near_ref, y_near_ref
 
 
-def is_close(best_lines, candidate, coord_near_ref, dist_thres, theta_thres):
+def _is_close(best_lines, candidate, coord_near_ref, dist_thres, theta_thres):
     cand_rho, cand_theta = candidate
     # print('cand:', cand_rho, math.degrees(cand_theta))
     for line in best_lines:
@@ -129,10 +214,10 @@ def is_close(best_lines, candidate, coord_near_ref, dist_thres, theta_thres):
 
         # angle differences greater than 180deg are not real
         delta_theta = cand_theta - line[1]
-        while delta_theta >= numpy.pi / 2:
-            delta_theta -= numpy.pi
-        while delta_theta <= -numpy.pi / 2:
-            delta_theta += numpy.pi
+        while delta_theta >= pi / 2:
+            delta_theta -= pi
+        while delta_theta <= -pi / 2:
+            delta_theta += pi
         delta_theta = abs(delta_theta)
 
         # print('test:', line[0], math.degrees(line[1]), delta_dist, delta_theta)
@@ -141,7 +226,7 @@ def is_close(best_lines, candidate, coord_near_ref, dist_thres, theta_thres):
     return False
 
 
-def intersection(line1, line2):
+def _intersection(line1, line2):
     """Finds the intersection of two lines given in Hesse normal form.
 
     Returns closest integer pixel locations.
@@ -155,17 +240,21 @@ def intersection(line1, line2):
             # parallel
             return None
 
-        A = numpy.array([[numpy.cos(theta1), numpy.sin(theta1)],
-                         [numpy.cos(theta2), numpy.sin(theta2)]])
-        b = numpy.array([[rho1], [rho2]])
-        x0, y0 = numpy.linalg.solve(A, b)
-        res = int(numpy.round(x0)), int(numpy.round(y0))
+        cos1 = cos(theta1)
+        sin1 = sin(theta1)
+        cos2 = cos(theta2)
+        sin2 = sin(theta2)
+
+        denom = cos1*sin2 - sin1*cos2
+        x = (sin2*rho1 - sin1*rho2) / denom
+        y = (cos1*rho2 - cos2*rho1) / denom
+        res = round(array((x, y))).astype(int)
     return res
 
 
 def plot_hough_line(frame, rho, theta, color, thickness=1):
-    a = math.cos(theta)
-    b = math.sin(theta)
+    a = cos(theta)
+    b = sin(theta)
     x0 = a * rho
     y0 = b * rho
     pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
@@ -173,8 +262,28 @@ def plot_hough_line(frame, rho, theta, color, thickness=1):
     cv2.line(frame, pt1, pt2, color, thickness)
     return
 
+
+def _hesse_form(pt1, pt2):
+    '''Compute the Hesse form for the line through the points'''
+
+    delta = pt2 - pt1
+    mag2 = delta.dot(delta)
+    vec = pt2 - pt2.dot(delta) * delta / mag2
+
+    rho = sqrt(vec.dot(vec))
+    if abs(rho) < 1e-6:
+        # through 0. Need to compute theta differently
+        theta = atan2(delta[1], delta[0]) + pi/2
+        if theta > 2 * pi:
+            theta -= 2 * pi
+    else:
+        theta = atan2(vec[1], vec[0])
+
+    return rho, theta
+
+
 if __name__ == '__main__':
-    pts = numpy.array([[[0, 0]], [[1, 1]]])
+    pts = array([[[0, 0]], [[1, 1]]])
     print(pts)
-    lines = cv2.HoughLinesPointSet(pts, 10, 1, -10.0, 100.0, 0.1, 0.0, math.pi, math.pi / 360.0)
+    lines = cv2.HoughLinesPointSet(pts, 10, 1, -10.0, 100.0, 0.1, 0.0, pi, pi / 360.0)
     print(lines)

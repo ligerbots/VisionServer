@@ -10,8 +10,10 @@
 import copy
 import cv2
 from math import atan2, sin, cos, tan
+import math
 from numpy import array, amin, amax, sqrt, pi, round, dot
 from numpy.linalg import solve
+import numpy
 
 from codetimer import CodeTimer
 
@@ -27,6 +29,8 @@ def convex_polygon_fit(contour, nsides):
         print('adapt failed')
         return None
 
+    #hough_refine(contour, start_contour)
+    #return start_contour
     return refine_convex_fit(contour, start_contour)
 
 
@@ -122,8 +126,8 @@ def refine_convex_fit(contour, contour_fit):
                 best_pts = (intersection1, intersection2)
                 # print('new best', iside1, iangle, offset, area)
 
-        if best_offset[1] != best_area[1]:
-            print("Best offset and best area disagree")
+        #if best_offset[1] != best_area[1]:
+        #    print("Best offset and best area disagree")
 
         if best_pts is not None:
             contour_fit[iside1][0] = best_pts[0]
@@ -156,12 +160,15 @@ def _intersection(hesse_vec, pt1, pt2):
         rho2 = sqrt(hesse2.dot(hesse2))
         norm2 = hesse2 / rho2
 
-        A = array([[norm1[0], norm1[1]],
-                   [norm2[0], norm2[1]]])
-        b = array([[rho1], [rho2]])
-        res = solve(A, b).transpose()
+        cos1 = norm1[0]
+        sin1 = norm1[1]
+        cos2 = norm2[0]
+        sin2 = norm2[1]
 
-        res = round(res).astype(int)
+        denom = cos1*sin2 - sin1*cos2
+        x = (sin2*rho1 - sin1*rho2) / denom
+        y = (cos1*rho2 - cos2*rho1) / denom
+        res = round(array((x, y))).astype(int)
     return res
 
 
@@ -182,3 +189,52 @@ def _delta_area(line_length, offset, angle):
         return line_length * offset / cos_a
 
     return 0.5 * sin_a / cos_a * ((y0 + l_half)**2 - (l_half - y0)**2)
+
+
+def hough_refine(contour, contour_fit):
+    '''Refine a fit to a convex contour. Look for an approximation of the
+    minimum bounding polygon.
+
+    Each side is refined, without changing the other sides.
+    The number of sides is not changed.'''
+
+    x, y, w, h = cv2.boundingRect(contour)
+    print("hough_refine: boundingRect", x, y, w, h)
+    # include a 1 pixel border, just because
+    offset_vec = numpy.array((x-1, y-1))
+    #con_shape = (w+2, h+2)
+
+    #offset_vec = numpy.array((0,0))
+    shifted_con = contour_fit - offset_vec
+
+    nsides = len(shifted_con)
+    hesse_form = []
+    minmax = [1e6, -1e6, 1e6, -1e6]
+    for ivrtx in range(nsides):
+        ivrtx2 = (ivrtx + 1) % nsides
+        hesse_vec = _hesse_form(shifted_con[ivrtx][0], shifted_con[ivrtx2][0])
+
+        # Hough uses separate rho, theta, so compute now
+        rho = sqrt(hesse_vec.dot(hesse_vec))
+        theta = atan2(hesse_vec[1], hesse_vec[0])
+        print('hesse', rho, math.degrees(theta))
+        
+        hesse_form.append((rho, theta))
+        minmax[0] = min(minmax[0], rho)
+        minmax[1] = max(minmax[1], rho)
+        minmax[2] = min(minmax[2], theta)
+        minmax[3] = max(minmax[3], theta)
+
+    print("rho theta range", minmax[0], minmax[1], math.degrees(minmax[2]), math.degrees(minmax[3]))
+    print('contour_fit', shifted_con)
+    return None
+    contour_plot = numpy.zeros(shape=(480, 640), dtype=numpy.uint8)
+    cv2.drawContours(contour_plot, [contour, ], -1, 255, 1)
+
+    # the binning does affect the speed, so tune it....
+    with CodeTimer("HoughLines"):
+        lines = cv2.HoughLines(contour_plot, 1, numpy.pi / 180, threshold=10)
+    if lines is None or len(lines) < nsides:
+        print("Hough found too few lines")
+        return None
+    return None

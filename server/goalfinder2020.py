@@ -185,11 +185,9 @@ class GoalFinder2020(GenericFinder):
 
         hull = cv2.convexHull(candidate['contour'])
 
-        with CodeTimer("convex_polygon_fit"):
-            contour = polygon_fit.convex_polygon_fit(hull, 4)
-
-        # with CodeTimer("hough_fit"):
-        #     contour = hough_fit.hough_fit(hull, shape, nsides=4)
+        with CodeTimer("hough_fit"):
+            approx = polygon_fit.approxPolyDP_adaptive(hull, nsides=4)
+            contour = hough_fit.hough_fit(hull, nsides=4, approx_fit=approx)
 
         if contour is not None and len(contour) == 4:
             return contour
