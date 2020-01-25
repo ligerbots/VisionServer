@@ -189,10 +189,13 @@ class BallFinder2020(object):
                 contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
-
         # test first 3 biggest contours only (optimization)
+
+        lowestpoints=[]
         for cnt in contour_list[0:3]:
+
             fit=self.test_candidate_contour(cnt)
+            
 
             # NOTE: testing a list returns true if there is something in the list
             if fit is not None :
@@ -203,15 +206,19 @@ class BallFinder2020(object):
                 print("Lowest point: " + str(lowestPoint))
                 print("Bottom Point: " + str(self.bottomPoint))
 
-                self.bottomPoint = max([self.bottomPoint,lowestPoint], key=lambda c: c[0][1])  #remember y goes up as you move down the image
-                
+                lowestpoints.append(lowestPoint)
+                lowestpoints.sort(key=lambda c: c[0][1], reverse=True)  #remember y goes up as you move down the image
+                lowestpoints=lowestpoints[0:2]
                 if self.cameraMatrix is not None:
                     angle, distance = self.get_ball_values_calib()
                 else:
                     angle, distance = self.get_ball_values(self.bottomPoint[0], camera_frame.shape)
 
-                break
-                
+        if(len(lowestpoints)>0):
+            if len(lowestpoints)>1 and abs(lowestpoints[0][0][1]-lowestpoints[1][0][1])<20:
+                self.bottomPoint=[[int((lowestpoints[0][0][0]+lowestpoints[1][0][0])/2),int((lowestpoints[0][0][1]+lowestpoints[1][0][1])/2)]]
+            else:
+                self.bottomPoint=lowestpoints[0]
         
         # return values: (success, cube or swipythtch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
