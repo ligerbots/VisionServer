@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
+# Vision finder to find the retro-reflective target around the goal
+
 import cv2
 import numpy
 import json
 import math
 
+from genericfinder import GenericFinder, main
 
-class GoalFinder2020(object):
+
+class GoalFinder2020(GenericFinder):
     '''Find high goal target for Infinite Recharge 2020'''
 
     # real world dimensions of the goal target
@@ -26,10 +30,7 @@ class GoalFinder2020(object):
     ]
 
     def __init__(self, calib_file):
-        self.name = 'goalfinder'
-        self.finder_id = 1.0
-        self.camera = 'driver'      # TODO: change this
-        self.exposure = 1
+        super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
@@ -40,7 +41,7 @@ class GoalFinder2020(object):
 
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
-#0.06
+
         self.hull = None
         # ratio of height to width of one retroreflective strip
         self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
@@ -75,100 +76,10 @@ class GoalFinder2020(object):
         return
 
     @staticmethod
-    def contour_center_width(contour):
-        '''Find boundingRect of contour, but return center and width/height'''
+    def get_outer_corners(cnt):
+        '''Return the outer four corners of a contour'''
 
-        x, y, w, h = cv2.boundingRect(contour)
-        return (x + int(w / 2), y + int(h / 2)), (w, h)
-
-    @staticmethod
-    def quad_fit(contour, approx_dp_error):
-        '''Simple polygon fit to contour with error related to perimeter'''
-
-        peri = cv2.arcLength(contour, True)
-        return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
-
-    @staticmethod
-    def dot_product(ax, ay, bx, by):
-
-        return (ax * bx) + (ay * by)
-
-    def get_outer_corners(self, hull):
-        '''Return the four true corners of a contour'''
-        if(len(hull)<4):
-            return None
-
-        dps = []    #dot products
-        for i in range(len(hull)):#for each hull point,
-            prev_pt = hull[i - 1][0]
-            pt = hull[i][0]
-            next_pt = hull[(i + 1) % len(hull)][0]
-            ax = (pt[0] - prev_pt[0])
-            ay = (pt[1] - prev_pt[1])
-
-            da=math.hypot(ax,ay)
-            bx = (pt[0] - next_pt[0])
-            by = (pt[1] - next_pt[1])
-            db=math.hypot(bx,by)
-
-            if(da>0):#Make sure non 0
-                dps.append([i,#keep index for sorting later
-                        GoalFinder2020.dot_product( ax,ay,bx,by) / da / db,#calculate dot prod with last
-                        da,db#also get dist info
-                       ])
-        if(len(dps)<4):
-            return None
-
-        self.test_outer_corners=[]
-
-        #group close points together
-        max_group_dist=7
-
-        nddps=[]
-        curr_max_group=-1
-        test_color=0;
-        for i in range(len(dps)):
-            if(dps[i][2]<max_group_dist or curr_max_group==-1):#
-                if(dps[curr_max_group][1]<dps[i][1] or curr_max_group==-1):
-                    curr_max_group=i
-            else:
-                nddps.append(dps[curr_max_group])
-                curr_max_group=i
-                test_color=i
-            self.test_outer_corners.append([hull[dps[i][0]][0],test_color]);
-        nddps.append(dps[curr_max_group])
-        if(len(nddps)<4):
-            return None
-        if(nddps[0][2]<max_group_dist):#special case for first and last points
-            if(nddps[0][1]<nddps[-1][1]):
-                del nddps[0]
-            else:
-                del nddps[-1]
-        if(len(nddps)<4):
-            return None
-        for i in range(len(nddps)):#redo dot prod calcs without close points
-            prev_pt = hull[nddps[i - 1][0]][0]
-            pt = hull[nddps[i][0]][0]
-            next_pt = hull[nddps[(i + 1) % len(nddps)][0]][0]
-            ax = (pt[0] - prev_pt[0])
-            ay = (pt[1] - prev_pt[1])
-
-            da=math.hypot(ax,ay)
-            bx = (pt[0] - next_pt[0])
-            by = (pt[1] - next_pt[1])
-            db=math.hypot(bx,by)
-            nddps[i][1]=GoalFinder2020.dot_product( ax,ay,bx,by) / da / db
-
-        #print("nddps",len(nddps),nddps)
-
-        nddps.sort(key=lambda pt: pt[1], reverse=True) #sort it by max dot prod(=min angle)
-        #print("selected",nddps)
-
-        pts = [numpy.concatenate([hull[pt[0]][0],[int(math.degrees(math.acos(pt[1]))),pt[0]]]) for pt in sorted(nddps[0:4], key=lambda pt: pt[0])]
-
-        #print("pts",len(pts),pts)
-
-        return pts
+        return sorted(cnt, key=lambda x: x[0])  # Sort by x value of cnr in increasing value
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -323,84 +234,7 @@ class GoalFinder2020(object):
         return distance, angle1, angle2
 
 
-def process_files(line_finder, input_files, output_dir):
-    '''Process the files and output the marked up image'''
-    import os.path
-
-    for image_file in input_files:
-        # print()
-        # print(image_file)
-        bgr_frame = cv2.imread(image_file)
-        result = line_finder.process_image(bgr_frame)
-        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
-
-        bgr_frame = line_finder.prepare_output_image(bgr_frame)
-
-        outfile = os.path.join(output_dir, os.path.basename(image_file))
-        # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, bgr_frame)
-
-        # cv2.imshow("Window", bgr_frame)
-        # q = cv2.waitKey(-1) & 0xFF
-        # if q == ord('q'):
-        #     break
-    return
-
-
-def time_processing(cube_processor, input_files):
-    '''Time the processing of the test files'''
-
-    from codetimer import CodeTimer
-    from time import time
-
-    startt = time()
-
-    cnt = 0
-
-    # Loop 100x over the files. This is needed to make it long enough
-    #  to get reasonable statistics. If we have 100s of files, we could reduce this.
-    # Need the total time to be many seconds so that the timing resolution is good.
-    for _ in range(100):
-        for image_file in input_files:
-            with CodeTimer("Read Image"):
-                bgr_frame = cv2.imread(image_file)
-
-            with CodeTimer("Main Processing"):
-                cube_processor.process_image(bgr_frame)
-
-            cnt += 1
-
-    deltat = time() - startt
-
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
-        cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.outputTimers()
-    return
-
-
-def main():
-    '''Main routine'''
-    import argparse
-
-    parser = argparse.ArgumentParser(description='2019 rrtarget finder')
-    parser.add_argument('--output_dir', help='Output directory for processed images')
-    parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib_file', help='Calibration file')
-    parser.add_argument('input_files', nargs='+', help='input files')
-
-    args = parser.parse_args()
-
-    rrtarget_finder = GoalFinder2020(args.calib_file)
-
-    if args.output_dir is not None:
-        process_files(rrtarget_finder, args.input_files, args.output_dir)
-    elif args.time:
-        time_processing(rrtarget_finder, args.input_files)
-
-    return
-
-
 # Main routine
-# This is for development/testing
+# This is for development/testing without running the whole server
 if __name__ == '__main__':
-    main()
+    main(GoalFinder2020)

@@ -5,10 +5,13 @@ import numpy
 import json
 import math
 
-class BallFinder2020(object):
+from genericfinder import GenericFinder, main
+
+
+class BallFinder2020(GenericFinder):
     '''Ball finder for Infinite Recharge 2020'''
 
-    BALL_DIAMETER = 7 #inches
+    BALL_DIAMETER = 7            # inches
 
     HFOV = 64.0                  # horizontal angle of the field of view
     VFOV = 52.0                  # vertical angle of the field of view
@@ -19,10 +22,7 @@ class BallFinder2020(object):
     VP_HALF_HEIGHT = math.tan(math.radians(VFOV)/2.0)  # view plane 1/2 width
 
     def __init__(self, calib_file):
-        self.name = 'ballfinder'
-        self.finder_id = 2.0
-        self.camera = 'intake'      # TODO: change
-        self.exposure = 0
+        super().__init__('ballfinder', camera='floor', finder_id=2.0, exposure=0)
 
         # individual properties
         self.low_limit_hsv = numpy.array((20, 95, 95), dtype=numpy.uint8)
@@ -39,8 +39,8 @@ class BallFinder2020(object):
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.015
 
-        self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
-        self.erode_iterations = 0
+        # self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
+        # self.erode_iterations = 0
 
         # some variables to save results for drawing
         self.bottomPoint = None
@@ -66,19 +66,60 @@ class BallFinder2020(object):
         return
 
     @staticmethod
-    def contour_center_width(contour):
-        '''Find boundingRect of contour and return center, width, and height'''
+    def sort_corners(cnrlist, check):
+        '''Sort a list of corners -- if check == true then returns x sorted 1st, y sorted 2nd. Otherwise the opposite'''
 
-        x, y, w, h = cv2.boundingRect(contour)
-        return (x + int(w / 2), y + int(h / 2)), (w, h)
+        # recreate the list of corners to get rid of excess dimensions
+        corners = []
+        for c in cnrlist:
+            corners.append(c[0].tolist())
+
+        # sort the corners by x values (1st column) first and then by y values (2nd column)
+        if check:
+            return sorted(corners, key=lambda x: (x[0], x[1]))
+        # y's first then x's
+        else:
+            return sorted(corners, key=lambda x: (x[1], x[0]))
 
     @staticmethod
-    def quad_fit(contour, approx_dp_error):
-        '''Simple polygon fit to contour with error related to perimeter'''
+    def split_xs_ys(corners):
+        '''Split a list of corners into sorted lists of x and y values'''
+        xs = []
+        ys = []
 
-        peri = cv2.arcLength(contour, True)
-        return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
-    
+        for i in range(len(corners)):
+            xs.append(corners[i][0])
+            ys.append(corners[i][1])
+        # sort the lists highest to lowest
+        xs.sort(reverse=True)
+        ys.sort(reverse=True)
+        return xs, ys
+
+    @staticmethod
+    def choose_corners_frontface(img, cnrlist):
+        '''Sort a list of corners and return the bottom and side corners (one side -- 3 in total - .: or :.)
+        of front face'''
+        corners = BallFinder2020.sort_corners(cnrlist, False)    # get rid of extra dimensions
+
+        happy_corner = corners[len(corners) - 1]
+        lonely_corner = corners[len(corners) - 2]
+
+        xs, ys = BallFinder2020.split_xs_ys(corners)
+
+        # lonely corner is green and happy corner is red
+        # cv2.circle(img, (lonely_corner[0], lonely_corner[1]), 5, (0, 255, 0), thickness=10, lineType=8, shift=0)
+        # cv2.circle(img, (happy_corner[0], happy_corner[1]), 5, (0, 0, 255), thickness=10, lineType=8, shift=0)
+
+        corners = BallFinder2020.sort_corners(cnrlist, True)
+
+        if happy_corner[0] > lonely_corner[0]:
+            top_corner = corners[len(corners) - 1]
+        else:
+            top_corner = corners[0]
+        # top corner is in blue
+        # cv2.circle(img, (top_corner[0], top_corner[1]), 5, (255, 0, 0), thickness=10, lineType=8, shift=0)
+        return ([lonely_corner, happy_corner, top_corner])
+
     @staticmethod
     def get_bottom_center(contour):
         left = contour[0]
@@ -171,14 +212,14 @@ class BallFinder2020(object):
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
 
-        if self.erode_iterations > 0:
-            erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
-        else:
-            erode_frame = threshold_frame
+        # if self.erode_iterations > 0:
+        #     erode_frame = cv2.erode(threshold_frame, self.erode_kernel, iterations=self.erode_iterations)
+        # else:
+        #     erode_frame = threshold_frame
 
         # OpenCV 3 returns 3 parameters!
         # Only need the contours variable
-        _, contours, _ = cv2.findContours(erode_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, _ = cv2.findContours(threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         contour_list = []
         for c in contours:
@@ -219,8 +260,9 @@ class BallFinder2020(object):
                 self.bottomPoint=[[int((lowestpoints[0][0][0]+lowestpoints[1][0][0])/2),int((lowestpoints[0][0][1]+lowestpoints[1][0][1])/2)]]
             else:
                 self.bottomPoint=lowestpoints[0]
-        
-        # return values: (success, cube or swipythtch, distance, angle, -- still deciding here?)
+            
+
+        # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
             return (0.0, self.finder_id, 0.0, 0.0, 0.0)
 
@@ -253,90 +295,13 @@ class BallFinder2020(object):
         if self.hull_fits is not None:
             cv2.drawContours(output_frame, self.hull_fits, -1, (255, 0, 0), 2)
         if self.bottomPoint is not None:
-            #cv2.drawMarker(output_frame, tuple(self.bottomPoint), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
+            # cv2.drawMarker(output_frame, tuple(self.bottomPoint), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
             cv2.circle(output_frame, tuple(self.bottomPoint[0]), 2, (255, 255, 0), thickness=10, lineType=8, shift=0)
 
         return output_frame
 
 
-def process_files(ball_processor, input_files, output_dir):
-    '''Process the files and output the marked up image'''
-    import os.path
-
-    for image_file in input_files:
-        # print()
-        # print(image_file)
-        bgr_frame = cv2.imread(image_file)
-        result = ball_processor.process_image(bgr_frame)
-        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
-
-        output_image = ball_processor.prepare_output_image(bgr_frame)
-
-        outfile = os.path.join(output_dir, os.path.basename(image_file))
-        # print('{} -> {}'.format(image_file, outfile))
-        cv2.imwrite(outfile, output_image)
-
-        # cv2.imshow("Window", bgr_frame)
-        # q = cv2.waitKey(-1) & 0xFF
-        # if q == ord('q'):
-        #     break
-    return
-
-
-def time_processing(ball_processor, input_files):
-    '''Time the processing of the test files'''
-
-    from codetimer import CodeTimer
-    from time import time
-
-    startt = time()
-
-    cnt = 0
-
-    # Loop 100x over the files. This is needed to make it long enough
-    #  to get reasonable statistics. If we have 100s of files, we could reduce this.
-    # Need the total time to be many seconds so that the timing resolution is good.
-    for _ in range(100):
-        for image_file in input_files:
-            with CodeTimer("Read Image"):
-                bgr_frame = cv2.imread(image_file)
-
-            with CodeTimer("Main Processing"):
-                ball_processor.process_image(bgr_frame)
-
-            cnt += 1
-
-    deltat = time() - startt
-
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
-        cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.outputTimers()
-    return
-
-
-def main():
-    '''Main routine'''
-    import argparse
-
-    parser = argparse.ArgumentParser(description='2020 ball finder')
-    parser.add_argument('--output_dir', help='Output directory for processed images')
-    parser.add_argument('--time', action='store_true', help='Loop over files and time it')
-    parser.add_argument('--calib_file', help='Calibration file')
-    parser.add_argument('input_files', nargs='+', help='input files')
-
-    args = parser.parse_args()
-
-    ball_processor = BallFinder2020(args.calib_file)
-
-    if args.output_dir is not None:
-        process_files(ball_processor, args.input_files, args.output_dir)
-    elif args.time:
-        time_processing(ball_processor, args.input_files)
-
-    return
-
-
 # Main routine
 # This is for development/testing
 if __name__ == '__main__':
-    main()
+    main(BallFinder2020)
