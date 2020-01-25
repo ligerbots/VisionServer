@@ -89,8 +89,43 @@ class BallFinder2020(object):
             if (pt[0][1]>right[0][1]) or ((pt[0][1]==right[0][1]) and (pt[0][0]>right[0][0])):
                 right=pt
         return [[int((left[0][0] + right[0][0]) / 2), left[0][1]]]
+    
+    def get_ball_values(self, center, shape):
+        '''Calculate the angle and distance from the camera to the center point of the robot
+        This routine uses the FOV numbers and the default center to convert to normalized coordinates'''
 
-    def get_cube_values_calib(self):
+        # center is in pixel coordinates, 0,0 is the upper-left, positive down and to the right
+        # (nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
+        # WARNING: shape is (h, w, nbytes) not (w,h,...)
+        image_w = shape[1] / 2.0
+        image_h = shape[0] / 2.0
+
+        # NOTE: the 0.5 is to place the location in the center of the pixel
+        #print("center "+str(center)+" shape "+str(shape))
+        nx = (center[0] - image_w + 0.5) / image_w
+        ny = (image_h - 0.5 - center[1]) / image_h
+
+        # convert normal pixel coords to pixel coords
+        x = BallFinder2020.VP_HALF_WIDTH * nx
+        y = BallFinder2020.VP_HALF_HEIGHT * ny
+        # print("values", center[0], center[1], nx, ny, x, y)
+
+        # now have all pieces to convert to angle:
+        ax = math.atan2(x, 1.0)     # horizontal angle
+
+        # naive expression
+        # ay = math.atan2(y, 1.0)     # vertical angle
+
+        # corrected expression.
+        # As horizontal angle gets larger, real vertical angle gets a little smaller
+        ay = math.atan2(y * math.cos(ax), 1.0)     # vertical angle
+        # print("ax, ay", math.degrees(ax), math.degrees(ay))
+
+        # now use the x and y angles to calculate the distance to the target:
+        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
+
+        return ax, d    # return horizontal angle and distance
+    def get_ball_values_calib(self):
         '''Calculate the angle and distance from the camera to the center point of the robot
         This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
 
@@ -122,40 +157,6 @@ class BallFinder2020(object):
 
         return ax, d    # return horizontal angle and distance
 
-    def get_cube_values(self, center, shape):
-        '''Calculate the angle and distance from the camera to the center point of the robot
-        This routine uses the FOV numbers and the default center to convert to normalized coordinates'''
-
-        # center is in pixel coordinates, 0,0 is the upper-left, positive down and to the right
-        # (nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
-        # WARNING: shape is (h, w, nbytes) not (w,h,...)
-        image_w = shape[1] / 2.0
-        image_h = shape[0] / 2.0
-
-        # NOTE: the 0.5 is to place the location in the center of the pixel
-        nx = (center[0] - image_w + 0.5) / image_w
-        ny = (image_h - 0.5 - center[1]) / image_h
-
-        # convert normal pixel coords to pixel coords
-        x = BallFinder2020.VP_HALF_WIDTH * nx
-        y = BallFinder2020.VP_HALF_HEIGHT * ny
-        # print("values", center[0], center[1], nx, ny, x, y)
-
-        # now have all pieces to convert to angle:
-        ax = math.atan2(x, 1.0)     # horizontal angle
-
-        # naive expression
-        # ay = math.atan2(y, 1.0)     # vertical angle
-
-        # corrected expression.
-        # As horizontal angle gets larger, real vertical angle gets a little smaller
-        ay = math.atan2(y * math.cos(ax), 1.0)     # vertical angle
-        # print("ax, ay", math.degrees(ax), math.degrees(ay))
-
-        # now use the x and y angles to calculate the distance to the target:
-        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
-
-        return ax, d    # return horizontal angle and distance
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -203,16 +204,16 @@ class BallFinder2020(object):
                 print("Bottom Point: " + str(self.bottomPoint))
 
                 self.bottomPoint = max([self.bottomPoint,lowestPoint], key=lambda c: c[0][1])  #remember y goes up as you move down the image
-                '''
+                
                 if self.cameraMatrix is not None:
-                    angle, distance = self.get_cube_values_calib()
+                    angle, distance = self.get_ball_values_calib()
                 else:
-                    angle, distance = self.get_cube_values(self.bottomPoint, camera_frame.shape)
+                    angle, distance = self.get_ball_values(self.bottomPoint[0], camera_frame.shape)
 
                 break
-                '''
+                
         
-        # return values: (success, cube or switch, distance, angle, -- still deciding here?)
+        # return values: (success, cube or swipythtch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
             return (0.0, self.finder_id, 0.0, 0.0, 0.0)
 
@@ -223,10 +224,10 @@ class BallFinder2020(object):
 
         real_area = cv2.contourArea(cnt)
         # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
-        print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
+        #print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
         ratio=contour_entry['widths'][1] / contour_entry['widths'][0]
         if  ratio> 0.9 and ratio<3.1:
-            print("found")
+            #print("found")
             hull = cv2.convexHull(cnt)
             # hull_fit contains the corners for the contour
             hull_fit = BallFinder2020.quad_fit(hull, self.approx_polydp_error)
@@ -241,7 +242,7 @@ class BallFinder2020(object):
         output_frame = input_frame.copy()
 
         # Draw the contour on the image
-        print(self.hull_fits)
+        #print(self.hull_fits)
         if self.hull_fits is not None:
             cv2.drawContours(output_frame, self.hull_fits, -1, (255, 0, 0), 2)
         if self.bottomPoint is not None:
