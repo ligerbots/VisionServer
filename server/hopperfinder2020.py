@@ -36,6 +36,10 @@ class HopperFinder2020(GenericFinder):
         self.hsv_frame = None
         self.threshold_frame = None
 
+        # candidate cut thresholds
+        self.max_dim_ratio = 1
+        self.min_area_ratio = 0.25
+
         # DEBUG values
         self.top_contours = None
         self.target_locations = None
@@ -157,15 +161,21 @@ class HopperFinder2020(GenericFinder):
 
     def test_candidate_contour(self, candidate):
         '''Determine the true target contour out of potential candidates'''
+        cand_width = candidate['widths'][0]
+        cand_height = candidate['widths'][1]
 
-        # cand_width = candidate['widths'][0]
-        # cand_height = candidate['widths'][1]
+        cand_dim_ratio = cand_width / cand_height
+        if cand_dim_ratio > self.max_dim_ratio:
+            print("dim reject")
+            return None
+        cand_area_ratio = cv2.contourArea(candidate["contour"]) / (cand_width * cand_height)
+        if cand_area_ratio < self.min_area_ratio:
+            print("area reject")
+            return None
 
-        # TODO: make addition cuts here
-
+        print(f"dim ratio: {cand_dim_ratio}\narea ratio: {cand_area_ratio}")
         contour = numpy.int0(cv2.boxPoints(cv2.minAreaRect(candidate['contour'])))
 
-        # TODO: what is the right number of edges?
         if len(contour) == 4:
             return contour
 

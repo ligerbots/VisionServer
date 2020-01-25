@@ -39,6 +39,10 @@ class GoalFinder2020(GenericFinder):
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
+        # candidate cut thresholds
+        self.min_dim_ratio = 1
+        self.max_area_ratio = 0.25
+
         # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
         self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
 
@@ -79,7 +83,7 @@ class GoalFinder2020(GenericFinder):
     def get_outer_corners(cnt):
         '''Return the outer four corners of a contour'''
 
-        return sorted(cnt, key=lambda x: x[0])  # Sort by x value of cnr in increasing value
+        return sorted(cnt, key=lambda x: x[0][0])  # Sort by x value of cnr in increasing value
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -194,23 +198,29 @@ class GoalFinder2020(GenericFinder):
     def test_candidate_contour(self, candidate):
         '''Determine the true target contour out of potential candidates'''
 
-        # cand_width = candidate['widths'][0]
-        # cand_height = candidate['widths'][1]
+        cand_width = candidate['widths'][0]
+        cand_height = candidate['widths'][1]
+
+        cand_dim_ratio = cand_width / cand_height
+        if cand_dim_ratio < self.min_dim_ratio:
+            return None
+        cand_area_ratio = cv2.contourArea(candidate["contour"]) / (cand_width * cand_height)
+        if cand_area_ratio > self.max_area_ratio:
+            return None
 
         # TODO: make addition cuts here
         self.hull = cv2.convexHull(candidate['contour'])
         #print("Hull fit: " + str(self.hull))
-        self.outer_corners = self.get_outer_corners(self.hull)
-        contour=numpy.array([[[pt[0],pt[1]]] for pt in self.outer_corners]);
-        return(contour)
+        # self.outer_corners = self.get_outer_corners(self.hull)
+        # contour=numpy.array([[[pt[0],pt[1]]] for pt in self.outer_corners]);
+        # return(contour)
         #contour = cv2.approxPolyDP(self.hull, 0.015 * cv2.arcLength(candidate['contour'], True), True)
         #contour = self.quad_fit(self.hull, self.approx_polydp_error)
 
         #print('found', len(contour), 'sides')
         #if len(contour) >= 4 or len(contour) <= 8:
         #    return contour
-
-        return None
+        return self.hull
 
     def compute_output_values(self, rvec, tvec):
         '''Compute the necessary output distance and angles'''
