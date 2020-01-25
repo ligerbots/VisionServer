@@ -16,7 +16,7 @@ class GoalFinder2020(GenericFinder):
     # real world dimensions of the goal target
     # These are the full dimensions around both strips
     TARGET_STRIP_LENGTH = 19.625    # inches
-    TARGET_HEIGHT = 17.0            # inches
+    TARGET_HEIGHT = 17.0            # inches@!
     TARGET_TOP_WIDTH = 39.25        # inches
     TARGET_BOTTOM_WIDTH = math.acos(TARGET_HEIGHT / TARGET_STRIP_LENGTH)
 
