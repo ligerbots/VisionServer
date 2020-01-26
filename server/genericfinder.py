@@ -56,8 +56,18 @@ class GenericFinder:
 
         peri = cv2.arcLength(contour, True)
         return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
-
-
+    @staticmethod
+    def sort_corners(contour):
+        cntrx=0
+        cntry=0
+        for pt in contour:
+            cntrx+=pt[0]
+            cntry+=pt[1]
+        cntrx/=len(contour)
+        cntry/=len(contour)
+        #                                           flip because y flipped  put in range  rm 90deg bc atan
+        return sorted(contour, key=lambda x: (math.atan2(cntry-x[1],x[0]-cntrx)+math.pi*2-math.pi/2)%(2*math.pi))
+        
 # Main routines, used for running the finder by itself for debugging and timing
 
 def process_files(line_finder, input_files, output_dir):
@@ -68,6 +78,7 @@ def process_files(line_finder, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
+        #print(bgr_frame)
         result = line_finder.process_image(bgr_frame)
         print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 

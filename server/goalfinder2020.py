@@ -82,7 +82,7 @@ class GoalFinder2020(GenericFinder):
     def get_outer_corners(cnt):
         '''Return the outer four corners of a contour'''
 
-        return sorted(cnt, key=lambda x: x[0])  # Sort by x value of cnr in increasing value
+        return GenericFinder.sort_corners(cnt)  # Sort by x value of cnr in increasing value
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -94,7 +94,6 @@ class GoalFinder2020(GenericFinder):
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
-
         self.target_contour = None
 
         # DEBUG values; clear any values from previous image
@@ -122,36 +121,38 @@ class GoalFinder2020(GenericFinder):
 
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
-
+        
+        
+        
         # DEBUG
         self.top_contours = [x['contour'] for x in contour_list]
-
+    
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
             self.target_contour = self.test_candidate_contour(contour_list[candidate_index], shape)
             if self.target_contour is not None:
                 break
+    
+        if self.target_contour is not None:
+            # The target was found. Convert to real world co-ordinates.
+    
+            cnt = numpy.squeeze(self.target_contour).tolist()
 
-        # if self.target_contour is not None:
-        #     # The target was found. Convert to real world co-ordinates.
+            # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
 
-        #     cnt = numpy.squeeze(self.target_contour).tolist()
+            # Important to get the corners in the right order, ***matching the real world ones***
+            # Remember that y in the image increases *down*
+            self.outer_corners = GoalFinder2020.get_outer_corners(cnt)
 
-        #     # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
+            # print("Outside corners: ", self.outer_corners)
+            # print("Real World target_coords: ", self.real_world_coordinates)
 
-        #     # Important to get the corners in the right order, ***matching the real world ones***
-        #     # Remember that y in the image increases *down*
-        #     self.outer_corners = GoalFinder2020.get_outer_corners(cnt)
-
-        #     print("Outside corners: ", self.outer_corners)
-        #     print("Real World target_coords: ", self.real_world_coordinates)
-
-        #     retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
-        #                                       self.cameraMatrix, self.distortionMatrix)
-        #     if retval:
-        #         result = [1.0, self.finder_id, ]
-        #         result.extend(self.compute_output_values(rvec, tvec))
-        #         return result
+            # retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
+            #                                   self.cameraMatrix, self.distortionMatrix)
+            # if retval:
+            #     result = [1.0, self.finder_id, ]
+            #     result.extend(self.compute_output_values(rvec, tvec))
+            #     return result
 
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
@@ -163,9 +164,12 @@ class GoalFinder2020(GenericFinder):
 
         #if self.top_contours:
         #   cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
-
+        indx=0
         for cnr in self.outer_corners:
-            cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
+            cv2.circle(output_frame, (cnr[0], cnr[1]), 4, (0, 255, 0), -1, lineType=8, shift=0)
+            cv2.putText(output_frame,str(indx), (cnr[0], cnr[1]), 0, .5,(255,255,255))
+            indx+=1
+
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
