@@ -7,6 +7,8 @@
 # When you are trying to get exact corners to use in pose calculations (solvePnP),
 #  getting the corners as close a possible is important.
 
+# DO NOT USE - this is just too slow. Try hough_fit
+
 import copy
 import cv2
 from math import atan2, sin, cos, tan

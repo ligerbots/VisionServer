@@ -2,6 +2,8 @@
 
 # Use the Hough line algorithm to fix a contour
 
+# See bottom of this file for some timing results
+
 import cv2
 
 # it is faster if you import the needed functions directly
@@ -10,12 +12,12 @@ from math import sin, cos, atan2  # , degrees
 from numpy import array, zeros, pi, round, sqrt, uint8
 
 from codetimer import CodeTimer
-two_pi = 2 * pi
-
+two_pi = 2.0 * pi
+pi_by_2 = pi / 2.0
 
 def hough_fit(contour, nsides=None, approx_fit=None):
     '''Use the Hough line finding algorithm to find a polygon for contour.
-    It is faster if you can provide an decent initial fit.'''
+    It is faster if you can provide an decent initial fit - see approxPolyDP_adaptive().'''
 
     if approx_fit is not None:
         nsides = len(approx_fit)
@@ -34,7 +36,7 @@ def hough_fit(contour, nsides=None, approx_fit=None):
         lines = cv2.HoughLines(contour_plot, 1, pi / 180, threshold=10)
 
     if lines is None or len(lines) < nsides:
-        print("Hough found too few lines")
+        # print("HoughLines found too few lines")
         return None
 
     if approx_fit is not None:
@@ -45,6 +47,40 @@ def hough_fit(contour, nsides=None, approx_fit=None):
     if res is None:
         return None
     return array(res) + offset_vec
+
+
+def approxPolyDP_adaptive(contour, nsides, max_dp_error=0.1):
+    '''Use approxPolyDP to fit a polygon to a contour.
+    Find the smallest dp_error that gets the correct number of sides.
+    The results seem to often be a little wrong, but they are a quick starting point.'''
+
+    step = 0.01
+    peri = cv2.arcLength(contour, True)
+    dp_err = step
+    while dp_err <= max_dp_error:
+        res = cv2.approxPolyDP(contour, dp_err * peri, True)
+        if len(res) <= nsides:
+            return res
+        dp_err += step
+    return None
+
+
+def plot_hough_line(frame, rho, theta, color, thickness=1):
+    '''Given (rho, theta) of a line in Hesse form, plot it on a frame.
+    Useful for debugging, mostly.'''
+
+    a = cos(theta)
+    b = sin(theta)
+    x0 = a * rho
+    y0 = b * rho
+    pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
+    pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+    cv2.line(frame, pt1, pt2, color, thickness)
+    return
+
+
+# --------------------------------------------------------------------------------
+# Private routines
 
 
 def _find_sides(nsides, hough_lines, w, h):
@@ -103,7 +139,7 @@ def _find_sides(nsides, hough_lines, w, h):
                 found = True
                 break
         if not found:
-            print("No intersection with %s and available lines" % iline1)
+            # print("No intersection with %s and available lines" % iline1)
             return None
 
     # add in the last pair
@@ -114,7 +150,7 @@ def _find_sides(nsides, hough_lines, w, h):
         vertices.append(inter)
 
     if len(vertices) != nsides:
-        print('Not correct number of vertices:', len(vertices))
+        # print('Not correct number of vertices:', len(vertices))
         return None
 
     # remember to unshift the resulting contour
@@ -158,7 +194,7 @@ def _match_lines_to_fit(approx_fit, hough_lines, w, h):
                 break
 
     if len(fit_sides) != nsides:
-        print("did not match enough lines")
+        # print("did not match enough lines")
         return None
 
     vertices = []
@@ -166,7 +202,7 @@ def _match_lines_to_fit(approx_fit, hough_lines, w, h):
         ivrtx2 = (ivrtx + 1) % nsides
         inter = _intersection(fit_sides[ivrtx], fit_sides[ivrtx2])
         if inter is None:
-            print("No intersection between lines")
+            # print("No intersection between lines")
             return None
         vertices.append(inter)
 
@@ -198,6 +234,7 @@ def _compute_line_near_reference(line, ref_point):
 
 def _is_close(best_lines, candidate, coord_near_ref, dist_thres, theta_thres):
     cand_rho, cand_theta = candidate
+
     # print('cand:', cand_rho, math.degrees(cand_theta))
     for line in best_lines:
         line, best_near_ref = line
@@ -214,9 +251,9 @@ def _is_close(best_lines, candidate, coord_near_ref, dist_thres, theta_thres):
 
         # angle differences greater than 180deg are not real
         delta_theta = cand_theta - line[1]
-        while delta_theta >= pi / 2:
+        while delta_theta >= pi_by_2:
             delta_theta -= pi
-        while delta_theta <= -pi / 2:
+        while delta_theta <= -pi_by_2:
             delta_theta += pi
         delta_theta = abs(delta_theta)
 
@@ -252,17 +289,6 @@ def _intersection(line1, line2):
     return res
 
 
-def plot_hough_line(frame, rho, theta, color, thickness=1):
-    a = cos(theta)
-    b = sin(theta)
-    x0 = a * rho
-    y0 = b * rho
-    pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
-    pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
-    cv2.line(frame, pt1, pt2, color, thickness)
-    return
-
-
 def _hesse_form(pt1, pt2):
     '''Compute the Hesse form for the line through the points'''
 
@@ -273,17 +299,27 @@ def _hesse_form(pt1, pt2):
     rho = sqrt(vec.dot(vec))
     if abs(rho) < 1e-6:
         # through 0. Need to compute theta differently
-        theta = atan2(delta[1], delta[0]) + pi/2
-        if theta > 2 * pi:
-            theta -= 2 * pi
+        theta = atan2(delta[1], delta[0]) + pi_by_2
+        if theta > two_pi:
+            theta -= two_pi
     else:
         theta = atan2(vec[1], vec[0])
 
     return rho, theta
 
 
-if __name__ == '__main__':
-    pts = array([[[0, 0]], [[1, 1]]])
-    print(pts)
-    lines = cv2.HoughLinesPointSet(pts, 10, 1, -10.0, 100.0, 0.1, 0.0, pi, pi / 360.0)
-    print(lines)
+# 2020-01-26: hough fit with/without initial fit from approxPolyDP_adaptive
+# - using 640x480 2020 WPI images
+#
+#                                    Lenovo X1 Extreme       ODROID-XU4
+# hough fit, no initial              0.853 msec/call         4.43 ms/call
+# hough fit with initial fit         0.744 msec/call         3.82 ms/call
+#
+# - using WPI scaled to 320x240
+#                                    Lenovo X1 Extreme       ODROID-XU4
+# hough fit, no initial              0.368 ms/call           2.31 ms/call
+# hough fit with initial fit         0.314 ms/call           1.95 ms/call
+#
+# - enable OpenCL
+# hough fit with initial fit                                 5.17 ms/call
+# (openCL disabled)                                          2.02 ms/call
