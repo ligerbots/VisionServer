@@ -9,6 +9,10 @@ import math
 
 from genericfinder import GenericFinder, main
 
+import polygon_fit
+import hough_fit
+from codetimer import CodeTimer
+
 
 class GoalFinder2020(GenericFinder):
     '''Find high goal target for Infinite Recharge 2020'''
@@ -33,7 +37,7 @@ class GoalFinder2020(GenericFinder):
         super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((65, 75, 75), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
@@ -124,7 +128,7 @@ class GoalFinder2020(GenericFinder):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contour = self.test_candidate_contour(contour_list[candidate_index])
+            self.target_contour = self.test_candidate_contour(contour_list[candidate_index], shape)
             if self.target_contour is not None:
                 break
 
@@ -157,8 +161,8 @@ class GoalFinder2020(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        #if self.top_contours:
+        #   cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
         for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
@@ -167,23 +171,25 @@ class GoalFinder2020(GenericFinder):
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
+            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 1)
 
         return output_frame
 
-    def test_candidate_contour(self, candidate):
+    def test_candidate_contour(self, candidate, shape):
         '''Determine the true target contour out of potential candidates'''
 
         # cand_width = candidate['widths'][0]
         # cand_height = candidate['widths'][1]
 
         # TODO: make addition cuts here
-        hull = cv2.convexHull(candidate['contour'])
-        contour = self.quad_fit(hull, self.approx_polydp_error)
 
-        # TODO: what is the right number of edges?
-        print('found', len(contour), 'sides')
-        if len(contour) <= 4:
+        hull = cv2.convexHull(candidate['contour'])
+
+        with CodeTimer("hough_fit"):
+            approx = polygon_fit.approxPolyDP_adaptive(hull, nsides=4)
+            contour = hough_fit.hough_fit(hull, nsides=4, approx_fit=approx)
+
+        if contour is not None and len(contour) == 4:
             return contour
 
         return None
