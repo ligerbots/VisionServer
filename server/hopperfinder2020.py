@@ -6,6 +6,7 @@ import json
 import math
 
 from genericfinder import GenericFinder, main
+import hough_fit
 
 
 class HopperFinder2020(GenericFinder):
@@ -23,9 +24,6 @@ class HopperFinder2020(GenericFinder):
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
-
         # ratio of height to width of one retroreflective strip
         # self.height_width_ratio = HopperFinder2020.TARGET_HEIGHT / HopperFinder2020.TARGET_TOP_WIDTH
 
@@ -38,10 +36,9 @@ class HopperFinder2020(GenericFinder):
 
         # DEBUG values
         self.top_contours = None
-        self.target_locations = None
 
         # output results
-        self.target_contours = None
+        self.target_contour = None
 
         if calib_file:
             with open(calib_file) as f:
@@ -147,9 +144,6 @@ class HopperFinder2020(GenericFinder):
         for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
-        # for loc in self.target_locations:
-        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
-
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
@@ -163,10 +157,14 @@ class HopperFinder2020(GenericFinder):
 
         # TODO: make addition cuts here
 
-        contour = numpy.int0(cv2.boxPoints(cv2.minAreaRect(candidate['contour'])))
+        # use the contour directly
+        # we probably don't need the hull??
+        input_contour = candidate['contour']
 
-        # TODO: what is the right number of edges?
-        if len(contour) == 4:
+        approx = numpy.int0(cv2.boxPoints(cv2.minAreaRect(input_contour)))
+        contour = hough_fit.hough_fit(input_contour, nsides=4, approx_fit=approx)
+
+        if contour is not None and len(contour) == 4:
             return contour
 
         return None

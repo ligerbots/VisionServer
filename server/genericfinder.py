@@ -109,9 +109,9 @@ def time_processing(cube_processor, input_files):
 
     deltat = time() - startt
 
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
+    print("{0} frames in {1:.3f} seconds = {2:.2f} ms/call, {3:.2f} FPS".format(
         cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
-    CodeTimer.outputTimers()
+    CodeTimer.output_timers()
     return
 
 

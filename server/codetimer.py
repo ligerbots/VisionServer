@@ -32,7 +32,7 @@ class CodeTimer:
     @staticmethod
     def output_timers():
         for v in sorted(CodeTimer.timerDict.values(), key=lambda s: -s[2]):
-            print("{0}: {1} frames in {2:.3f} sec: {3:.2f} msec/call, {4:.2f} calls/sec".format(v[0], v[1], v[2], 1000.0 * v[2]/float(v[1]), v[1]/v[2]))
+            print("{0}: {1} frames in {2:.3f} sec: {3:.3f} ms/call, {4:.2f} calls/sec".format(v[0], v[1], v[2], 1000.0 * v[2]/float(v[1]), v[1]/v[2]))
         return
 
     @staticmethod

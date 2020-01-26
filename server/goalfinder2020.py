@@ -8,6 +8,7 @@ import json
 import math
 
 from genericfinder import GenericFinder, main
+import hough_fit
 
 
 class GoalFinder2020(GenericFinder):
@@ -33,16 +34,12 @@ class GoalFinder2020(GenericFinder):
         super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((65, 75, 75), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
-
-        self.hull = None
         # ratio of height to width of one retroreflective strip
         self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
 
@@ -55,10 +52,9 @@ class GoalFinder2020(GenericFinder):
 
         # DEBUG values
         self.top_contours = None
-        self.target_locations = None
 
         # output results
-        self.target_contours = None
+        self.target_contour = None
 
         if calib_file:
             with open(calib_file) as f:
@@ -67,7 +63,6 @@ class GoalFinder2020(GenericFinder):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         self.outer_corners = []
-        self.test_outer_corners=[];
         return
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
@@ -96,7 +91,6 @@ class GoalFinder2020(GenericFinder):
 
         # DEBUG values; clear any values from previous image
         self.top_contours = None
-        self.hull = None
         self.outer_corners = None
 
         shape = camera_frame.shape
@@ -126,7 +120,7 @@ class GoalFinder2020(GenericFinder):
 
         # try only the 5 biggest regions at most
         for candidate_index in range(min(5, len(contour_list))):
-            self.target_contour = self.test_candidate_contour(contour_list[candidate_index])
+            self.target_contour = self.test_candidate_contour(contour_list[candidate_index], shape)
             if self.target_contour is not None:
                 break
 
@@ -159,56 +153,33 @@ class GoalFinder2020(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        #if self.top_contours:
-        #    cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        if self.top_contours:
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
-        #if self.hull is not None:
-        #    cv2.drawContours(output_frame, [self.hull], -1, (0, 255, 0), 2)
-
-        #    for cnr in self.hull:
-        #        cv2.circle(output_frame, (cnr[0][0], cnr[0][1]), 0, (0, 0, 255), -1, lineType=8, shift=0)
-        if self.test_outer_corners is not None:
-            for e in self.test_outer_corners:
-                col=cv2.cvtColor(numpy.uint8([[[e[1]*12,255,255 ]]]), cv2.COLOR_HSV2RGB);
-                cv2.circle(output_frame, (e[0][0], e[0][1]), 3, (int(col[0][0][0]),int(col[0][0][1]),int(col[0][0][2])), -1, lineType=8, shift=0)
-
         if self.outer_corners is not None:
             for i in range(len(self.outer_corners)):
                 cv2.circle(output_frame, (self.outer_corners[i][0], self.outer_corners[i][1]), 3, (255, 255, 255), -1, lineType=8, shift=0)
-                #cv2.putText(output_frame,str(self.outer_corners[i][2]), (self.outer_corners[i][0]-30, self.outer_corners[i][1]), 0, .4, (255,255,255))
-                #cv2.putText(output_frame,str(self.outer_corners[i][3]), (self.outer_corners[i][0], self.outer_corners[i][1]), 0, .4, (200,200,200))
-
-        #if self.target_contour is not None:
-        #    for pt in self.target_contour:
-        #        cv2.circle(output_frame, (pt[0][0], pt[0][1]), 4, (0, 255, 0), -1, lineType=8, shift=0)
-
-
-        # for loc in self.target_locations:
-        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         return output_frame
 
-    def test_candidate_contour(self, candidate):
+    def test_candidate_contour(self, candidate, shape):
         '''Determine the true target contour out of potential candidates'''
 
         # cand_width = candidate['widths'][0]
         # cand_height = candidate['widths'][1]
 
         # TODO: make addition cuts here
-        self.hull = cv2.convexHull(candidate['contour'])
-        #print("Hull fit: " + str(self.hull))
-        self.outer_corners = self.get_outer_corners(self.hull)
-        contour=numpy.array([[[pt[0],pt[1]]] for pt in self.outer_corners]);
-        return(contour)
-        #contour = cv2.approxPolyDP(self.hull, 0.015 * cv2.arcLength(candidate['contour'], True), True)
-        #contour = self.quad_fit(self.hull, self.approx_polydp_error)
 
-        #print('found', len(contour), 'sides')
-        #if len(contour) >= 4 or len(contour) <= 8:
-        #    return contour
+        hull = cv2.convexHull(candidate['contour'])
+
+        approx = hough_fit.approxPolyDP_adaptive(hull, nsides=4)
+        contour = hough_fit.hough_fit(hull, nsides=4, approx_fit=approx)
+
+        if contour is not None and len(contour) == 4:
+            return contour
 
         return None
 
