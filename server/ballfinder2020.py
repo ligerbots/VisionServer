@@ -38,9 +38,6 @@ class BallFinder2020(GenericFinder):
         # seems to be OK with 8. Allows a few truncated corners.
         self.max_num_vertices = 8
 
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.015
-
         # self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         # self.erode_iterations = 0
 
@@ -257,7 +254,7 @@ class BallFinder2020(GenericFinder):
 
         contour_list = []
         for c in contours:
-            center, widths = BallFinder2020.contour_center_width(c)
+            center, widths = self.contour_center_width(c)
             area = widths[0] * widths[1]
             if area > self.contour_min_area:
                 # TODO: use a simple class? Maybe use "attrs" package?
@@ -273,7 +270,6 @@ class BallFinder2020(GenericFinder):
                 self.biggest_contour = cnt['contour']
                 break
 
-        # NOTE: testing a list returns true if there is something in the list
         if self.hull_fit is not None:
             self.center = BallFinder2020.get_cube_bottomcenter(self.hull_fit)
 
@@ -296,8 +292,11 @@ class BallFinder2020(GenericFinder):
         # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
         if real_area / contour_entry['area'] > 0.5:
             hull = cv2.convexHull(cnt)
+
             # hull_fit contains the corners for the contour
-            hull_fit = BallFinder2020.quad_fit(hull, self.approx_polydp_error)
+            # PaulR: not sure this makes sense. We know it is not a polygon. Do we even need a fit?
+            peri = cv2.arcLength(hull, True)
+            hull_fit = cv2.approxPolyDP(hull, self.approx_polydp_error * peri, True)
 
             vertices = len(hull_fit)
             if vertices >= 4 and vertices <= self.max_num_vertices:

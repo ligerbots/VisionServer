@@ -23,9 +23,6 @@ class HopperFinder2020(GenericFinder):
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
-
         # ratio of height to width of one retroreflective strip
         # self.height_width_ratio = HopperFinder2020.TARGET_HEIGHT / HopperFinder2020.TARGET_TOP_WIDTH
 

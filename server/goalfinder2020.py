@@ -9,7 +9,6 @@ import math
 
 from genericfinder import GenericFinder, main
 
-import polygon_fit
 import hough_fit
 from codetimer import CodeTimer
 
@@ -22,16 +21,17 @@ class GoalFinder2020(GenericFinder):
     TARGET_STRIP_LENGTH = 19.625    # inches
     TARGET_HEIGHT = 17.0            # inches
     TARGET_TOP_WIDTH = 39.25        # inches
+    # TODO This is not right!!!
     TARGET_BOTTOM_WIDTH = math.acos(TARGET_HEIGHT / TARGET_STRIP_LENGTH)
 
     # [0, 0] is center of the quadrilateral drawn around the high goal target
     # [top_left, bottom_left, bottom_right, top_right]
-    real_world_coordinates = [
-        [-TARGET_TOP_WIDTH / 2, TARGET_HEIGHT / 2],
-        [-TARGET_BOTTOM_WIDTH / 2, -TARGET_HEIGHT / 2],
-        [TARGET_BOTTOM_WIDTH / 2, -TARGET_HEIGHT / 2],
-        [TARGET_TOP_WIDTH / 2, TARGET_HEIGHT / 2]
-    ]
+    real_world_coordinates = numpy.array([
+        [-TARGET_TOP_WIDTH / 2, TARGET_HEIGHT / 2, 0.0],
+        [-TARGET_BOTTOM_WIDTH / 2, -TARGET_HEIGHT / 2, 0.0],
+        [TARGET_BOTTOM_WIDTH / 2, -TARGET_HEIGHT / 2, 0.0],
+        [TARGET_TOP_WIDTH / 2, TARGET_HEIGHT / 2, 0.0]
+    ])
 
     def __init__(self, calib_file):
         super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
@@ -42,9 +42,6 @@ class GoalFinder2020(GenericFinder):
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
-
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
 
         # ratio of height to width of one retroreflective strip
         self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
@@ -121,38 +118,33 @@ class GoalFinder2020(GenericFinder):
 
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c['area'], reverse=True)
-        
-        
-        
+
         # DEBUG
         self.top_contours = [x['contour'] for x in contour_list]
-    
+
         # try only the 5 biggest regions at most
+        target_center = None
         for candidate_index in range(min(5, len(contour_list))):
             self.target_contour = self.test_candidate_contour(contour_list[candidate_index], shape)
             if self.target_contour is not None:
+                target_center = contour_list[candidate_index]['center']
                 break
-    
+
         if self.target_contour is not None:
             # The target was found. Convert to real world co-ordinates.
-    
-            cnt = numpy.squeeze(self.target_contour).tolist()
 
-            # Need to convert the contour (integer) into a matrix of corners (float; all 4 outside cnrs)
+            # need the corners in proper sorted order, and as floats
+            self.outer_corners = GenericFinder.sort_corners(self.target_contour, target_center).astype(numpy.float)
 
-            # Important to get the corners in the right order, ***matching the real world ones***
-            # Remember that y in the image increases *down*
-            self.outer_corners = GoalFinder2020.get_outer_corners(cnt)
+            print("Outside corners: ", self.outer_corners)
+            print("Real World target_coords: ", self.real_world_coordinates)
 
-            # print("Outside corners: ", self.outer_corners)
-            # print("Real World target_coords: ", self.real_world_coordinates)
-
-            # retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
-            #                                   self.cameraMatrix, self.distortionMatrix)
-            # if retval:
-            #     result = [1.0, self.finder_id, ]
-            #     result.extend(self.compute_output_values(rvec, tvec))
-            #     return result
+            retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
+                                              self.cameraMatrix, self.distortionMatrix)
+            if retval:
+                result = [1.0, self.finder_id, ]
+                result.extend(self.compute_output_values(rvec, tvec))
+                return result
 
         # no target found. Return "failure"
         return [0.0, self.finder_id, 0.0, 0.0, 0.0]
@@ -162,20 +154,18 @@ class GoalFinder2020(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        #if self.top_contours:
-        #   cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
-        indx=0
-        for cnr in self.outer_corners:
-            cv2.circle(output_frame, (cnr[0], cnr[1]), 4, (0, 255, 0), -1, lineType=8, shift=0)
-            cv2.putText(output_frame,str(indx), (cnr[0], cnr[1]), 0, .5,(255,255,255))
-            indx+=1
+        # if self.top_contours:
+        #     cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
+        for indx, cnr in enumerate(self.outer_corners):
+            cv2.circle(output_frame, tuple(cnr.astype(int)), 4, (0, 255, 0), -1, lineType=8, shift=0)
+            # cv2.putText(output_frame, str(indx), tuple(cnr.astype(int)), 0, .5, (255, 255, 255))
 
         # for loc in self.target_locations:
         #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
 
         if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 1)
+            cv2.drawContours(output_frame, [self.target_contour.astype(int)], -1, (255, 0, 0), 1)
 
         return output_frame
 
@@ -188,10 +178,7 @@ class GoalFinder2020(GenericFinder):
         # TODO: make addition cuts here
 
         hull = cv2.convexHull(candidate['contour'])
-
-        with CodeTimer("hough_fit"):
-            approx = polygon_fit.approxPolyDP_adaptive(hull, nsides=4)
-            contour = hough_fit.hough_fit(hull, nsides=4, approx_fit=approx)
+        contour = self.quad_fit(hull)
 
         if contour is not None and len(contour) == 4:
             return contour
