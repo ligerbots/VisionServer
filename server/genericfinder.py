@@ -9,6 +9,11 @@ finder_id may not need to be changed, depending on circumstances."""
 import sys
 import math
 import cv2
+import numpy
+import hough_fit
+
+two_pi = 2 * math.pi
+pi_by_2 = math.pi / 2
 
 
 class GenericFinder:
@@ -51,23 +56,28 @@ class GenericFinder:
         return (x + int(w / 2), y + int(h / 2)), (w, h)
 
     @staticmethod
-    def quad_fit(contour, approx_dp_error):
-        '''Simple polygon fit to contour with error related to perimeter'''
+    def quad_fit(contour):
+        '''Best fit of a quadrilateral to the contour'''
 
-        peri = cv2.arcLength(contour, True)
-        return cv2.approxPolyDP(contour, approx_dp_error * peri, True)
+        approx = hough_fit.approxPolyDP_adaptive(contour, nsides=4)
+        return hough_fit.hough_fit(contour, nsides=4, approx_fit=approx)
+
     @staticmethod
-    def sort_corners(contour):
-        cntrx=0
-        cntry=0
-        for pt in contour:
-            cntrx+=pt[0]
-            cntry+=pt[1]
-        cntrx/=len(contour)
-        cntry/=len(contour)
-        #                                           flip because y flipped  put in range  rm 90deg bc atan
-        return sorted(contour, key=lambda x: (math.atan2(cntry-x[1],x[0]-cntrx)+math.pi*2-math.pi/2)%(2*math.pi))
-        
+    def sort_corners(contour, center=None):
+        '''Sort the contour in our standard order, starting upper-left and going counter-clockwise'''
+
+        # Note: the inputs are all numpy arrays, so it is fast to operate on the whole array at once
+
+        if center is None:
+            center = contour.mean(axis=0)
+
+        d = contour - center
+        # remember that y-axis increases down, so flip the sign
+        angle = (numpy.arctan2(-d[:, 1], d[:, 0]) - pi_by_2) % two_pi
+        return contour[numpy.argsort(angle)]
+
+
+# --------------------------------------------------------------------------------
 # Main routines, used for running the finder by itself for debugging and timing
 
 def process_files(line_finder, input_files, output_dir):
@@ -78,7 +88,7 @@ def process_files(line_finder, input_files, output_dir):
         # print()
         # print(image_file)
         bgr_frame = cv2.imread(image_file)
-        #print(bgr_frame)
+
         result = line_finder.process_image(bgr_frame)
         print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
 
