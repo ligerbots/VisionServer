@@ -13,7 +13,17 @@ class HopperFinder2020(GenericFinder):
     '''Find hopper target for Infinite Recharge 2020'''
 
     # real world dimensions of the hopper target
+    TARGET_WIDTH = 7.0       # inches
+    TARGET_HEIGHT = 11.0     # inches
 
+    # [0, 0] is center of the quadrilateral drawn around the high goal target
+    # [top_left, bottom_left, bottom_right, top_right]
+    real_world_coordinates = [
+        [-TARGET_WIDTH / 2, TARGET_HEIGHT / 2],
+        [-TARGET_WIDTH / 2, -TARGET_HEIGHT / 2],
+        [TARGET_WIDTH / 2, -TARGET_HEIGHT / 2],
+        [TARGET_WIDTH / 2, TARGET_HEIGHT / 2]
+    ]
     def __init__(self, calib_file):
         super().__init__('hopperfinder', camera='front', finder_id=3.0, exposure=1)
 
