@@ -19,7 +19,7 @@ class GoalFinder2020(GenericFinder):
     TARGET_STRIP_LENGTH = 19.625    # inches
     TARGET_HEIGHT = 17.0            # inches@!
     TARGET_TOP_WIDTH = 39.25        # inches
-    TARGET_BOTTOM_WIDTH = math.acos(TARGET_HEIGHT / TARGET_STRIP_LENGTH)
+    TARGET_BOTTOM_WIDTH = TARGET_TOP_WIDTH - 2*TARGET_STRIP_LENGTH*math.cos(math.radians(60))
 
     # [0, 0] is center of the quadrilateral drawn around the high goal target
     # [top_left, bottom_left, bottom_right, top_right]
