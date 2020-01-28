@@ -90,7 +90,8 @@ def process_files(line_finder, input_files, output_dir):
         bgr_frame = cv2.imread(image_file)
 
         result = line_finder.process_image(bgr_frame)
-        print(image_file, result[0], result[1], result[2], math.degrees(result[3]), math.degrees(result[4]))
+        print(image_file, result[0], result[1], round(result[2], 1),
+              round(math.degrees(result[3]), 1), round(math.degrees(result[4]), 1))
 
         bgr_frame = line_finder.prepare_output_image(bgr_frame)
 
@@ -130,7 +131,7 @@ def time_processing(cube_processor, input_files):
 
     deltat = time() - startt
 
-    print("{0} frames in {1:.3f} seconds = {2:.2f} msec/call, {3:.2f} FPS".format(
+    print("{0} frames in {1:.3f} seconds = {2:.2f} ms/call, {3:.2f} FPS".format(
         cnt, deltat, 1000.0 * deltat / cnt, cnt / deltat))
     CodeTimer.output_timers()
     return

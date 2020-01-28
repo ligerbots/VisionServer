@@ -30,6 +30,8 @@ def process_files(image_files):
     image_id = -1
     cv2.createTrackbar('Image#', 'image', 0, len(image_files)-1, proceed)
 
+    fixed_height = 450
+
     # # create switch for ON/OFF functionality
     # switch = '0 : OFF \n1 : ON'
     # cv2.createTrackbar(switch, 'image',0,1,nothing)
@@ -65,7 +67,9 @@ def process_files(image_files):
             cv2.drawContours(draw_frame, contours, -1, (0, 0, 255), 1)
             run = False
 
-        cv2.imshow('image', draw_frame)
+        height, width, channels = bgr_frame.shape
+        resized = cv2.resize(draw_frame, (int(fixed_height * (width / height)), fixed_height), interpolation = cv2.INTER_AREA)
+        cv2.imshow('image', resized)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 

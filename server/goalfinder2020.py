@@ -9,9 +9,6 @@ import math
 
 from genericfinder import GenericFinder, main
 
-import hough_fit
-from codetimer import CodeTimer
-
 
 class GoalFinder2020(GenericFinder):
     '''Find high goal target for Infinite Recharge 2020'''
@@ -19,10 +16,9 @@ class GoalFinder2020(GenericFinder):
     # real world dimensions of the goal target
     # These are the full dimensions around both strips
     TARGET_STRIP_LENGTH = 19.625    # inches
-    TARGET_HEIGHT = 17.0            # inches
+    TARGET_HEIGHT = 17.0            # inches@!
     TARGET_TOP_WIDTH = 39.25        # inches
-    # TODO This is not right!!!
-    TARGET_BOTTOM_WIDTH = math.acos(TARGET_HEIGHT / TARGET_STRIP_LENGTH)
+    TARGET_BOTTOM_WIDTH = TARGET_TOP_WIDTH - 2*TARGET_STRIP_LENGTH*math.cos(math.radians(60))
 
     # [0, 0] is center of the quadrilateral drawn around the high goal target
     # [top_left, bottom_left, bottom_right, top_right]
@@ -43,8 +39,9 @@ class GoalFinder2020(GenericFinder):
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
-        # ratio of height to width of one retroreflective strip
-        self.height_width_ratio = GoalFinder2020.TARGET_HEIGHT / GoalFinder2020.TARGET_TOP_WIDTH
+        # candidate cut thresholds
+        self.min_dim_ratio = 1
+        self.max_area_ratio = 0.25
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
@@ -55,10 +52,9 @@ class GoalFinder2020(GenericFinder):
 
         # DEBUG values
         self.top_contours = None
-        self.target_locations = None
 
         # output results
-        self.target_contours = None
+        self.target_contour = None
 
         if calib_file:
             with open(calib_file) as f:
@@ -67,7 +63,6 @@ class GoalFinder2020(GenericFinder):
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
         self.outer_corners = []
-
         return
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
@@ -95,7 +90,7 @@ class GoalFinder2020(GenericFinder):
 
         # DEBUG values; clear any values from previous image
         self.top_contours = None
-        self.outer_corners = []
+        self.outer_corners = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -136,8 +131,8 @@ class GoalFinder2020(GenericFinder):
             # need the corners in proper sorted order, and as floats
             self.outer_corners = GenericFinder.sort_corners(self.target_contour, target_center).astype(numpy.float)
 
-            print("Outside corners: ", self.outer_corners)
-            print("Real World target_coords: ", self.real_world_coordinates)
+            # print("Outside corners: ", self.outer_corners)
+            # print("Real World target_coords: ", self.real_world_coordinates)
 
             retval, rvec, tvec = cv2.solvePnP(self.real_world_coordinates, self.outer_corners,
                                               self.cameraMatrix, self.distortionMatrix)
@@ -154,28 +149,31 @@ class GoalFinder2020(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        # if self.top_contours:
-        #     cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
-
-        for indx, cnr in enumerate(self.outer_corners):
-            cv2.circle(output_frame, tuple(cnr.astype(int)), 4, (0, 255, 0), -1, lineType=8, shift=0)
-            # cv2.putText(output_frame, str(indx), tuple(cnr.astype(int)), 0, .5, (255, 255, 255))
-
-        # for loc in self.target_locations:
-        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
+        if self.top_contours:
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
 
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour.astype(int)], -1, (255, 0, 0), 1)
+
+        if self.outer_corners is not None:
+            for indx, cnr in enumerate(self.outer_corners):
+                cv2.circle(output_frame, tuple(cnr.astype(int)), 4, (0, 255, 0), -1, lineType=8, shift=0)
+                # cv2.putText(output_frame, str(indx), tuple(cnr.astype(int)), 0, .5, (255, 255, 255))
 
         return output_frame
 
     def test_candidate_contour(self, candidate, shape):
         '''Determine the true target contour out of potential candidates'''
 
-        # cand_width = candidate['widths'][0]
-        # cand_height = candidate['widths'][1]
+        cand_width = candidate['widths'][0]
+        cand_height = candidate['widths'][1]
 
-        # TODO: make addition cuts here
+        cand_dim_ratio = cand_width / cand_height
+        if cand_dim_ratio < self.min_dim_ratio:
+            return None
+        cand_area_ratio = cv2.contourArea(candidate["contour"]) / (cand_width * cand_height)
+        if cand_area_ratio > self.max_area_ratio:
+            return None
 
         hull = cv2.convexHull(candidate['contour'])
         contour = self.quad_fit(hull)

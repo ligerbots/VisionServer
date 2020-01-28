@@ -15,6 +15,7 @@ from codetimer import CodeTimer
 two_pi = 2.0 * pi
 pi_by_2 = pi / 2.0
 
+
 def hough_fit(contour, nsides=None, approx_fit=None):
     '''Use the Hough line finding algorithm to find a polygon for contour.
     It is faster if you can provide an decent initial fit - see approxPolyDP_adaptive().'''

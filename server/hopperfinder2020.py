@@ -6,13 +6,24 @@ import json
 import math
 
 from genericfinder import GenericFinder, main
+import hough_fit
 
 
 class HopperFinder2020(GenericFinder):
     '''Find hopper target for Infinite Recharge 2020'''
 
     # real world dimensions of the hopper target
+    TARGET_WIDTH = 7.0       # inches
+    TARGET_HEIGHT = 11.0     # inches
 
+    # [0, 0] is center of the quadrilateral drawn around the high goal target
+    # [top_left, bottom_left, bottom_right, top_right]
+    real_world_coordinates = [
+        [-TARGET_WIDTH / 2, TARGET_HEIGHT / 2],
+        [-TARGET_WIDTH / 2, -TARGET_HEIGHT / 2],
+        [TARGET_WIDTH / 2, -TARGET_HEIGHT / 2],
+        [TARGET_WIDTH / 2, TARGET_HEIGHT / 2]
+    ]
     def __init__(self, calib_file):
         super().__init__('hopperfinder', camera='front', finder_id=3.0, exposure=1)
 
@@ -33,12 +44,15 @@ class HopperFinder2020(GenericFinder):
         self.hsv_frame = None
         self.threshold_frame = None
 
+        # candidate cut thresholds
+        self.max_dim_ratio = 1
+        self.min_area_ratio = 0.25
+
         # DEBUG values
         self.top_contours = None
-        self.target_locations = None
 
         # output results
-        self.target_contours = None
+        self.target_contour = None
 
         if calib_file:
             with open(calib_file) as f:
@@ -144,9 +158,6 @@ class HopperFinder2020(GenericFinder):
         for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
-        # for loc in self.target_locations:
-        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
-
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
@@ -155,14 +166,21 @@ class HopperFinder2020(GenericFinder):
     def test_candidate_contour(self, candidate):
         '''Determine the true target contour out of potential candidates'''
 
-        # cand_width = candidate['widths'][0]
-        # cand_height = candidate['widths'][1]
+        cand_width = candidate['widths'][0]
+        cand_height = candidate['widths'][1]
 
-        # TODO: make addition cuts here
+        cand_dim_ratio = cand_width / cand_height
+        if cand_dim_ratio > self.max_dim_ratio:
+            print("dim reject")
+            return None
+        cand_area_ratio = cv2.contourArea(candidate["contour"]) / (cand_width * cand_height)
+        if cand_area_ratio < self.min_area_ratio:
+            print("area reject")
+            return None
 
+        print(f"dim ratio: {cand_dim_ratio}\narea ratio: {cand_area_ratio}")
         contour = numpy.int0(cv2.boxPoints(cv2.minAreaRect(candidate['contour'])))
 
-        # TODO: what is the right number of edges?
         if len(contour) == 4:
             return contour
 
