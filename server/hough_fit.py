@@ -9,11 +9,12 @@ import cv2
 # it is faster if you import the needed functions directly
 # these are used a lot, so it helps, a little
 from math import sin, cos, atan2  # , degrees
-from numpy import array, zeros, pi, round, sqrt, uint8
+from numpy import array, zeros, pi, sqrt, uint8
 
 from codetimer import CodeTimer
 two_pi = 2.0 * pi
 pi_by_2 = pi / 2.0
+
 
 def hough_fit(contour, nsides=None, approx_fit=None):
     '''Use the Hough line finding algorithm to find a polygon for contour.
@@ -285,7 +286,7 @@ def _intersection(line1, line2):
         denom = cos1*sin2 - sin1*cos2
         x = (sin2*rho1 - sin1*rho2) / denom
         y = (cos1*rho2 - cos2*rho1) / denom
-        res = round(array((x, y))).astype(int)
+        res = array((x, y))
     return res
 
 

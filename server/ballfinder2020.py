@@ -36,9 +36,6 @@ class BallFinder2020(GenericFinder):
         # seems to be OK with 8. Allows a few truncated corners.
         self.max_num_vertices = 8
 
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.015
-
         # self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
         # self.erode_iterations = 0
 
@@ -126,11 +123,11 @@ class BallFinder2020(GenericFinder):
         right = contour[0]
         for pt in contour:
             if pt[0][1] > left[0][1] or ((pt[0][1] == left[0][1]) and (pt[0][0] < left[0][0])):
-                left=pt
-            if (pt[0][1]>right[0][1]) or ((pt[0][1]==right[0][1]) and (pt[0][0]>right[0][0])):
-                right=pt
+                left = pt
+            if (pt[0][1] > right[0][1]) or ((pt[0][1] == right[0][1]) and (pt[0][0] > right[0][0])):
+                right = pt
         return [[int((left[0][0] + right[0][0]) / 2), left[0][1]]]
-    
+
     def get_ball_values(self, center, shape):
         '''Calculate the angle and distance from the camera to the center point of the robot
         This routine uses the FOV numbers and the default center to convert to normalized coordinates'''
@@ -142,7 +139,7 @@ class BallFinder2020(GenericFinder):
         image_h = shape[0] / 2.0
 
         # NOTE: the 0.5 is to place the location in the center of the pixel
-        #print("center "+str(center)+" shape "+str(shape))
+        # print("center "+str(center)+" shape "+str(shape))
         nx = (center[0] - image_w + 0.5) / image_w
         ny = (image_h - 0.5 - center[1]) / image_h
 
@@ -166,6 +163,7 @@ class BallFinder2020(GenericFinder):
         d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
 
         return ax, d    # return horizontal angle and distance
+
     def get_ball_values_calib(self):
         '''Calculate the angle and distance from the camera to the center point of the robot
         This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
@@ -198,14 +196,13 @@ class BallFinder2020(GenericFinder):
 
         return ax, d    # return horizontal angle and distance
 
-
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
         # clear out result variables
         angle = None
         distance = None
-        self.bottomPoint =[[-1, -1]]
+        self.bottomPoint = [[-1, -1]]
         self.hull_fits = []
         self.biggest_contours = None
 
@@ -223,7 +220,7 @@ class BallFinder2020(GenericFinder):
 
         contour_list = []
         for c in contours:
-            center, widths = BallFinder2020.contour_center_width(c)
+            center, widths = self.contour_center_width(c)
             area = widths[0] * widths[1]
             if area > self.contour_min_area:
                 # TODO: use a simple class? Maybe use "attrs" package?
@@ -232,35 +229,32 @@ class BallFinder2020(GenericFinder):
         contour_list.sort(key=lambda c: c['area'], reverse=True)
         # test first 3 biggest contours only (optimization)
 
-        lowestpoints=[]
+        lowestpoints = []
         for cnt in contour_list[0:3]:
-
-            fit=self.test_candidate_contour(cnt)
-            
+            fit = self.test_candidate_contour(cnt)
 
             # NOTE: testing a list returns true if there is something in the list
-            if fit is not None :
+            if fit is not None:
                 self.hull_fits.append(fit)
 
                 lowestPoint = BallFinder2020.get_bottom_center(fit)
-                
+
                 print("Lowest point: " + str(lowestPoint))
                 print("Bottom Point: " + str(self.bottomPoint))
 
                 lowestpoints.append(lowestPoint)
-                lowestpoints.sort(key=lambda c: c[0][1], reverse=True)  #remember y goes up as you move down the image
-                lowestpoints=lowestpoints[0:2]
+                lowestpoints.sort(key=lambda c: c[0][1], reverse=True)  # remember y goes up as you move down the image
+                lowestpoints = lowestpoints[0:2]
                 if self.cameraMatrix is not None:
                     angle, distance = self.get_ball_values_calib()
                 else:
                     angle, distance = self.get_ball_values(self.bottomPoint[0], camera_frame.shape)
 
-        if(len(lowestpoints)>0):
-            if len(lowestpoints)>1 and abs(lowestpoints[0][0][1]-lowestpoints[1][0][1])<20:
-                self.bottomPoint=[[int((lowestpoints[0][0][0]+lowestpoints[1][0][0])/2),int((lowestpoints[0][0][1]+lowestpoints[1][0][1])/2)]]
+        if (len(lowestpoints) > 0):
+            if len(lowestpoints) > 1 and abs(lowestpoints[0][0][1]-lowestpoints[1][0][1]) < 20:
+                self.bottomPoint = [[int((lowestpoints[0][0][0]+lowestpoints[1][0][0])/2), int((lowestpoints[0][0][1]+lowestpoints[1][0][1])/2)]]
             else:
-                self.bottomPoint=lowestpoints[0]
-            
+                self.bottomPoint = lowestpoints[0]
 
         # return values: (success, cube or switch, distance, angle, -- still deciding here?)
         if distance is None or angle is None:
@@ -271,15 +265,18 @@ class BallFinder2020(GenericFinder):
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']
 
-        real_area = cv2.contourArea(cnt)
+        # real_area = cv2.contourArea(cnt)
         # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
-        #print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
-        ratio=contour_entry['widths'][1] / contour_entry['widths'][0]
-        if  ratio> 0.9 and ratio<3.1:
-            #print("found")
+        # print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
+        ratio = contour_entry['widths'][1] / contour_entry['widths'][0]
+        if ratio > 0.9 and ratio < 3.1:
+            # print("found")
             hull = cv2.convexHull(cnt)
+
             # hull_fit contains the corners for the contour
-            hull_fit = BallFinder2020.quad_fit(hull, self.approx_polydp_error)
+            # PaulR: not sure this makes sense. We know it is not a polygon. Do we even need a fit?
+            peri = cv2.arcLength(hull, True)
+            hull_fit = cv2.approxPolyDP(hull, self.approx_polydp_error * peri, True)
 
             return hull_fit
 
@@ -291,7 +288,7 @@ class BallFinder2020(GenericFinder):
         output_frame = input_frame.copy()
 
         # Draw the contour on the image
-        #print(self.hull_fits)
+        # print(self.hull_fits)
         if self.hull_fits is not None:
             cv2.drawContours(output_frame, self.hull_fits, -1, (255, 0, 0), 2)
         if self.bottomPoint is not None:
