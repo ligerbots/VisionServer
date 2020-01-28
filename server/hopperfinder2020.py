@@ -6,13 +6,24 @@ import json
 import math
 
 from genericfinder import GenericFinder, main
+import hough_fit
 
 
 class HopperFinder2020(GenericFinder):
     '''Find hopper target for Infinite Recharge 2020'''
 
     # real world dimensions of the hopper target
+    TARGET_WIDTH = 7.0       # inches
+    TARGET_HEIGHT = 11.0     # inches
 
+    # [0, 0] is center of the quadrilateral drawn around the high goal target
+    # [top_left, bottom_left, bottom_right, top_right]
+    real_world_coordinates = [
+        [-TARGET_WIDTH / 2, TARGET_HEIGHT / 2],
+        [-TARGET_WIDTH / 2, -TARGET_HEIGHT / 2],
+        [TARGET_WIDTH / 2, -TARGET_HEIGHT / 2],
+        [TARGET_WIDTH / 2, TARGET_HEIGHT / 2]
+    ]
     def __init__(self, calib_file):
         super().__init__('hopperfinder', camera='front', finder_id=3.0, exposure=1)
 
@@ -22,9 +33,6 @@ class HopperFinder2020(GenericFinder):
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
-
-        # Allowed "error" in the perimeter when fitting using approxPolyDP (in quad_fit)
-        self.approx_polydp_error = 0.06     # TODO: experiment with this starting with very small and going larger
 
         # ratio of height to width of one retroreflective strip
         # self.height_width_ratio = HopperFinder2020.TARGET_HEIGHT / HopperFinder2020.TARGET_TOP_WIDTH
@@ -42,10 +50,9 @@ class HopperFinder2020(GenericFinder):
 
         # DEBUG values
         self.top_contours = None
-        self.target_locations = None
 
         # output results
-        self.target_contours = None
+        self.target_contour = None
 
         if calib_file:
             with open(calib_file) as f:
@@ -151,9 +158,6 @@ class HopperFinder2020(GenericFinder):
         for cnr in self.outer_corners:
             cv2.circle(output_frame, (cnr[0], cnr[1]), 2, (0, 255, 0), -1, lineType=8, shift=0)
 
-        # for loc in self.target_locations:
-        #     cv2.drawMarker(output_frame, loc, (0, 255, 255), cv2.MARKER_TILTED_CROSS, 15, 3)
-
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour], -1, (255, 0, 0), 2)
 
@@ -161,6 +165,7 @@ class HopperFinder2020(GenericFinder):
 
     def test_candidate_contour(self, candidate):
         '''Determine the true target contour out of potential candidates'''
+
         cand_width = candidate['widths'][0]
         cand_height = candidate['widths'][1]
 

@@ -4,7 +4,7 @@
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2019.py
+SCRIPT=visionserver2020.py
 
 # For running standalone (not alongside a RoboRio), add the "--test" option
 # For serious debugging, add the "--verbose" option, but it is very noisy
@@ -41,26 +41,27 @@ logfile_name() {
     printf "$LOG_DIR/${LOG_BASE}_%05d.log" $index
 }
 
-setup_camera() {
-    # set camera to fixed focus
-    # can't be done in cscore
-    # NOTE order matters
-    uvcdynctrl -d "$1" -s 'Focus, Auto' 0
-    echo -n "$1: Focus, Auto = "
-    uvcdynctrl -d "$1" -g 'Focus, Auto'
+# no longer used, but keep here in case we need it again
+# setup_camera() {
+#     # set camera to fixed focus
+#     # can't be done in cscore
+#     # NOTE order matters
+#     uvcdynctrl -d "$1" -s 'Focus, Auto' 0
+#     echo -n "$1: Focus, Auto = "
+#     uvcdynctrl -d "$1" -g 'Focus, Auto'
 
-    uvcdynctrl -d "$1" -s 'Focus (absolute)' 0
-    echo -n "$1: Focus (absolute) "
-    uvcdynctrl -d "$1" -g 'Focus (absolute)'
+#     uvcdynctrl -d "$1" -s 'Focus (absolute)' 0
+#     echo -n "$1: Focus (absolute) "
+#     uvcdynctrl -d "$1" -g 'Focus (absolute)'
 
-    # uvcdynctrl -d "$1" -s 'White Balance Temperature, Auto' 0
-    # echo -n "$1: White Balance Temperature, Auto "
-    # uvcdynctrl -d "$1" -g 'White Balance Temperature, Auto'
+#     # uvcdynctrl -d "$1" -s 'White Balance Temperature, Auto' 0
+#     # echo -n "$1: White Balance Temperature, Auto "
+#     # uvcdynctrl -d "$1" -g 'White Balance Temperature, Auto'
 
-    # uvcdynctrl -d "$1" -s 'White Balance Temperature' 2866
-    # echo -n "$1: White Balance Temperature "
-    # uvcdynctrl -d "$1" -g 'White Balance Temperature'
-}
+#     # uvcdynctrl -d "$1" -s 'White Balance Temperature' 2866
+#     # echo -n "$1: White Balance Temperature "
+#     # uvcdynctrl -d "$1" -g 'White Balance Temperature'
+# }
 
 ping_address() {
     local addr="$1"
@@ -100,6 +101,15 @@ ping_address() {
     done
 }
 
+set_cpu_performance() {
+    # set all the CPUs to performance mode
+    # not sure if this is needed, but it can't hurt
+
+    for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo performance > $c
+    done
+}
+
 case "$1" in
     stop)
 	pkill -f $SCRIPT
@@ -107,6 +117,8 @@ case "$1" in
 
     start)
         cd $DIR
+
+        set_cpu_performance
         
         # make sure the image save directory is always there, and read/write for everyone
         mkdir -m a=rwx -p $IMAGE_SAVE_DIR
@@ -124,14 +136,9 @@ case "$1" in
         # Alternate: just keep pinging
         ##ping $radio > /dev/null 2>&1 < /dev/null &
 
-        # Now done in the Python
-        # setup_camera /dev/video0 >> $LOG_FILE 2>&1
-        # if [ -c /dev/video1 ]; then
-        #     setup_camera /dev/video1 >> $LOG_FILE 2>&1
-        # fi
-
+        # run the server with niceness -20 (high priority), just because it might help
         echo '' >> $LOG_FILE
-        python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
+        nice -20 python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
 
     restart)
