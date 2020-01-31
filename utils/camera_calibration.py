@@ -84,6 +84,7 @@ class CameraCalibration(object):
 if __name__ == '__main__':
     import argparse
     import json
+    import sys
 
     parser = argparse.ArgumentParser(description='Calibration utility')
     parser.add_argument('--length', '-l', type=int, default=9, help='Length of checkerboard (number of corners)')
@@ -94,6 +95,16 @@ if __name__ == '__main__':
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
+
+    if sys.platform == "win32":
+        # windows does not expand the "*" files on the command line
+        #  so we have to do it.
+        import glob
+
+        infiles = []
+        for f in args.input_files:
+            infiles.extend(glob.glob(f))
+            args.input_files = infiles
 
     calibrate = CameraCalibration()
     calibrate.checkerboard_width = args.width
