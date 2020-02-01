@@ -76,6 +76,31 @@ class GenericFinder:
         angle = (numpy.arctan2(-d[:, 1], d[:, 0]) - pi_by_2) % two_pi
         return contour[numpy.argsort(angle)]
 
+    @staticmethod
+    def major_minor_axes(moments):
+        '''Compute the major/minor axes and orientation of an object from the moments'''
+
+        # See https://en.wikipedia.org/wiki/Image_moment
+        # Be careful, different sites define the normalized central moments differently
+        # See also http://raphael.candelier.fr/?blog=Image%20Moments
+
+        m00 = moments['m00']
+        mu20 = moments['mu20'] / m00
+        mu02 = moments['mu02'] / m00
+        mu11 = moments['mu11'] / m00
+
+        descr = math.sqrt(4.0 * mu11*mu11 + (mu20 - mu02)**2)
+
+        major = math.sqrt(2.0 * (mu20 + mu02 + descr))
+        minor = math.sqrt(2.0 * (mu20 + mu02 - descr))
+
+        # note this does not use atan2.
+        angle = 0.5 * math.atan(2*mu11 / (mu20-mu02))
+        if mu20 < mu02:
+            angle += pi_by_2
+
+        return major, minor, angle
+
 
 # --------------------------------------------------------------------------------
 # Main routines, used for running the finder by itself for debugging and timing
