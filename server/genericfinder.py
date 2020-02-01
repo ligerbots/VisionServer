@@ -60,7 +60,10 @@ class GenericFinder:
         '''Best fit of a quadrilateral to the contour'''
 
         approx = hough_fit.approxPolyDP_adaptive(contour, nsides=4)
-        return hough_fit.hough_fit(contour, nsides=4, approx_fit=approx)
+        hough = hough_fit.hough_fit(contour, nsides=4, approx_fit=approx)
+        if hough is None or len(hough) != 4:
+            return None
+        return hough
 
     @staticmethod
     def sort_corners(contour, center=None):
@@ -69,11 +72,11 @@ class GenericFinder:
         # Note: the inputs are all numpy arrays, so it is fast to operate on the whole array at once
 
         if center is None:
-            center = contour.mean(axis=0)
+            center = contour.mean(axis=0)[0]
 
         d = contour - center
         # remember that y-axis increases down, so flip the sign
-        angle = (numpy.arctan2(-d[:, 1], d[:, 0]) - pi_by_2) % two_pi
+        angle = (numpy.arctan2(-d[:, 0, 1], d[:, 0, 0]) - pi_by_2) % two_pi
         return contour[numpy.argsort(angle)]
 
 

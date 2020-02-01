@@ -34,11 +34,15 @@ def hough_fit(contour, nsides=None, approx_fit=None):
     with CodeTimer("HoughLines"):
         contour_plot = zeros(shape=(h, w), dtype=uint8)
         cv2.drawContours(contour_plot, [shifted_con, ], -1, 255, 1)
-        lines = cv2.HoughLines(contour_plot, 1, pi / 180, threshold=10)
+        lines = cv2.HoughLines(contour_plot, 1, pi / 180, threshold=8)
 
     if lines is None or len(lines) < nsides:
-        # print("HoughLines found too few lines")
+        print("HoughLines found too few lines")
         return None
+
+    # print('hough lines:')
+    # for l in lines:
+    #     print('   ', l)
 
     if approx_fit is not None:
         res = _match_lines_to_fit(approx_fit - offset_vec, lines, w, h)
@@ -167,7 +171,7 @@ def _match_lines_to_fit(approx_fit, hough_lines, w, h):
     '''Given the approximate shape and a set of lines from the Hough algorithm
     find the matching lines and rebuild the fit'''
 
-    theta_thres = pi / 36  # 5 degrees
+    theta_thres = pi / 18  # 10 degrees
     nsides = len(approx_fit)
     fit_sides = []
     hough_used = set()
@@ -177,6 +181,7 @@ def _match_lines_to_fit(approx_fit, hough_lines, w, h):
         pt2 = approx_fit[ivrtx2][0]
 
         rho, theta = _hesse_form(pt1, pt2)
+        # print("looking for:", rho, theta)
 
         # Hough lines are in order of confidence, so look for the first unused one
         #  which matches the line
@@ -192,6 +197,7 @@ def _match_lines_to_fit(approx_fit, hough_lines, w, h):
                (abs(rho + line[0]) < 10 and abs(_delta_angle(theta, line[1] - pi)) < theta_thres):
                 fit_sides.append(line)
                 hough_used.add(ih)
+                # print('found:', line)
                 break
 
     if len(fit_sides) != nsides:
@@ -205,7 +211,8 @@ def _match_lines_to_fit(approx_fit, hough_lines, w, h):
         if inter is None:
             # print("No intersection between lines")
             return None
-        vertices.append(inter)
+        # contours have an extra dimension in their numpy array. duplicate that.
+        vertices.append(array([inter]))
 
     return vertices
 

@@ -33,7 +33,7 @@ class GoalFinder2020(GenericFinder):
         super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = numpy.array((65, 75, 75), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((65, 60, 60), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((100, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
@@ -41,7 +41,8 @@ class GoalFinder2020(GenericFinder):
 
         # candidate cut thresholds
         self.min_dim_ratio = 1
-        self.max_area_ratio = 0.25
+        self.max_dim_ratio = 3
+        self.max_area_ratio = 0.30
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
@@ -130,7 +131,6 @@ class GoalFinder2020(GenericFinder):
 
             # need the corners in proper sorted order, and as floats
             self.outer_corners = GenericFinder.sort_corners(self.target_contour, target_center).astype(numpy.float)
-
             # print("Outside corners: ", self.outer_corners)
             # print("Real World target_coords: ", self.real_world_coordinates)
 
@@ -149,15 +149,16 @@ class GoalFinder2020(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        #if self.top_contours:
+        #    cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 0), 1)
 
         if self.target_contour is not None:
-            cv2.drawContours(output_frame, [self.target_contour.astype(int)], -1, (255, 0, 0), 1)
+            cv2.drawContours(output_frame, [self.target_contour.astype(int)], -1, (0, 0, 255), 1)
 
         if self.outer_corners is not None:
             for indx, cnr in enumerate(self.outer_corners):
-                cv2.circle(output_frame, tuple(cnr.astype(int)), 4, (0, 255, 0), -1, lineType=8, shift=0)
+                cv2.drawMarker(output_frame, tuple(cnr[0].astype(int)), (0, 255, 255), cv2.MARKER_CROSS, 7, 1)
+                # cv2.circle(output_frame, tuple(cnr.astype(int)), 4, (0, 255, 0), -1, lineType=8, shift=0)
                 # cv2.putText(output_frame, str(indx), tuple(cnr.astype(int)), 0, .5, (255, 255, 255))
 
         return output_frame
@@ -169,15 +170,18 @@ class GoalFinder2020(GenericFinder):
         cand_height = candidate['widths'][1]
 
         cand_dim_ratio = cand_width / cand_height
-        if cand_dim_ratio < self.min_dim_ratio:
+        # print("side ratio:", cand_dim_ratio)
+        if cand_dim_ratio < self.min_dim_ratio or cand_dim_ratio > self.max_dim_ratio:
             return None
-        cand_area_ratio = cv2.contourArea(candidate["contour"]) / (cand_width * cand_height)
+        cand_area_ratio = cv2.contourArea(candidate["contour"]) / candidate['area']
+        # print("area ratio:", cand_area_ratio)
         if cand_area_ratio > self.max_area_ratio:
             return None
 
         hull = cv2.convexHull(candidate['contour'])
         contour = self.quad_fit(hull)
 
+        # print('contour fit nsides =', len(contour) if contour is not None else None)
         if contour is not None and len(contour) == 4:
             return contour
 
