@@ -129,8 +129,10 @@ class BallFinder2020(GenericFinder):
         '''Main image processing routine'''
 
         # clear out result variables
-        angle = None
-        distance = None
+        angle1 = None
+        distance1 = None
+        angle2 = None
+        distance2 = None
         self.center_points = []
         self.found_contours = []
         self.top_contours = []
@@ -154,11 +156,10 @@ class BallFinder2020(GenericFinder):
             if area > self.contour_min_area:
                 contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
 
-        # Sort the list of contours from biggest area to smallest
-        contour_list.sort(key=lambda c: c['area'], reverse=True)
+        # Sort the list of contours from lowest in the image to the highest in the image
+        contour_list.sort(key=lambda c: c['center'][1], reverse=True)
 
-        # test first 3 biggest contours only (optimization)
-        # TODO: should this be done in a different order, maybe lowest in image first??
+        # test the lowest three contours only (optimization)
         for cnt in contour_list[0:3]:
             result_cnt = self.test_candidate_contour(cnt)
             if result_cnt is not None:
@@ -179,32 +180,43 @@ class BallFinder2020(GenericFinder):
                     # the factor of 1.3 is total arbitrary, but seems to make the point closer to the center
                     # essentially the minor axis underestimates the radius of the front ball,
                     #  which is bigger in the image
-                    center += (major - 1.3 * minor) * direction
+                    self.center_points.append(center + ((major - 1.3 * minor) * direction))
 
-                    # if we want it, second ball center seems to be:
-                    # center -= ((major - 0.8 * minor) * direction
-
+                    # if the contour is made up of all three balls, must return 2 centers, so return both anyways
+                    self.center_points.append(center - ((major - 0.8 * minor) * direction))
+                    
+                    # TODO may need to change the 1.3 and 0.8 for three vs. two balls?
+                else:
+                    self.center_points.append(center)
+                    
                 # print("Center point:", center)
 
-                self.center_points.append(center)
-
-        # done with the contours. Pick 2 to return positions
-        # TODO: need 2 locations slots in the output
+        # done with the contours. Pick two centers to return
+        # TODO ideally want to pick the first ball's center and the third ball's center to calculate a more accurate drive path (farther apart --> better accuracy)
         if self.center_points:
             # remember y goes up as you move down the image
             self.center_points.sort(key=lambda c: c[1], reverse=True)
 
             if self.cameraMatrix is not None:
                 # use the camera calibration if we have it
-                angle, distance = self.get_ball_values_calib(self.center_points[0])
+                angle1, distance1 = self.get_ball_values_calib(self.center_points[0])
+                if len(self.center_points) > 1:
+                    angle2, distance2 = self.get_ball_values_calib(self.center_points[1])
             else:
-                angle, distance = self.get_ball_values(self.center_points[0], camera_frame.shape)
+                angle1, distance1 = self.get_ball_values(self.center_points[0], camera_frame.shape)
+                if len(self.center_points) > 1:
+                    angle2, distance2 = self.get_ball_values(self.center_points[1], camera_frame.shape)
 
-        # return values: (success, cube or switch, distance, angle, -- still deciding here?)
-        if distance is None or angle is None:
-            return (0.0, self.finder_id, 0.0, 0.0, 0.0)
+        # return values: (success, high-goal or ball or hopper, distance, angle, distance (2nd ball only), angle (2nd ball only))
 
-        return (1.0, self.finder_id, distance, angle, 0.0)
+        success = (distance1 is not None and angle1 is not None) or (distance2 is not None or angle2 is not None)
+
+        return (1.0 if success else 0.0,
+                self.finder_id,
+                distance1 if (distance1 is not None) else 0.0, 
+                angle1 if (angle1 is not None) else 0.0, 
+                distance2 if (distance2 is not None) else 0.0, 
+                angle2 if (angle2 is not None) else 0.0)
 
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']
