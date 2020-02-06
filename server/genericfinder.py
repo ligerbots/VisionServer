@@ -29,7 +29,9 @@ class GenericFinder:
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
-        return (1.0, self.finder_id, 0.0, 0.0, 0.0)
+
+        # for 2020, standard result includes position, angle of a 2nd ball
+        return (1.0, self.finder_id, 0.0, 0.0, 0.0, -1.0, -1.0)
 
     def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Rotate image if needed, otherwise nothing to do.'''

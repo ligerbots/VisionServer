@@ -128,15 +128,10 @@ class BallFinder2020(GenericFinder):
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
-        # clear out result variables
-        angle1 = None
-        distance1 = None
-        angle2 = None
-        distance2 = None
+        # clear out member result variables
         self.center_points = []
         self.top_contours = []
         self.found_contours = []
-        
 
         hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV)
         threshold_frame = cv2.inRange(hsv_frame, self.low_limit_hsv, self.high_limit_hsv)
@@ -186,14 +181,19 @@ class BallFinder2020(GenericFinder):
 
                     # if the contour is made up of all three balls, must return 2 centers, so return both anyways
                     self.center_points.append(center + ((major - 1.3 * minor) * direction))
-                    
+
                     # TODO may need to change the 1.3 and 0.8 for three vs. two balls?
                 else:
                     self.center_points.append(center)
-                    
+
                 # print("Center point:", center)
 
         # done with the contours. Pick two centers to return
+
+        # return values: (success, finder_id, distance1, robot_angle1, target_angle1, distance2, robot_angle2)
+        # -1.0 means that something failed
+        # 0 means that the entry is not currently being used
+
         if self.center_points:
             # remember y goes up as you move down the image
             # self.center_points.sort(key=lambda c: c[1], reverse=True) #no need b/c it should already be in order
@@ -203,22 +203,16 @@ class BallFinder2020(GenericFinder):
                 angle1, distance1 = self.get_ball_values_calib(self.center_points[0])
                 if len(self.center_points) > 1:
                     angle2, distance2 = self.get_ball_values_calib(self.center_points[1])
-                    return (0 if (distance1 is None or distance2 is None) else 1, 
-                        self.finder_id, distance1, angle1, 0, distance2, angle2)
-                return (0 if (distance1 is None) else 1, self.finder_id, distance1, angle1, 0, -1, -1)
+                    return (1.0, self.finder_id, distance1, angle1, 0.0, distance2, angle2)
+                return (1.0, self.finder_id, distance1, angle1, 0.0, -1.0, -1.0)
             else:
                 angle1, distance1 = self.get_ball_values(self.center_points[0], camera_frame.shape)
                 if len(self.center_points) > 1:
                     angle2, distance2 = self.get_ball_values(self.center_points[1], camera_frame.shape)
-                    return (0 if (distance1 is None or distance2 is None) else 1, 
-                        self.finder_id, distance1, angle1, 0, distance2, angle2)
-                return (0 if (distance1 is None) else 1, self.finder_id, distance1, angle1, 0, -1, -1)
-        
-        # return values: (success, finder_id, distance1, robot_angle1, target_angle1, distance2, robot_angle2)
-        # -1 means that something failed
-        # 0 means that the entry is not currently being used
+                    return (1.0, self.finder_id, distance1, angle1, 0.0, distance2, angle2)
+                return (1.0, self.finder_id, distance1, angle1, 0.0, -1.0, -1.0)
 
-        return (0, self.finder_id, -1, -1, 0, -1, -1)
+        return (0.0, self.finder_id, -1.0, -1.0, 0.0, -1.0, -1.0)
 
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']
@@ -226,14 +220,16 @@ class BallFinder2020(GenericFinder):
         # real_area = cv2.contourArea(cnt)
         # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
         # print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
-        
+
         # contour_entry['widths'][1] is the height
         # contour_entry['widths'][0] is the width
-        
+
         ratio = contour_entry['widths'][1] / contour_entry['widths'][0]
-        if ratio < 0.8 or ratio > 3.1:  # TODO if balls cut out to bottom of screen it returns none, so might want to change the lower value depending on camera location
+        # TODO if balls cut out at bottom of screen it returns none,
+        #   so might want to change the lower value depending on camera location
+        if ratio < 0.8 or ratio > 3.1:
             return None
-        
+
         # TODO more cuts?
 
         return cnt
@@ -255,6 +251,7 @@ class BallFinder2020(GenericFinder):
             # cv2.circle(output_frame, tuple(self.bottomPoint[0]), 2, (255, 255, 0), thickness=10, lineType=8, shift=0)
 
         return output_frame
+
 
 # Main routine
 # This is for development/testing
