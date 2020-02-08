@@ -130,7 +130,7 @@ case "$1" in
 
         # Pinging the radio seems to be needed to get the Ethernet interface up reliably.
         # Wait until radio is completely up.
-        radio=$(route -n | grep '^0\.0\.0\.0' | tr -s '/ /' | cut -d' ' -f2)
+        radio=$(route -n | awk '$1=="0.0.0.0"{print $2}')
         ping_address "$radio" >> $LOG_FILE 2>&1
 
         # Alternate: just keep pinging
