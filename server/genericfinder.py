@@ -118,7 +118,8 @@ def process_files(line_finder, input_files, output_dir):
 
         result = line_finder.process_image(bgr_frame)
         print(image_file, result[0], result[1], round(result[2], 1),
-              round(math.degrees(result[3]), 1), round(math.degrees(result[4]), 1))
+              round(math.degrees(result[3]), 1), round(math.degrees(result[4]), 1),
+              round(result[5], 1), round(math.degrees(result[6]), 1))
 
         bgr_frame = line_finder.prepare_output_image(bgr_frame)
 

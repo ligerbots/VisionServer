@@ -47,9 +47,9 @@ class BallFinder2020(GenericFinder):
                 self.cameraMatrix = numpy.array(json_data["camera_matrix"])
                 self.distortionMatrix = numpy.array(json_data["distortion"])
 
-        self.tilt_angle = math.radians(-7.5)  # camera mount angle (radians)
-        self.camera_height = 23.0            # height of camera off the ground (inches)
-        self.target_height = 0.0             # height of target off the ground (inches)
+        self.tilt_angle = math.radians(0)  # camera mount angle (radians)
+        self.camera_height = 18.0            # height of camera off the ground (inches)
+        self.target_height = 3.0             # height of target off the ground (inches)
 
         return
 
