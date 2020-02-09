@@ -131,14 +131,14 @@ case "$1" in
         # Pinging the radio seems to be needed to get the Ethernet interface up reliably.
         # Wait until radio is completely up.
         radio=$(route -n | awk '$1=="0.0.0.0"{print $2}')
-        ping_address "$radio" >> $LOG_FILE 2>&1
+        ##ping_address "$radio" >> $LOG_FILE 2>&1
 
         # Alternate: just keep pinging
         ##ping $radio > /dev/null 2>&1 < /dev/null &
 
-        # run the server with niceness -20 (high priority), just because it might help
+        # Start the server, but limit the CPU to #4-7, which are the fast ones
         echo '' >> $LOG_FILE
-        nice -20 python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
+        taskset -c 4-7 python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 	;;
 
     restart)
