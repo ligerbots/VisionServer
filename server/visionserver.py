@@ -149,10 +149,12 @@ class VisionServer:
         logging.info("Setting camera exposure to '%d'" % value)
         if value == 0:
             camera.setExposureAuto()
-            camera.getProperty('exposure_auto_priority').set(1)
+            # Logitech does not like having exposure_auto_priority on when the light is poor
+            #  slows down the frame rate
+            # camera.getProperty('exposure_auto_priority').set(1)
         else:
             camera.setExposureManual(int(value))
-            camera.getProperty('exposure_auto_priority').set(0)
+            # camera.getProperty('exposure_auto_priority').set(0)
         return
 
     @staticmethod
@@ -196,6 +198,10 @@ class VisionServer:
         # NOTE: order does matter
         VisionServer.set_camera_property(camera, 'focus_auto', 0)
         VisionServer.set_camera_property(camera, 'focus_absolute', 0)
+
+        # Logitech does not like having exposure_auto_priority on when the light is poor
+        #  slows down the frame rate
+        VisionServer.set_camera_property(camera, 'exposure_auto_priority', 0)
 
         mode = camera.getVideoMode()
         logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
@@ -267,6 +273,9 @@ class VisionServer:
     def prepare_output_image(self):
         '''Create the image to send to the Driver station.
         Finder is expected to *copy* the input image, as needed'''
+
+        if self.camera_frame is None:
+            return
 
         try:
             if self.curr_finder is None:
