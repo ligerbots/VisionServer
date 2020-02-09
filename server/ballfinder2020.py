@@ -49,7 +49,7 @@ class BallFinder2020(GenericFinder):
 
         self.tilt_angle = math.radians(0)  # camera mount angle (radians)
         self.camera_height = 18.0            # height of camera off the ground (inches)
-        self.target_height = 3.0             # height of target off the ground (inches)
+        self.target_height = 3.5             # height of target off the ground (inches)
 
         return
 
@@ -177,16 +177,18 @@ class BallFinder2020(GenericFinder):
                     # the factor of 1.3 is total arbitrary, but seems to make the point closer to the center
                     # essentially the minor axis underestimates the radius of the front ball,
                     #  which is bigger in the image
-                    self.center_points.append(center - ((major - 0.8 * minor) * direction))
+                    self.center_points.append(center + ((major - 1.3 * minor) * direction))
 
                     # if the contour is made up of all three balls, must return 2 centers, so return both anyways
-                    self.center_points.append(center + ((major - 1.3 * minor) * direction))
+                    self.center_points.append(center - ((major - 0.8 * minor) * direction))
 
                     # TODO may need to change the 1.3 and 0.8 for three vs. two balls?
                 else:
                     self.center_points.append(center)
-
                 # print("Center point:", center)
+
+                if len(self.center_points) >= 2:
+                    break
 
         # done with the contours. Pick two centers to return
 
@@ -194,25 +196,30 @@ class BallFinder2020(GenericFinder):
         # -1.0 means that something failed
         # 0 means that the entry is not currently being used
 
-        if self.center_points:
-            # remember y goes up as you move down the image
-            # self.center_points.sort(key=lambda c: c[1], reverse=True) #no need b/c it should already be in order
+        if not self.center_points:
+            # failed, found no ball
+            return (0.0, self.finder_id, -1.0, -1.0, 0.0, -1.0, -1.0)
 
-            if self.cameraMatrix is not None:
-                # use the camera calibration if we have it
-                angle1, distance1 = self.get_ball_values_calib(self.center_points[0])
-                if len(self.center_points) > 1:
-                    angle2, distance2 = self.get_ball_values_calib(self.center_points[1])
-                    return (1.0, self.finder_id, distance1, angle1, 0.0, distance2, angle2)
-                return (1.0, self.finder_id, distance1, angle1, 0.0, -1.0, -1.0)
+        # remember y goes up as you move down the image
+        # self.center_points.sort(key=lambda c: c[1], reverse=True) #no need b/c it should already be in order
+
+        if self.cameraMatrix is not None:
+            # use the camera calibration if we have it
+            angle1, distance1 = self.get_ball_values_calib(self.center_points[0])
+            if len(self.center_points) > 1:
+                angle2, distance2 = self.get_ball_values_calib(self.center_points[1])
             else:
-                angle1, distance1 = self.get_ball_values(self.center_points[0], camera_frame.shape)
-                if len(self.center_points) > 1:
-                    angle2, distance2 = self.get_ball_values(self.center_points[1], camera_frame.shape)
-                    return (1.0, self.finder_id, distance1, angle1, 0.0, distance2, angle2)
-                return (1.0, self.finder_id, distance1, angle1, 0.0, -1.0, -1.0)
+                angle2 = -1.0
+                distance2 = -1.0
+        else:
+            angle1, distance1 = self.get_ball_values(self.center_points[0], camera_frame.shape)
+            if len(self.center_points) > 1:
+                angle2, distance2 = self.get_ball_values(self.center_points[1], camera_frame.shape)
+            else:
+                angle2 = -1.0
+                distance2 = -1.0
 
-        return (0.0, self.finder_id, -1.0, -1.0, 0.0, -1.0, -1.0)
+        return (1.0, self.finder_id, distance1, angle1, 0.0, distance2, angle2)
 
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']
@@ -247,8 +254,7 @@ class BallFinder2020(GenericFinder):
             cv2.drawContours(output_frame, self.found_contours, -1, (0, 0, 255), 1)
 
         for cnt in self.center_points:
-            cv2.drawMarker(output_frame, tuple(cnt.astype(int)), (0, 255, 255), cv2.MARKER_CROSS, 5, 1)
-            # cv2.circle(output_frame, tuple(self.bottomPoint[0]), 2, (255, 255, 0), thickness=10, lineType=8, shift=0)
+            cv2.drawMarker(output_frame, tuple(cnt.astype(int)), (255, 125, 0), cv2.MARKER_CROSS, 5, 1)
 
         return output_frame
 
