@@ -25,7 +25,7 @@ class HopperFinder2020(GenericFinder):
         [TARGET_WIDTH / 2, TARGET_HEIGHT / 2]
     ]
     def __init__(self, calib_file):
-        super().__init__('hopperfinder', camera='front', finder_id=3.0, exposure=1)
+        super().__init__('hopperfinder', camera='intake', finder_id=3.0, exposure=1)
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 135), dtype=numpy.uint8)

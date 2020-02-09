@@ -33,16 +33,16 @@ class VisionServer2020(VisionServer):
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     def __init__(self, calib_file, test_mode=False):
-        super().__init__(initial_mode='front', test_mode=test_mode)
+        super().__init__(initial_mode='intake', test_mode=test_mode)
 
-        self.camera_device_front = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for driver and rrtarget processing
-        self.camera_device_floor = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
+        self.camera_device_shooter = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'    # for driver and rrtarget processing
+        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'    # for line and hatch processing
         self.add_cameras()
 
-        self.generic_finder = GenericFinder("front", "front", finder_id=4.0)
+        self.generic_finder = GenericFinder("shooter", "shooter", finder_id=4.0)
         self.add_target_finder(self.generic_finder)
 
-        self.generic_finder_intake = GenericFinder("floor", "floor", finder_id=5.0)
+        self.generic_finder_intake = GenericFinder("intake", "intake", finder_id=5.0)
         self.add_target_finder(self.generic_finder_intake)
 
         self.goal_finder = GoalFinder2020(calib_file)
@@ -53,8 +53,8 @@ class VisionServer2020(VisionServer):
 
         self.update_parameters()
 
-        # start in floor mode to get cameras going. Will switch to 'front' after 1 sec.
-        self.switch_mode('floor')
+        # start in shooter mode to get cameras going. Will switch to 'intake' after 1 sec.
+        self.switch_mode('shooter')
         return
 
     def update_parameters(self):
@@ -71,14 +71,14 @@ class VisionServer2020(VisionServer):
     def add_cameras(self):
         '''Add the cameras'''
 
-        self.add_camera('front', self.camera_device_front, True)
-        self.add_camera('floor', self.camera_device_floor, False)
+        self.add_camera('shooter', self.camera_device_shooter, True)
+        self.add_camera('intake', self.camera_device_intake, False)
         return
 
     def mode_after_error(self):
-        if self.active_mode == 'front':
-            return 'floor'
-        return 'front'
+        if self.active_mode == 'intake':
+            return 'shooter'
+        return 'intake'
 
 
 # Main routine

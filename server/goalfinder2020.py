@@ -30,7 +30,7 @@ class GoalFinder2020(GenericFinder):
     ])
 
     def __init__(self, calib_file):
-        super().__init__('goalfinder', camera='front', finder_id=1.0, exposure=1)
+        super().__init__('goalfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = numpy.array((65, 75, 75), dtype=numpy.uint8)
