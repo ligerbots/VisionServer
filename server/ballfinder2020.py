@@ -237,7 +237,9 @@ class BallFinder2020(GenericFinder):
         if ratio < 0.8 or ratio > 3.1:
             return None
 
-        # TODO more cuts?
+        ratio = cv2.contourArea(cnt) / contour_entry['area']
+        if ratio < (math.pi / 4) - 0.1 or ratio > (math.pi / 4) + 0.1:  # TODO refine the 0.1 error range
+            return None
 
         return cnt
 
