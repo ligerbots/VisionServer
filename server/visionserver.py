@@ -2,7 +2,7 @@
 
 '''Defines a class for which each year's subclass vision server inherits from'''
 
-import sys
+# import sys
 import time
 import cv2
 import numpy
@@ -292,8 +292,18 @@ class VisionServer:
 
                 self.output_frame = self.curr_finder.prepare_output_image(base_frame)
 
-            image_shape = self.output_frame.shape
-            if image_shape[0] < 400:  # test on height
+            min_dim = min(self.output_frame.shape[0:2])
+
+            # Rescale if needed
+            if min_dim > 400:
+                # this is kind of slow but produces a nicer image. Try to do without
+                # self.output_frame = cv2.resize(self.output_frame, dsize=(0, 0), fx=0.5, fy=0.5, interpolation=INTER_NEAREST)
+
+                # *Much* faster: pick every 2nd pixel
+                self.output_frame = self.output_frame[::2, ::2, :]
+                min_dim //= 2
+
+            if min_dim < 400:  # test on height
                 dotrad = 3
                 fontscale = 0.4
                 fontthick = 1
@@ -312,7 +322,7 @@ class VisionServer:
 
             # If test mode (ie running the NT server), give a warning
             if self.test_mode:
-                cv2.putText(self.output_frame, "TEST MODE", (5, image_shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX,
+                cv2.putText(self.output_frame, "TEST MODE", (5, self.output_frame.shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX,
                             fontscale, (0, 255, 255), thickness=fontthick)
 
         except Exception as e:
