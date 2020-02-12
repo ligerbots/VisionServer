@@ -5,12 +5,11 @@
 
 import cscore
 import logging
-import numpy
+from numpy import array, rot90
 import json
 import os.path
 from threading import Thread
 from time import time
-from cv2 import rotate
 
 
 class LigerCamera:
@@ -18,8 +17,9 @@ class LigerCamera:
     Makes handling different camera models easier
     Includes a threaded reader, so you can grab a frame without waiting, if needed'''
 
-    def __init__(self, camera_server, name, device, image_height=240, fps=30, image_width=320, rotation=None):
-        '''Create a USB camera and configure it.'''
+    def __init__(self, camera_server, name, device, image_height=240, fps=30, image_width=320, rotation=0):
+        '''Create a USB camera and configure it.
+        Note: rotation is an angle: 0, 90, 180, -90'''
 
         self.rotation = rotation
 
@@ -92,8 +92,8 @@ class LigerCamera:
 
         with open(calib_file) as f:
             json_data = json.load(f)
-            self.calibration_matrix = numpy.array(json_data["camera_matrix"])
-            self.distortion_matrix = numpy.array(json_data["distortion"])
+            self.calibration_matrix = array(json_data["camera_matrix"])
+            self.distortion_matrix = array(json_data["distortion"])
         return
 
     def start(self):
@@ -118,11 +118,10 @@ class LigerCamera:
             self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
             self.frame_number += 1
 
-            if self.rotation is not None:
-                # WARNING rotation=0 is actually 90deg clockwise (dumb!!)
-                # note: rotate function makes a copy
-                # TODO: is there a faster numpy way to do this??
-                self.camera_frame = rotate(self.camera_frame, self.rotation)
+            if self.rotation:
+                # Numpy is *much* faster than the OpenCV routine
+                num_rot = (self.rotation // 90) % 4   # integer division
+                self.camera_frame = rot90(self.camera_frame, num_rot)
 
             if self.frame_number % 150 == 0:
                 endt = time()
