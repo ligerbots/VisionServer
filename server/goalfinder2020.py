@@ -151,14 +151,14 @@ class GoalFinder2020(GenericFinder):
         output_frame = input_frame.copy()
 
         if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
         if self.target_contour is not None:
             cv2.drawContours(output_frame, [self.target_contour.astype(int)], -1, (255, 0, 0), 1)
 
         if self.outer_corners is not None:
             for indx, cnr in enumerate(self.outer_corners):
-                cv2.circle(output_frame, tuple(cnr.astype(int)), 4, (0, 255, 0), -1, lineType=8, shift=0)
+                cv2.drawMarker(output_frame, tuple(cnr.astype(int)), (0, 255, 0), cv2.MARKER_CROSS, 5, 1)
                 # cv2.putText(output_frame, str(indx), tuple(cnr.astype(int)), 0, .5, (255, 255, 255))
 
         return output_frame
