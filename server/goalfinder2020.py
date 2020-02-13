@@ -143,7 +143,7 @@ class GoalFinder2020(GenericFinder):
                 return result
 
         # no target found. Return "failure"
-        return [0.0, self.finder_id, 0.0, 0.0, 0.0, 0.0, 0.0]
+        return [0.0, self.finder_id, 0.0, 0.0, 0.0, -1.0, -1.0]
 
     def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''
