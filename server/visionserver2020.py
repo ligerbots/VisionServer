@@ -5,9 +5,11 @@
 from networktables.util import ntproperty
 
 from visionserver import VisionServer, main
+import cameras
 from genericfinder import GenericFinder
 from goalfinder2020 import GoalFinder2020
 from ballfinder2020 import BallFinder2020
+from hopperfinder2020 import HopperFinder2020
 
 
 class VisionServer2020(VisionServer):
@@ -51,6 +53,9 @@ class VisionServer2020(VisionServer):
         self.ball_finder = BallFinder2020(calib_file)
         self.add_target_finder(self.ball_finder)
 
+        self.hopper_finder = HopperFinder2020(calib_file)
+        self.add_target_finder(self.hopper_finder)
+
         self.update_parameters()
 
         # start in shooter mode to get cameras going. Will switch to 'intake' after 1 sec.
@@ -71,8 +76,8 @@ class VisionServer2020(VisionServer):
     def add_cameras(self):
         '''Add the cameras'''
 
-        self.add_camera('shooter', self.camera_device_shooter, True)
-        self.add_camera('intake', self.camera_device_intake, False)
+        self.add_camera(cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90), True)
+        self.add_camera(cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=240, rotation=90), False)
         return
 
     def mode_after_error(self):
