@@ -3,7 +3,7 @@
 '''Defines a class for which each year's subclass vision server inherits from'''
 
 # import sys
-import time
+from time import time
 import cv2
 import numpy
 import logging
@@ -13,8 +13,6 @@ from wpilib import SmartDashboard, SendableChooser
 from cscore.imagewriter import ImageWriter
 from networktables.util import ntproperty, ChooserControl
 from networktables import NetworkTables
-
-from threadedcamera import ThreadedCamera
 
 
 class VisionServer:
@@ -27,7 +25,7 @@ class VisionServer:
 
     # frame rate is pretty variable, so set this a fair bit higher than what you really want
     # using a large number for no limit
-    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 25,
+    output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 60,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -65,8 +63,6 @@ class VisionServer:
         self.camera_server = cscore.CameraServer.getInstance()
         self.camera_server.enableLogging()
 
-        self.video_readers = {}
-        self.current_reader = None
         self.cameras = {}
         self.active_camera = None
 
@@ -91,7 +87,7 @@ class VisionServer:
         self.curr_finder = None
 
         # rate limit parameters
-        self.previous_output_time = time.time()
+        self.previous_output_time = time()
         self.camera_frame = None
         self.output_frame = None
 
@@ -144,84 +140,23 @@ class VisionServer:
 
         return
 
-    @staticmethod
-    def set_exposure(camera, value):
-        logging.info("Setting camera exposure to '%d'" % value)
-        if value == 0:
-            camera.setExposureAuto()
-            # Logitech does not like having exposure_auto_priority on when the light is poor
-            #  slows down the frame rate
-            # camera.getProperty('exposure_auto_priority').set(1)
-        else:
-            camera.setExposureManual(int(value))
-            # camera.getProperty('exposure_auto_priority').set(0)
-        return
-
-    @staticmethod
-    def set_camera_property(camera, name, value):
-        '''Set a camera property, such as auto_focus'''
-
-        logging.info("Setting camera property '{}' to '{}'".format(name, value))
-        try:
-            try:
-                propVal = int(value)
-            except ValueError:
-                camera.getProperty(name).setString(value)
-            else:
-                camera.getProperty(name).set(propVal)
-        except Exception as e:
-            logging.warn("Unable to set property '{}': {}".format(name, e))
-
-        return
-
-    def add_camera(self, name, device, active=True):
+    def add_camera(self, camera, active=True):
         '''Add a single camera and set it to active/disabled as indicated.
         Cameras are referenced by their name, so pick something unique'''
 
-        camera = cscore.UsbCamera(name, device)
-        # remember the camera object, in case we need to adjust it (eg the exposure)
-        self.cameras[name] = camera
-
-        self.camera_server.startAutomaticCapture(camera=camera)
-
-        # PS Eye camera needs to have its pixelformat set
-        # camera.setPixelFormat(cscore.VideoMode.PixelFormat.kYUYV)
-
-        camera.setResolution(int(self.image_width), int(self.image_height))
-        camera.setFPS(int(self.camera_fps))
-
-        # keep the camera open for faster switching
-        camera.setConnectionStrategy(cscore.VideoSource.ConnectionStrategy.kKeepOpen)
-
-        # set the camera for no auto focus, focus at infinity
-        # TODO: different cameras have different properties
-        # NOTE: order does matter
-        VisionServer.set_camera_property(camera, 'focus_auto', 0)
-        VisionServer.set_camera_property(camera, 'focus_absolute', 0)
-
-        # Logitech does not like having exposure_auto_priority on when the light is poor
-        #  slows down the frame rate
-        VisionServer.set_camera_property(camera, 'exposure_auto_priority', 0)
-
-        mode = camera.getVideoMode()
-        logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
-                     mode.pixelFormat, mode.width, mode.height, mode.fps)
-
-        reader = ThreadedCamera(self.camera_server.getVideo(camera=camera)).start()
-        self.video_readers[name] = reader
+        self.cameras[camera.get_name()] = camera
+        camera.start()          # start read thread
         if active:
-            self.current_reader = reader
-            self.active_camera = name
+            self.active_camera = camera
 
         return
 
     def switch_camera(self, name):
         '''Switch the active camera, and disable the previously active one'''
 
-        new_reader = self.video_readers.get(name, None)
-        if new_reader is not None:
-            self.current_reader = new_reader
-            self.active_camera = name
+        new_camera = self.cameras.get(name, None)
+        if new_camera is not None:
+            self.active_camera = new_camera
         else:
             logging.error('Unknown camera %s' % name)
 
@@ -245,11 +180,11 @@ class VisionServer:
             logging.info("Switching mode to '%s'" % new_mode)
             finder = self.target_finders.get(new_mode, None)
             if finder is not None:
-                if self.active_camera != finder.camera:
+                if self.active_camera.get_name() != finder.camera:
                     self.switch_camera(finder.camera)
 
                 self.curr_finder = finder
-                self.set_exposure(self.cameras[finder.camera], finder.exposure)
+                self.active_camera.set_exposure(finder.exposure)
                 self.active_mode = new_mode
             else:
                 logging.error("Unknown mode '%s'" % new_mode)
@@ -337,7 +272,7 @@ class VisionServer:
         errors = 0
 
         fps_count = 0
-        fps_startt = time.time()
+        fps_startt = time()
         imgproc_nettime = 0
 
         while True:
@@ -356,23 +291,23 @@ class VisionServer:
 
                 # Tell the CvReader to grab a frame from the camera and put it
                 # in the source image.  Frametime==0 on error
-                frametime, self.camera_frame = self.current_reader.next_frame()
+                frametime, self.camera_frame = self.active_camera.next_frame()
                 frame_num += 1
 
-                imgproc_startt = time.time()
+                imgproc_startt = time()
 
                 if frametime == 0:
                     # ERROR!!
-                    self.error_msg = self.current_reader.sink.getError()
+                    self.error_msg = self.active_camera.sink.getError()
 
                     if errors < 10:
                         errors += 1
-                    else:   # if 10 or more iterations without any stream switch cameras
-                        logging.warning(self.active_camera + " camera is no longer streaming. Switching cameras...")
+                    else:   # if 10 or more iterations without any stream, switch cameras
+                        logging.warning(self.active_camera.get_name() + " camera is no longer streaming. Switching cameras...")
                         self.switch_mode(self.mode_after_error())
                         errors = 0
 
-                    target_res = [time.time(), ]
+                    target_res = [time(), ]
                     target_res.extend(5*[0.0, ])
                 else:
                     self.error_msg = None
@@ -381,7 +316,7 @@ class VisionServer:
                     if self.image_writer_state:
                         self.image_writer.setImage(self.camera_frame)
 
-                    # frametime = time.time() * 1e8  (ie in 1/100 microseconds)
+                    # frametime = time() * 1e8  (ie in 1/100 microseconds)
                     # convert frametime to seconds to use as the heartbeat sent to the RoboRio
                     target_res = [1e-8 * frametime, ]
 
@@ -399,8 +334,8 @@ class VisionServer:
                 NetworkTables.flush()
 
                 # Done. Output the marked up image, if needed
-                # Note this can also be done via the URL, but this is more efficient
-                now = time.time()
+                # Note this rate limiting can also be done via the URL, but this is more efficient
+                now = time()
                 deltat = now - self.previous_output_time
                 min_deltat = 1.0 / self.output_fps_limit
                 if deltat >= min_deltat:
@@ -416,7 +351,7 @@ class VisionServer:
                 fps_count += 1
                 imgproc_nettime += now - imgproc_startt
                 if fps_count >= 150:
-                    endt = time.time()
+                    endt = time()
                     dt = endt - fps_startt
                     logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
                     logging.info("Image processing time = {0:.2f} msec/frame".format(1000.0 * imgproc_nettime / fps_count))

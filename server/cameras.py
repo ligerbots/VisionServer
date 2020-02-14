@@ -9,19 +9,19 @@ from numpy import array, rot90
 import json
 import os.path
 from threading import Thread
-from time import time
+from time import time, sleep
 
 
-class LigerCamera:
+class Camera:
     '''Wrapper for camera related functionality.
     Makes handling different camera models easier
     Includes a threaded reader, so you can grab a frame without waiting, if needed'''
 
-    def __init__(self, camera_server, name, device, image_height=240, fps=30, image_width=320, rotation=0):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0):
         '''Create a USB camera and configure it.
         Note: rotation is an angle: 0, 90, 180, -90'''
 
-        self.rotation = rotation
+        self.rot90_count = (rotation // 90) % 4  # integer division
 
         # camera calibration info, if loaded
         self.calibration_matrix = None
@@ -32,7 +32,7 @@ class LigerCamera:
         # keep the camera open for faster switching
         self.camera.setConnectionStrategy(cscore.VideoSource.ConnectionStrategy.kKeepOpen)
 
-        self.camera.setResolution(int(image_width), int(image_height))
+        self.camera.setResolution(int(width), int(height))
         self.camera.setFPS(int(fps))
 
         # set the camera for no auto focus, focus at infinity
@@ -54,6 +54,9 @@ class LigerCamera:
         self.last_read = 0
 
         return
+
+    def get_name(self):
+        return self.camera.getName()
 
     def set_exposure(self, value):
         '''Set the camera exposure. 0 means auto exposure'''
@@ -118,10 +121,9 @@ class LigerCamera:
             self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
             self.frame_number += 1
 
-            if self.rotation:
+            if self.rot90_count and self.frametime > 0:
                 # Numpy is *much* faster than the OpenCV routine
-                num_rot = (self.rotation // 90) % 4   # integer division
-                self.camera_frame = rot90(self.camera_frame, num_rot)
+                self.camera_frame = rot90(self.camera_frame, self.rot90_count)
 
             if self.frame_number % 150 == 0:
                 endt = time()
@@ -134,7 +136,7 @@ class LigerCamera:
         '''Wait for a new frame'''
 
         while self.last_read == self.frame_number:
-            time.sleep(0.001)
+            sleep(0.001)
         self.last_read = self.frame_number
         return self.frametime, self.camera_frame
 
@@ -146,16 +148,16 @@ class LigerCamera:
     def stop(self):
         # indicate that the thread should be stopped
         self.stopped = True
-        time.sleep(0.3)         # time for thread to stop (proper way???)
+        sleep(0.3)         # time for thread to stop (proper way???)
         return
 
 
-class LogitechC930e(LigerCamera):
-    def __init__(self, camera_server, name, device, image_height=240, fps=30, image_width=None, rotation=None):
-        if not image_width:
-            image_width = 424 if image_height == 240 else 848
+class LogitechC930e(Camera):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0):
+        if not width:
+            width = 424 if height == 240 else 848
 
-        super().__init__(self, camera_server, name, device, image_height=image_height, fps=fps, image_width=image_width, rotation=rotation)
+        super().__init__(camera_server, name, device, height=height, fps=fps, width=width, rotation=rotation)
 
         # Logitech does not like having exposure_auto_priority on when the light is poor
         #  slows down the frame rate
@@ -173,12 +175,12 @@ class LogitechC930e(LigerCamera):
         return
 
 
-class PSEye(LigerCamera):
-    def __init__(self, camera_server, name, device, image_height=240, fps=30, image_width=None, rotation=None):
-        if not image_width:
-            image_width = 320 if image_height == 240 else 640
+class PSEye(Camera):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0):
+        if not width:
+            width = 320 if height == 240 else 640
 
-        super().__init__(self, camera_server, name, device, image_height=image_height, fps=fps, image_width=image_width, rotation=rotation)
+        super().__init__(camera_server, name, device, height=height, fps=fps, width=width, rotation=rotation)
 
         # PS Eye camera needs to have its pixelformat set
         # Not tested yet. Does this need to happen earlier?
