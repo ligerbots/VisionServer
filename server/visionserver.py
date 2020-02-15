@@ -231,11 +231,8 @@ class VisionServer:
 
             # Rescale if needed
             if min_dim > 400:
-                # this is kind of slow but produces a nicer image. Try to do without
-                # self.output_frame = cv2.resize(self.output_frame, dsize=(0, 0), fx=0.5, fy=0.5, interpolation=INTER_NEAREST)
-
-                # *Much* faster: pick every 2nd pixel
-                self.output_frame = self.output_frame[::2, ::2, :]
+                # downscale by 2x
+                self.output_frame = cv2.resize(self.output_frame, dsize=(0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_NEAREST)
                 min_dim //= 2
 
             if min_dim < 400:  # test on height
