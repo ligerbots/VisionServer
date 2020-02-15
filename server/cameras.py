@@ -17,7 +17,7 @@ class Camera:
     Makes handling different camera models easier
     Includes a threaded reader, so you can grab a frame without waiting, if needed'''
 
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0, threaded=False):
         '''Create a USB camera and configure it.
         Note: rotation is an angle: 0, 90, 180, -90'''
 
@@ -47,6 +47,7 @@ class Camera:
         # Variables for the threaded read loop
         self.sink = camera_server.getVideo(camera=self.camera)
 
+        self.threaded = threaded
         self.frametime = None
         self.camera_frame = None
         self.stopped = False
@@ -102,10 +103,11 @@ class Camera:
     def start(self):
         '''Start the thread to read frames from the video stream'''
 
-        t = Thread(target=self.update, args=())
-        t.daemon = True
-        t.start()
-        return self
+        if self.threaded:
+            t = Thread(target=self.update, args=())
+            t.daemon = True
+            t.start()
+        return
 
     def update(self):
         '''Threaded read loop'''
@@ -118,12 +120,7 @@ class Camera:
                 return
 
             # otherwise, read the next frame from the stream
-            self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
-            self.frame_number += 1
-
-            if self.rot90_count and self.frametime > 0:
-                # Numpy is *much* faster than the OpenCV routine
-                self.camera_frame = rot90(self.camera_frame, self.rot90_count)
+            self._read_one_frame()
 
             if self.frame_number % 150 == 0:
                 endt = time()
@@ -135,15 +132,31 @@ class Camera:
     def next_frame(self):
         '''Wait for a new frame'''
 
-        while self.last_read == self.frame_number:
-            sleep(0.001)
-        self.last_read = self.frame_number
+        if self.threaded:
+            while self.last_read == self.frame_number:
+                sleep(0.001)
+            self.last_read = self.frame_number
+        else:
+            self._read_one_frame()
+
         return self.frametime, self.camera_frame
 
     def get_frame(self):
         '''Return the frame most recently read, no waiting. This may be a repeat of the previous image.'''
 
+        if not self.threaded:
+            raise Exception("Called get_frame on a non-threaded reader")
+
         return self.frametime, self.camera_frame
+
+    def _read_one_frame(self):
+        self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
+        self.frame_number += 1
+
+        if self.rot90_count and self.frametime > 0:
+            # Numpy is *much* faster than the OpenCV routine
+            self.camera_frame = rot90(self.camera_frame, self.rot90_count)
+        return
 
     def stop(self):
         # indicate that the thread should be stopped
@@ -153,11 +166,11 @@ class Camera:
 
 
 class LogitechC930e(Camera):
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=False):
         if not width:
             width = 424 if height == 240 else 848
 
-        super().__init__(camera_server, name, device, height=height, fps=fps, width=width, rotation=rotation)
+        super().__init__(camera_server, name, device, height=height, fps=fps, width=width, rotation=rotation, threaded=threaded)
 
         # Logitech does not like having exposure_auto_priority on when the light is poor
         #  slows down the frame rate
@@ -176,11 +189,11 @@ class LogitechC930e(Camera):
 
 
 class PSEye(Camera):
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=False):
         if not width:
             width = 320 if height == 240 else 640
 
-        super().__init__(camera_server, name, device, height=height, fps=fps, width=width, rotation=rotation)
+        super().__init__(camera_server, name, device, height=height, fps=fps, width=width, rotation=rotation, threaded=threaded)
 
         # PS Eye camera needs to have its pixelformat set
         # Not tested yet. Does this need to happen earlier?
