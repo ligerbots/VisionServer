@@ -5,6 +5,7 @@
 import cv2
 import numpy
 import argparse
+import sys
 
 
 def proceed(x):
@@ -16,9 +17,9 @@ def proceed(x):
 def process_files(image_files):
     global run
 
-    # Create a black image, a window
-    # cv2.namedWindow('image', cv2.WINDOW_NORMAL )
-    cv2.namedWindow('image')
+    # WINDOW_NORMAL allows the size to be changed
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+    # cv2.namedWindow('image')
 
     cv2.createTrackbar('Hlow', 'image', 65, 255, proceed)
     cv2.createTrackbar('Hhigh', 'image', 100, 255, proceed)
@@ -30,7 +31,7 @@ def process_files(image_files):
     image_id = -1
     cv2.createTrackbar('Image#', 'image', 0, len(image_files)-1, proceed)
 
-    fixed_height = 450
+    # fixed_height = 450
 
     # # create switch for ON/OFF functionality
     # switch = '0 : OFF \n1 : ON'
@@ -67,9 +68,10 @@ def process_files(image_files):
             cv2.drawContours(draw_frame, contours, -1, (0, 0, 255), 1)
             run = False
 
-        height, width, channels = bgr_frame.shape
-        resized = cv2.resize(draw_frame, (int(fixed_height * (width / height)), fixed_height), interpolation = cv2.INTER_AREA)
-        cv2.imshow('image', resized)
+        # this could be done with a factor, like "2.0"
+        # height, width, channels = bgr_frame.shape
+        # resized = cv2.resize(draw_frame, (int(fixed_height * (width / height)), fixed_height), interpolation=cv2.INTER_AREA)
+        cv2.imshow('image', draw_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
@@ -87,8 +89,18 @@ def process_files(image_files):
 run = True
 
 parser = argparse.ArgumentParser(description='Color threshold utility')
-parser.add_argument('files', nargs='+', help='Input image files')
+parser.add_argument('input_files', nargs='+', help='Input image files')
 
 args = parser.parse_args()
 
-process_files(args.files)
+if sys.platform == "win32":
+    # windows does not expand the "*" files on the command line
+    #  so we have to do it.
+    import glob
+
+    infiles = []
+    for f in args.input_files:
+        infiles.extend(glob.glob(f))
+    args.input_files = infiles
+
+process_files(args.input_files)
