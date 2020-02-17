@@ -21,7 +21,7 @@ class BallFinder2020(GenericFinder):
     VP_HALF_WIDTH = math.tan(math.radians(HFOV)/2.0)  # view plane 1/2 height
     VP_HALF_HEIGHT = math.tan(math.radians(VFOV)/2.0)  # view plane 1/2 width
 
-    def __init__(self, calib_file):
+    def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('ballfinder', camera='intake', finder_id=2.0, exposure=0)
 
         # individual properties
@@ -39,13 +39,8 @@ class BallFinder2020(GenericFinder):
         self.found_contours = []
         self.center_points = []
 
-        self.cameraMatrix = None
-        self.distortionMatrix = None
-        if calib_file:
-            with open(calib_file) as f:
-                json_data = json.load(f)
-                self.cameraMatrix = numpy.array(json_data["camera_matrix"])
-                self.distortionMatrix = numpy.array(json_data["distortion"])
+        self.cameraMatrix = calib_matrix
+        self.distortionMatrix = dist_matrix
 
         self.tilt_angle = math.radians(0)  # camera mount angle (radians)
         self.camera_height = 18.0            # height of camera off the ground (inches)

@@ -34,12 +34,12 @@ class VisionServer2020(VisionServer):
 
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
-    def __init__(self, calib_file, test_mode=False):
+    def __init__(self, calib_dir, test_mode=False):
         super().__init__(initial_mode='intake', test_mode=test_mode)
 
         self.camera_device_shooter = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
-        self.add_cameras()
+        self.add_cameras(calib_dir)
 
         self.generic_finder = GenericFinder("shooter", "shooter", finder_id=4.0)
         self.add_target_finder(self.generic_finder)
@@ -47,13 +47,15 @@ class VisionServer2020(VisionServer):
         self.generic_finder_intake = GenericFinder("intake", "intake", finder_id=5.0)
         self.add_target_finder(self.generic_finder_intake)
 
-        self.goal_finder = GoalFinder2020(calib_file)
+        cam = self.cameras['shooter']
+        self.goal_finder = GoalFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.goal_finder)
 
-        self.ball_finder = BallFinder2020(calib_file)
+        cam = self.cameras['intake']
+        self.ball_finder = BallFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.ball_finder)
 
-        self.hopper_finder = HopperFinder2020(calib_file)
+        self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
 
         self.update_parameters()
@@ -73,11 +75,16 @@ class VisionServer2020(VisionServer):
                                               self.rrtarget_value_low_limit, self.rrtarget_value_high_limit)
         return
 
-    def add_cameras(self):
+    def add_cameras(self, calib_dir):
         '''Add the cameras'''
 
-        self.add_camera(cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90), True)
-        self.add_camera(cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=240, rotation=90), False)
+        cam = cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90)
+        cam.load_calibration(calib_dir)
+        self.add_camera(cam, True)
+
+        cam = cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=240, rotation=90)
+        cam.load_calibration(calib_dir)
+        self.add_camera(cam, False)
         return
 
     def mode_after_error(self):

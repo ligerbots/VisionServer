@@ -163,16 +163,22 @@ def time_processing(cube_processor, input_files):
 def main(finder_type):
     '''Main routine for testing this Finder'''
     import argparse
+    import cameras
 
     parser = argparse.ArgumentParser(description='2019 rrtarget finder')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
     parser.add_argument('--calib_file', help='Calibration file')
+    parser.add_argument('--rotate_calib', action='store_true', help='Rotate the calibration file upon load')
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
 
-    finder = finder_type(args.calib_file)
+    rot = 90 if args.rotate_calib else 0
+    calib_matrix, dist_matrix = cameras.Camera.load_calibration_file(args.calib_file, rotation=rot)
+    # print('calib', calib_matrix)
+    # print('dist', dist_matrix)
+    finder = finder_type(calib_matrix, dist_matrix)
 
     if sys.platform == "win32":
         # windows does not expand the "*" files on the command line
