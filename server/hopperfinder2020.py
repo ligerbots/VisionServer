@@ -25,7 +25,7 @@ class HopperFinder2020(GenericFinder):
         [TARGET_WIDTH / 2, TARGET_HEIGHT / 2, 0.0]
     ])
 
-    def __init__(self, calib_file):
+    def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('hopperfinder', camera='intake', finder_id=3.0, exposure=1)
 
         # Color threshold values, in HSV space
@@ -58,11 +58,8 @@ class HopperFinder2020(GenericFinder):
         # output results
         self.target_contour = None
 
-        if calib_file:
-            with open(calib_file) as f:
-                json_data = json.load(f)
-                self.cameraMatrix = numpy.array(json_data["camera_matrix"])
-                self.distortionMatrix = numpy.array(json_data["distortion"])
+        self.cameraMatrix = calib_matrix
+        self.distortionMatrix = dist_matrix
 
         self.outer_corners = []
 

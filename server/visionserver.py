@@ -416,8 +416,8 @@ def main(server_type):
     '''Main routine'''
 
     import argparse
-    parser = argparse.ArgumentParser(description='2018 Vision Server')
-    parser.add_argument('--calib', required=True, help='Calibration file for camera')
+    parser = argparse.ArgumentParser(description='LigerBots Vision Server')
+    parser.add_argument('--calib_dir', required=True, help='Directory for calibration files')
     parser.add_argument('--test', action='store_true', help='Run in local test mode')
     parser.add_argument('--delay', type=int, default=0, help='Max delay trying to connect to NT server (seconds)')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose. Turn up debug messages')
@@ -448,7 +448,7 @@ def main(server_type):
         if args.delay > 0:
             wait_on_nt_connect(args.delay)
 
-    server = server_type(calib_file=args.calib, test_mode=args.test)
+    server = server_type(calib_dir=args.calib_dir, test_mode=args.test)
 
     if args.files:
         if not args.input_files:
