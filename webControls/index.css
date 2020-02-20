@@ -2,10 +2,12 @@
 body{
   padding:0px;
   font-size:1.5em;
+  margin: 0 !important;
+padding: 0 !important;
 }
 #cam-area img{
   width:initial !important;
-  height:80vh !important;
+  height:50vh !important;
   margin-left:auto;
   margin-right:auto;
   box-sizing: border-box;
@@ -28,12 +30,84 @@ body{
   background-color:rgb(20,20,20);
 }
 #cam-controls{
-  min-width:30vw;
   grid-column:2;
   grid-row:1;
   background-color:rgb(220,220,220);
   padding:.5em;
   font-size: 1.1em;
   box-sizing: border-box;
+}
+#nt-list{
+  padding-left:1em;
+  padding-right:1em;
+  margin-top:.2em;
+  position: relative;
+}
+#nt-banner{
+text-align: center;
+width: 100%;
+display: inline-block;
+background: lightgray;
+margin-top:.5em;
+}
+#nt-help{
+  color:rgb(50,50,50);
+  font-size: .7em;
+  margin-top:.3em;
+  padding-left: 1.42857em;
+}
+.leaf-tag{
+  display:inline-block;
+  line-height: 1em;
 
+}
+.leaf-itm{
+  display:inline-block;
+  right:0px;
+  width:60vw;
+  position:absolute;
+  line-height: 1em;
+
+}
+.stem-tag{
+  display: inline-block;
+  width:30%;
+  position: relative;
+}
+
+
+.stem-tag.optn-open::before{
+  position: absolute;
+  left:-.95em;
+  content: "\25bc";
+}
+.stem-tag:not(.optn-open)::before{
+  position: absolute;
+  left:-.95em;
+  content: "\25ba";
+}
+.stem-itm{
+  margin-left:20px;
+  position: relative;
+}
+.leaf-itm input{
+  width:100%;
+  background-color: rgba(0,0,0,0);
+  border: 1px black solid;
+  padding:3px;
+  box-sizing: border-box;
+  line-height: 1em;
+  vertical-align: middle;
+  font-size: .7em;
+  position: relative;
+}
+.leaf-itm-info{
+  pointer-events: none;
+  color:rgb(50,50,50);
+  font-size:.7em;
+  line-height: 1.8em;
+  z-index: -1;
+  position:absolute;
+  right:.5em;
+  top:0;
 }
