@@ -1,0 +1,39 @@
+
+body{
+  padding:0px;
+  font-size:1.5em;
+}
+#cam-area img{
+  width:initial !important;
+  height:80vh !important;
+  margin-left:auto;
+  margin-right:auto;
+  box-sizing: border-box;
+  display: block;
+
+}
+#cam-area{
+  width:100%;
+  display:grid;
+  grid-template-columns: 1fr auto;
+
+}
+
+#cam-frame{
+  width:100%;
+
+  position: relative;
+  grid-column:1;
+  grid-row:1;
+  background-color:rgb(20,20,20);
+}
+#cam-controls{
+  min-width:30vw;
+  grid-column:2;
+  grid-row:1;
+  background-color:rgb(220,220,220);
+  padding:.5em;
+  font-size: 1.1em;
+  box-sizing: border-box;
+
+}
