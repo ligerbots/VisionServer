@@ -9,11 +9,7 @@ SCRIPT=visionserver2020.py
 # For running standalone (not alongside a RoboRio), add the "--test" option
 # For serious debugging, add the "--verbose" option, but it is very noisy
 
-# 640x480 value (but should use the wide screen settings!!)
-##ARGS="--calib ../data/calibration/c930e_vga_calib.json"
-
-# 424x240 value
-ARGS="--calib ../data/calibration/c930e_424x240_calib.json"
+ARGS="--calib_dir ../data/calibration"
 
 LOG_DIR="logs"
 LOG_BASE="visionserver"

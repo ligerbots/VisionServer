@@ -40,7 +40,7 @@ class HopperFinder2020(GenericFinder):
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
-        # self.tilt_angle = math.radians(-7.5)
+        self.tilt_angle = math.radians(-20)
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -48,9 +48,6 @@ class HopperFinder2020(GenericFinder):
         # candidate cut thresholds
         self.max_dim_ratio = 1
         self.min_area_ratio = 0.25
-
-        # camera tilt angle
-        self.tilt_angle = 0
 
         # DEBUG values
         self.top_contours = None
