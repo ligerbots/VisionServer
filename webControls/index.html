@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="index.css">
   </head>
   <body>
-    <div id=cam-area>
+    <div id=content-area class="vert-split">
       <div id=cam-frame>
 
       </div>
@@ -24,13 +24,21 @@
         <div>Current Camera:</div>
         <div id=cam-selection>
         </div>
+        <hr>
+        <button type="button" id="vrt-layout-btn">VT</button>
+        <button type="button" id="hor-layout-btn">HR</button>
+        <button type="button" id="fs-layout-btn">FS</button>
+
+      </div>
+      <div id=nt-area>
+        <div id=nt-banner>NetworkTables</div>
+        <div id=nt-help>Click on tables to expand. Press enter in input box to change.</div>
+        <div id=nt-list>
+
+          <div class=nt-item></div>
+        </div>
       </div>
     </div>
-    <div id=nt-banner>NetworkTables</div>
-    <div id=nt-help>Click on tables to expand. Press enter in input box to change.</div>
-    <div id=nt-list>
 
-      <div class=nt-item></div>
-    </div>
   </body>
 </html>
