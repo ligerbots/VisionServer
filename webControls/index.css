@@ -1,113 +1,237 @@
-
-body{
-  padding:0px;
-  font-size:1.5em;
+body {
+  padding: 0px;
+  font-size: 1.5em;
   margin: 0 !important;
-padding: 0 !important;
+  padding: 0 !important;
 }
-#cam-area img{
-  width:initial !important;
-  height:50vh !important;
-  margin-left:auto;
-  margin-right:auto;
+
+/*Grid layout*/
+#cam-frame img {
+  width: initial !important;
+  margin-left: auto;
+  margin-right: auto;
   box-sizing: border-box;
   display: block;
-
 }
-#cam-area{
-  width:100%;
-  display:grid;
+
+#content-area {
+  width: 100%;
+  display: grid;
   grid-template-columns: 1fr auto;
-
 }
 
-#cam-frame{
-  width:100%;
-
+#cam-frame {
+  width: 100%;
   position: relative;
-  grid-column:1;
-  grid-row:1;
-  background-color:rgb(20,20,20);
+  background-color: rgb(20, 20, 20);
 }
-#cam-controls{
-  grid-column:2;
-  grid-row:1;
-  background-color:rgb(220,220,220);
-  padding:.5em;
+
+#cam-controls {
+  background-color: rgb(220, 220, 220);
+  padding: .5em;
   font-size: 1.1em;
   box-sizing: border-box;
 }
-#nt-list{
-  padding-left:1em;
-  padding-right:1em;
-  margin-top:.2em;
+
+/*fullscreen*/
+#content-area.cam-fullscreen #cam-frame img {
+  height: 100vh !important;
+}
+
+#content-area.cam-fullscreen #cam-frame {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#content-area.cam-fullscreen #cam-controls {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#content-area.cam-fullscreen #nt-area {
+  grid-column-start: 1;
+  grid-column-end: 3;
+  grid-row: 2;
+}
+
+/*hor split*/
+#content-area.hor-split #cam-frame img {
+  height: 50vh !important;
+}
+
+#content-area.hor-split #cam-frame {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#content-area.hor-split #cam-controls {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#content-area.hor-split #nt-area {
+  grid-column-start: 1;
+  grid-column-end: 3;
+  grid-row: 2;
+}
+
+/*vert split*/
+#content-area.vert-split #cam-frame img {
+  height: 60vh !important;
+}
+
+#content-area.vert-split #cam-frame {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#content-area.vert-split #cam-controls {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+#content-area.vert-split #nt-area {
+  grid-column: 2;
+  grid-row-start: 1;
+  grid-row-end: 3;
+  height: 100%;
+  overflow: scroll;
+}
+
+#content-area.vert-split {
+  grid-template-columns: .5fr 1fr;
+  grid-template-rows: auto 1fr;
+}
+
+#content-area.vert-split {
+  height: 100vh;
+}
+
+#content-area.vert-split .leaf-itm {
+  width: 40vw;
+}
+
+/*nt styling*/
+#nt-list {
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-top: .2em;
   position: relative;
 }
-#nt-banner{
-text-align: center;
-width: 100%;
-display: inline-block;
-background: lightgray;
-margin-top:.5em;
+
+#nt-banner {
+  text-align: center;
+  width: 100%;
+  display: inline-block;
+  background: lightgray;
+  margin-top: .5em;
 }
-#nt-help{
-  color:rgb(50,50,50);
+
+#nt-help {
+  color: rgb(50, 50, 50);
   font-size: .7em;
-  margin-top:.3em;
+  margin-top: .3em;
   padding-left: 1.42857em;
 }
-.leaf-tag{
-  display:inline-block;
-  line-height: 1em;
 
-}
-.leaf-itm{
-  display:inline-block;
-  right:0px;
-  width:60vw;
-  position:absolute;
-  line-height: 1em;
-
-}
-.stem-tag{
+.leaf-tag {
   display: inline-block;
-  width:30%;
+  line-height: 1em;
+}
+
+.leaf-itm {
+  display: inline-block;
+  right: 0px;
+  width: 60vw;
+  position: absolute;
+  line-height: 1em;
+}
+
+.stem-tag {
+  display: inline-block;
+  width: 30%;
   position: relative;
 }
 
-
-.stem-tag.optn-open::before{
+.stem-tag.optn-open::before {
   position: absolute;
-  left:-.95em;
+  left: -.95em;
   content: "\25bc";
 }
-.stem-tag:not(.optn-open)::before{
+
+.stem-tag:not(.optn-open)::before {
   position: absolute;
-  left:-.95em;
+  left: -.95em;
   content: "\25ba";
 }
-.stem-itm{
-  margin-left:20px;
+
+.stem-itm {
+  margin-left: 20px;
   position: relative;
 }
-.leaf-itm input{
-  width:100%;
-  background-color: rgba(0,0,0,0);
+
+.leaf-itm input {
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0);
   border: 1px black solid;
-  padding:3px;
+  padding: 3px;
   box-sizing: border-box;
   line-height: 1em;
   vertical-align: middle;
   font-size: .7em;
   position: relative;
+  z-index: 2;
+
 }
-.leaf-itm-info{
+
+.leaf-itm-info {
   pointer-events: none;
-  color:rgb(50,50,50);
-  font-size:.7em;
+  color: rgb(50, 50, 50);
+  font-size: .7em;
   line-height: 1.8em;
-  z-index: -1;
-  position:absolute;
-  right:.5em;
-  top:0;
+  z-index: 1;
+  position: absolute;
+  right: .5em;
+  top: 0;
+}
+
+/*nvtable coloring*/
+.stem-itm>div:nth-child(even) {
+  background-color: rgb(230, 230, 230);
+}
+
+.stem-itm>div:nth-child(odd) {
+  background-color: rgb(200, 200, 200);
+}
+
+#nt-list>div:nth-child(even) {
+  background-color: hsl(0, 0%, 90%);
+}
+
+#nt-list>div:nth-child(odd) {
+  background-color: hsl(0, 0%, 95%);
+}
+
+#nt-list>div>.stem-itm>div:nth-child(even) {
+  background-color: hsl(200, 30%, 90%);
+}
+
+#nt-list>div>.stem-itm>div:nth-child(odd) {
+  background-color: hsl(200, 30%, 95%);
+}
+
+#nt-list>div>.stem-itm>div>.stem-itm>div:nth-child(even) {
+  background-color: hsl(50, 30%, 90%);
+}
+
+#nt-list>div>.stem-itm>div>.stem-itm>div:nth-child(odd) {
+  background-color: hsl(50, 30%, 95%);
+}
+
+#nt-list>div>.stem-itm>div>.stem-itm>div>.stem-itm>div:nth-child(even) {
+  background-color: hsl(100, 30%, 90%);
+}
+
+#nt-list>div>.stem-itm>div>.stem-itm>div>.stem-itm>div:nth-child(odd) {
+  background-color: hsl(100, 30%, 95%);
 }
