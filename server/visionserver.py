@@ -28,6 +28,10 @@ class VisionServer:
     output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 60,
                                   doc='FPS limit of frames sent to MJPEG server')
 
+    # default "compression" on output stream. This is actually quality, so low is high compression, poor picture
+    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 30,
+                                     doc='Default compression of output stream')
+
     # fix the TCP port for the main video, so it does not change with multiple cameras
     output_port = ntproperty('/SmartDashboard/vision/output_port', 1190,
                              doc='TCP port for main image output')
@@ -136,6 +140,14 @@ class VisionServer:
                                              int(min(self.camera_fps, self.output_fps_limit)))
         self.camera_server.addCamera(self.output_stream)
         server = self.camera_server.addServer(name='camera', port=int(self.output_port))
+
+        # set the default compression in case driver does not
+        # this is actually "quality", so low means low bandwidth, poor picture
+        def_comp = int(self.default_compression)
+        logging.info("Set default compression to %d", def_comp)
+        server.setCompression(def_comp)
+        server.setDefaultCompression(def_comp)
+
         server.setSource(self.output_stream)
 
         return
