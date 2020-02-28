@@ -12,73 +12,78 @@ $(() => {
   });
 
   attachRobotConnectionIndicator("#status");
-  $("#vrt-layout-btn").click(()=>{
-    $("#content-area").removeClass("vert-split hor-split cam-fullscreen");
-    $("#content-area").addClass("vert-split");
-  });
-  $("#hor-layout-btn").click(()=>{
-    $("#content-area").removeClass("vert-split hor-split cam-fullscreen");
-    $("#content-area").addClass("hor-split");
-  });
-  $("#fs-layout-btn").click(()=>{
-    $("#content-area").removeClass("vert-split hor-split cam-fullscreen");
-    $("#content-area").addClass("cam-fullscreen");
-  });
-  function createItem(rt, tar, startclosed, isleaf) {
-    var tag = $(`<div>${tar}</div>`);
-    var cont = $(`<div></div>`);
 
-    var wrap = $(`<div></div>`)
+  function setupLayoutHandlers() {
+    $("#vrt-layout-btn").click(() => {
+      $("#content-area").removeClass("vert-split hor-split cam-fullscreen");
+      $("#content-area").addClass("vert-split");
+    });
+    $("#hor-layout-btn").click(() => {
+      $("#content-area").removeClass("vert-split hor-split cam-fullscreen");
+      $("#content-area").addClass("hor-split");
+    });
+    $("#fs-layout-btn").click(() => {
+      $("#content-area").removeClass("vert-split hor-split cam-fullscreen");
+      $("#content-area").addClass("cam-fullscreen");
+    });
+  }
+  setupLayoutHandlers();
+
+  function createvalue(parent, tar, startclosed, isleaf) {
+    var tag = $(`<div>${tar}</div>`);
+    var contents = $(`<div></div>`);
+
+    var wrapper = $(`<div></div>`);
     if (isleaf) {
       tag.addClass("leaf-tag");
-      cont.addClass("leaf-itm");
-      tag.addClass("optn-open")
+      contents.addClass("leaf-itm");
+      tag.addClass("optn-open");
     } else {
-      tag.attr("tabindex","0");
-      tag.addClass("stem-tag")
-      cont.addClass("stem-itm")
+      tag.attr("tabindex", "0");
+      tag.addClass("stem-tag");
+      contents.addClass("stem-itm");
 
-      const clickhandler=(() => {
-        if (cont.is(":hidden")) {
-          tag.addClass("optn-open")
+      const clickHandler = (() => {
+        if (contents.is(":hidden")) {
+          tag.addClass("optn-open");
         } else {
-          tag.removeClass("optn-open")
+          tag.removeClass("optn-open");
         }
-        cont.slideToggle();
+        contents.slideToggle();
       });
-      tag.click(clickhandler);
-      tag.keypress(function (e) {
-        if (e.key === ' ' || e.key === 'Spacebar'||event.key === "Enter") {
-          clickhandler();
+      tag.click(clickHandler);
+      tag.keypress((e) => {
+        if (e.key === ' ' || e.key === 'Spacebar' || event.key === "Enter") {
+          clickHandler();
         }
       });
 
       if (startclosed) {
-        cont.hide();
+        contents.hide();
       } else {
         tag.addClass("optn-open")
       }
     }
-    wrap.append(tag);
-    wrap.append(cont);
-    rt.append(wrap);
+    wrapper.append(tag);
+    wrapper.append(contents);
+    parent.append(wrapper);
 
-    return (cont)
+    return (contents);
   }
 
-  function getType(itm) {
-    const prim_type = typeof itm;
-    if (prim_type == "string" || prim_type == "boolean" || prim_type == "number") {
-      return (prim_type);
-    } else if (Array.isArray(itm)) {
-      if (!itm.length) return ("unknown array")
-      const arr_type = typeof itm[0];
-      if (arr_type == "string" || arr_type == "boolean" || arr_type == "number") {
-        return (arr_type + " array")
+  function getType(obj) {
+    const primitiveType = typeof obj;
+    if (primitiveType == "string" || primitiveType == "boolean" || primitiveType == "number") {
+      return (primitiveType);
+    } else if (Array.isArray(obj)) {
+      if (!obj.length) return ("unknown array")
+      const arrayType = typeof obj[0];
+      if (arrayType == "string" || arrayType == "boolean" || arrayType == "number") {
+        return (arrayType + " array");
       }
     }
-    console.log(itm)
-    throw new TypeError(itm + " (" + prim_type + ") is not a valid type for networktables");
+    console.log(obj)
+    throw new TypeError(obj + " (" + primitiveType + ") is not a valid type for networktables");
   }
 
   function toType(str, type) { //returns null if invalid
@@ -96,75 +101,110 @@ $(() => {
         case "number":
           const parsed = parseFloat(str);
           if (Number.isNaN(parsed)) return (null);
-          return (parsed)
+          return (parsed);
           break;
         default:
           return (null);
       }
     }
     if (type.endsWith("array")) {
-      const arr_type = type.slice(0, -6);
+      const arrayType = type.slice(0, -6);
       const splt = str.split(",");
       var res = [];
       for (var i = 0; i < splt.length; i++) {
-        const proc = toTypeSingle(splt[i], arr_type);
+        const proc = toTypeSingle(splt[i], arrayType);
         if (proc == null) return (null);
         res.push(proc);
       }
-      return (res)
+      return (res);
     } else {
-      const prim_type = type;
+      const primitiveType = type;
       return (toTypeSingle(str, type));
     }
   }
 
-  function putKey(path, item, startclosed, fullpath, root) {
+  function createInputElem(value, type, path) {
+    const inp = $(`<input>`);
+    inp.val(value);
+    inp.change(() => {
+      const proc = toType(inp.val(), type);
+      if (proc === null) {
+        inp.val(NetworkTables.getValue(path));
+      } else {
+        NetworkTables.putValue(path, proc);
+      }
+    });
+
+    NetworkTables.addKeyListener(path, function(key, value, isNew) {
+      if (isNew) console.log("Unexpected: new value when not new");
+      inp.val(value);
+    });
+    return (inp);
+  }
+
+  function putKey(path, value, startclosed, fullpath, optRoot) {
+    const root = optRoot || $("#nt-list");
+
     if (!path.length) {
       if (root.children().length) {
-        root.children().first().val(item);
+        root.children().first().val(value);
         return;
       }
-      const inp = $(`<input>`);
-      inp.val(item);
-      const type = getType(item);
-      inp.change(() => {
-        const proc = toType(inp.val(), type);
-        if (proc === null) {
-          inp.val(NetworkTables.getValue(fullpath));
-        } else {
-          NetworkTables.putValue(fullpath, proc);
-        }
-      });
-
-      NetworkTables.addKeyListener(fullpath, function(key, value, isNew) {
-        if (isNew) console.log("Unexpected: new value when not new");
-        inp.val(value);
-      })
-      root.append(inp);
+      const type = getType(value);
+      const inpElem = createInputElem(value, type, fullpath);
+      root.append(inpElem);
       root.append($(`<div class=leaf-itm-info>(${type})</div>`))
       return;
     }
-    const rt = root || $("#nt-list");
 
     const rest = path.slice(1);
-    const tar = path[0]
+    const tar = path[0];
     let found = false;
-    rt.children().each((indx, val) => {
+    root.children().each((indx, val) => {
       let jval = $(val);
       if (jval.children().first().text() == tar) {
         window.setTimeout(() => {
-          putKey(rest, item, true, fullpath, jval.children().eq(1))
-        }, 10);
+          putKey(rest, value, true, fullpath, jval.children().eq(1))
+        }, 10); //allow time for rendering etc.
         found = true;
       }
     })
     if (found) return found;
-    putKey(rest, item, true, fullpath, createItem(rt, tar, startclosed, !rest.length));
+    putKey(rest, value, true, fullpath, createvalue(root, tar, startclosed, !rest.length));
   }
 
   function splitpath(str) {
     const split = str.split("/");
     return split[0] ? split : split.slice(1);
+  }
+
+  function addCameraOptions() {
+    const prePath = "/SmartDashboard/vision/active_mode/";
+    const camOpts = NetworkTables.getValue(prePath + "options");
+    $("#cam-selection").empty();
+    if (camOpts) {
+      for (var i = 0; i < camOpts.length; i++) {
+        const thisOpt = camOpts[i];
+        const radioId = "camOptId" + NetworkTables.keyToId(thisOpt);
+        let opt = $(`<input type="radio" id="${radioId}" name="camOpts">`);
+        let lab = $(`<label for="${radioId}">${thisOpt}</label>`)
+        $("#cam-selection").append(opt);
+        $("#cam-selection").append(lab);
+        $("#cam-selection").append($("<br>"));
+        opt.change(() => {
+          if (opt.is(':checked')) {
+            NetworkTables.putValue(prePath + "selected", thisOpt);
+          }
+        });
+      }
+      const currSel = $("#camOptId" + NetworkTables.getValue(prePath + "selected"));
+      currSel.prop('checked', true);
+      NetworkTables.addKeyListener(prePath + "selected", (key, value) => {
+        $(`#camOptId${NetworkTables.keyToId(value)}`).prop('checked', true);
+      });
+    } else {
+      $("#cam-selection").append("Unable to get active_mode options (check path?)");
+    }
   }
   NetworkTables.addRobotConnectionListener(() => {
     window.setTimeout(() => {
@@ -173,38 +213,11 @@ $(() => {
       keys.forEach((key) => {
         putKey(splitpath(key), NetworkTables.getValue(key), false, key);
       });
-      {
-        const prePath = "/SmartDashboard/vision/active_mode/";
-        const camOpts = NetworkTables.getValue(prePath + "options");
-        if (camOpts) {
-          for (var i = 0; i < camOpts.length; i++) {
-            const thisOpt = camOpts[i];
-            const radioId = "camOptId" + thisOpt;
-            let opt = $(`<input type="radio" id="${radioId}" name="camOpts">`);
-            let lab = $(`<label for="${radioId}">${thisOpt}</label>`)
-            $("#cam-selection").append(opt);
-            $("#cam-selection").append(lab);
-            $("#cam-selection").append($("<br>"));
-            opt.change(() => {
-              if (opt.is(':checked')) {
-                NetworkTables.putValue(prePath + "selected", thisOpt);
-              }
-            });
-          }
-          const currSel = $("#camOptId" + NetworkTables.getValue(prePath + "selected"));
-          currSel.prop('checked', true);
-          NetworkTables.addKeyListener(prePath + "selected", (key, value) => {
-            $(`#camOptId${value}`).prop('checked', true);
-          });
-        } else {
-          $("#cam-selection").append("Unable to get active_mode options (check path?)")
-        }
-      }
+      addCameraOptions();
     }, 100);
   });
   NetworkTables.addGlobalListener((key, value, isNew) => {
     if (!isNew) return;
     putKey(splitpath(key), NetworkTables.getValue(key), false, value);
-
-  })
+  });
 })
