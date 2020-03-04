@@ -156,7 +156,7 @@ class GoalFinder2020(GenericFinder):
 
         if self.outer_corners is not None:
             for indx, cnr in enumerate(self.outer_corners):
-                cv2.drawMarker(output_frame, tuple(cnr.astype(int)), (0, 255, 0), cv2.MARKER_CROSS, 15, 2)
+                cv2.drawMarker(output_frame, tuple(cnr.astype(int)), (0, 255, 255), cv2.MARKER_CROSS, 15, 2)
                 # cv2.putText(output_frame, str(indx), tuple(cnr.astype(int)), 0, .5, (255, 255, 255))
 
         return output_frame
