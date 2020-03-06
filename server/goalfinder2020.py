@@ -44,9 +44,10 @@ class GoalFinder2020(GenericFinder):
 
         # camera mount angle (radians)
         # NOTE: not sure if this should be positive or negative
-        self.tilt_angle = math.radians(30.0)
+        self.camera_tilt_angle = math.radians(30.0)
 
-        self.x_offset = 7.5
+        self.camera_x_offset = 7.5
+        self.camera_z_offset = 0.0
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -61,6 +62,23 @@ class GoalFinder2020(GenericFinder):
         self.distortionMatrix = dist_matrix
 
         self.outer_corners = []
+
+        # matrices used to compute coordinates
+        self.t_robot = numpy.array(((self.camera_x_offset,), (0.0,), (self.camera_z_offset,)))
+
+        c_a = math.cos(self.camera_tilt_angle)
+        s_a = math.sin(self.camera_tilt_angle)
+        r_tilt = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, -s_a), (0.0, s_a, c_a)))
+
+        # not used here, but keep around for reference
+        # c_a = math.cos(cls.CAMERA_ANGLE_INWARD)
+        # s_a = math.sin(cls.CAMERA_ANGLE_INWARD)
+        # r_inward = numpy.array(((c_a, 0.0, -s_a), (0.0, 1.0, 0.0), (s_a, 0.0, c_a)))
+        # self.rot_robot = numpy.matmul(r_inward, r_tilt)
+
+        self.rot_robot = r_tilt
+        self.camera_offset_rotated = numpy.matmul(self.rot_robot.transpose(), -self.t_robot)
+
         return
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
@@ -185,10 +203,9 @@ class GoalFinder2020(GenericFinder):
     def compute_output_values(self, rvec, tvec):
         '''Compute the necessary output distance and angles'''
 
-        # The tilt angle only affects the distance and angle1 calcs
-
-        x = tvec[0][0]
-        z = math.sin(self.tilt_angle) * tvec[1][0] + math.cos(self.tilt_angle) * tvec[2][0]
+        x_r_w0 = numpy.matmul(self.rot_robot, tvec) + self.t_robot
+        x = x_r_w0[0][0]
+        z = x_r_w0[2][0]
 
         # distance in the horizontal plane between camera and target
         distance = math.sqrt(x**2 + z**2)
@@ -198,8 +215,11 @@ class GoalFinder2020(GenericFinder):
 
         rot, _ = cv2.Rodrigues(rvec)
         rot_inv = rot.transpose()
-        pzero_world = numpy.matmul(rot_inv, -tvec)
-        angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
+
+        # location of Robot (0,0,0) in World coordinates
+        x_w_r0 = numpy.matmul(rot_inv, self.camera_offset_rotated - tvec)
+
+        angle2 = math.atan2(x_w_r0[0][0], x_w_r0[2][0])
 
         return distance, angle1, angle2
 

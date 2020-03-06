@@ -3,7 +3,7 @@
 '''Defines a class for which each year's subclass vision server inherits from'''
 
 # import sys
-from time import time
+from time import time, sleep
 import cv2
 import numpy
 import logging
@@ -248,17 +248,19 @@ class VisionServer:
                 min_dim //= 2
 
             if min_dim < 400:  # test on height
-                dotrad = 3
+                rec_dotrad = 3
                 fontscale = 0.4
                 fontthick = 1
+                status_dotrad = 8
             else:
-                dotrad = 5
+                rec_dotrad = 5
                 fontscale = 0.75
                 fontthick = 2
+                status_dotrad = 12
 
             # If saving images, add a little red "Recording" dot in upper left
             if self.image_writer_state:
-                cv2.circle(self.output_frame, (20, 20), dotrad, (0, 0, 255), thickness=2*dotrad, lineType=8, shift=0)
+                cv2.circle(self.output_frame, (20, 20), rec_dotrad, (0, 0, 255), thickness=2*rec_dotrad)
 
             # If tuning mode is on, add text to the upper left corner saying "Tuning On"
             if self.tuning:
@@ -268,6 +270,17 @@ class VisionServer:
             if self.test_mode:
                 cv2.putText(self.output_frame, "TEST MODE", (5, self.output_frame.shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX,
                             fontscale, (0, 255, 255), thickness=fontthick)
+
+            # Put a green circle for success, or a red x for failure
+            # do not draw anything for success but not distance > 0; this is just a streaming finder
+            success = self.target_info[1] > 0
+            has_dist = self.target_info[3] > 0.1
+            if success and has_dist:
+                # green dot
+                cv2.circle(self.output_frame, (self.output_frame.shape[1]-20, 20), status_dotrad, (0, 255, 0), thickness=status_dotrad)
+            elif not success:
+                # red x
+                cv2.drawMarker(self.output_frame, (self.output_frame.shape[1]-20, 20), (0, 0, 255), cv2.MARKER_TILTED_CROSS, 2*status_dotrad, 5)
 
         except Exception as e:
             logging.error("Exception caught in prepare_output_image(): %s", e)
@@ -381,12 +394,13 @@ class VisionServer:
         self.file_mode = True
         file_index = 0
         while True:
-            if self.camera_frame is None:
-                self.preallocate_arrays()
-
             image_file = file_list[file_index]
             print('Processing', image_file)
             file_frame = cv2.imread(image_file)
+
+            if self.camera_frame is None:
+                self.camera_frame = numpy.zeros(shape=file_frame.shape, dtype=numpy.uint8)
+
             numpy.copyto(self.camera_frame, file_frame)
 
             self.process_image()
@@ -396,7 +410,7 @@ class VisionServer:
             self.output_stream.putFrame(self.output_frame)
             # probably don't want to use sleep. Want something thread-compatible
             # for _ in range(4):
-            time.sleep(0.5)
+            sleep(0.5)
 
             file_index = (file_index + 1) % len(file_list)
         return
