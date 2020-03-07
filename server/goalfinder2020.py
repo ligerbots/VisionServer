@@ -46,7 +46,7 @@ class GoalFinder2020(GenericFinder):
         # NOTE: not sure if this should be positive or negative
         self.camera_tilt_angle = math.radians(30.0)
 
-        self.camera_x_offset = 7.5
+        self.camera_x_offset = -7.5
         self.camera_z_offset = 0.0
 
         self.hsv_frame = None
