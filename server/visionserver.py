@@ -156,10 +156,12 @@ class VisionServer:
         '''Add a single camera and set it to active/disabled as indicated.
         Cameras are referenced by their name, so pick something unique'''
 
-        self.cameras[camera.get_name()] = camera
+        name = camera.get_name()
+        self.cameras[name] = camera
         camera.start()          # start read thread
         if active:
             self.active_camera = camera
+        logging.info(f"Camera '{name}' started")
 
         return
 

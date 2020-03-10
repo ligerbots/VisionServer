@@ -45,6 +45,7 @@ class Camera:
 
         # Variables for the threaded read loop
         self.sink = camera_server.getVideo(camera=self.camera)
+        logging.info(f"camera '{name}' sink fetched")
 
         self.calibration_matrix = None
         self.distortion_matrix = None
