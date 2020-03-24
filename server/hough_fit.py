@@ -8,7 +8,7 @@ import cv2
 
 # it is faster if you import the needed functions directly
 # these are used a lot, so it helps, a little
-from math import sin, cos, atan2  # , degrees
+from math import sin, cos, atan2, degrees
 from numpy import array, zeros, pi, sqrt, uint8
 
 from codetimer import CodeTimer
@@ -16,9 +16,10 @@ two_pi = 2.0 * pi
 pi_by_2 = pi / 2.0
 
 
-def hough_fit(contour, nsides=None, approx_fit=None):
+def hough_fit(contour, nsides=None, approx_fit=None, image_frame=None):
     '''Use the Hough line finding algorithm to find a polygon for contour.
-    It is faster if you can provide an decent initial fit - see approxPolyDP_adaptive().'''
+    It is faster if you can provide an decent initial fit - see approxPolyDP_adaptive().
+    Pass in image_frame to see the lines found from HoughLines (use for debug only).'''
 
     if approx_fit is not None:
         nsides = len(approx_fit)
@@ -36,9 +37,13 @@ def hough_fit(contour, nsides=None, approx_fit=None):
         cv2.drawContours(contour_plot, [shifted_con, ], -1, 255, 1)
         lines = cv2.HoughLines(contour_plot, 1, pi / 180, threshold=8)
 
-    # print('hough lines:')
-    # for l in lines:
-    #     print('   ', l[0][0], degrees(l[0][1]))
+    if image_frame is not None:
+        print('hough lines:')
+        # trim the list if you get too many
+        for l in lines:
+            rho, theta = l[0]
+            print('   ', rho, degrees(theta))
+            plot_hough_line(image_frame,  rho, theta, offset=offset_vec)
 
     if lines is None or len(lines) < nsides:
         # print("HoughLines found too few lines")
@@ -71,7 +76,7 @@ def approxPolyDP_adaptive(contour, nsides, max_dp_error=0.1):
     return None
 
 
-def plot_hough_line(frame, rho, theta, color, thickness=1):
+def plot_hough_line(frame, rho, theta, color=(0, 0, 255), thickness=1, offset=None):
     '''Given (rho, theta) of a line in Hesse form, plot it on a frame.
     Useful for debugging, mostly.'''
 
@@ -79,9 +84,14 @@ def plot_hough_line(frame, rho, theta, color, thickness=1):
     b = sin(theta)
     x0 = a * rho
     y0 = b * rho
-    pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
-    pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
-    cv2.line(frame, pt1, pt2, color, thickness)
+    pt1 = [int(x0 + 1000*(-b)), int(y0 + 1000*(a))]
+    pt2 = [int(x0 - 1000*(-b)), int(y0 - 1000*(a))]
+    if offset is not None:
+        pt1[0] += offset[0]
+        pt1[1] += offset[1]
+        pt2[0] += offset[0]
+        pt2[1] += offset[1]
+    cv2.line(frame, tuple(pt1), tuple(pt2), color, thickness)
     return
 
 

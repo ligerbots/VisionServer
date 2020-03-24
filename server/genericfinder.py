@@ -53,11 +53,12 @@ class GenericFinder:
         return (x + int(w / 2), y + int(h / 2)), (w, h)
 
     @staticmethod
-    def quad_fit(contour):
-        '''Best fit of a quadrilateral to the contour'''
+    def quad_fit(contour, image_frame=None):
+        '''Best fit of a quadrilateral to the contour.
+        Pass in image_frame to get some debugging info.'''
 
         approx = hough_fit.approxPolyDP_adaptive(contour, nsides=4)
-        return hough_fit.hough_fit(contour, nsides=4, approx_fit=approx)
+        return hough_fit.hough_fit(contour, nsides=4, approx_fit=approx, image_frame=image_frame)
 
     @staticmethod
     def sort_corners(contour, center=None):
