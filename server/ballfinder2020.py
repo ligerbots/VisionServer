@@ -2,7 +2,6 @@
 
 import cv2
 import numpy
-import json
 import math
 
 from genericfinder import GenericFinder, main
@@ -42,9 +41,9 @@ class BallFinder2020(GenericFinder):
         self.cameraMatrix = calib_matrix
         self.distortionMatrix = dist_matrix
 
-        self.tilt_angle = math.radians(0)  # camera mount angle (radians)
-        self.camera_height = 18.0            # height of camera off the ground (inches)
-        self.target_height = 3.5             # height of target off the ground (inches)
+        self.tilt_angle = math.radians(-20.0)  # camera mount angle (radians)
+        self.camera_height = 20.5              # height of camera off the ground (inches)
+        self.target_height = 3.5               # height of target off the ground (inches)
 
         return
 
@@ -244,14 +243,14 @@ class BallFinder2020(GenericFinder):
         output_frame = input_frame.copy()
 
         # Draw the contour on the image
-        if self.top_contours:
-            cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 0), 1)
+        # if self.top_contours:
+        #     cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 0), 1)
 
         if self.found_contours:
-            cv2.drawContours(output_frame, self.found_contours, -1, (0, 0, 255), 1)
+            cv2.drawContours(output_frame, self.found_contours, -1, (0, 0, 255), 2)
 
         for cnt in self.center_points:
-            cv2.drawMarker(output_frame, tuple(cnt.astype(int)), (255, 125, 0), cv2.MARKER_CROSS, 5, 1)
+            cv2.drawMarker(output_frame, tuple(cnt.astype(int)), (255, 125, 0), cv2.MARKER_CROSS, 10, 2)
 
         return output_frame
 

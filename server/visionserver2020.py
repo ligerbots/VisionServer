@@ -27,7 +27,7 @@ class VisionServer2020(VisionServer):
     rrtarget_saturation_high_limit = ntproperty('/SmartDashboard/vision/rrtarget/saturation_high_limit', 255,
                                                 doc='Saturation high limit for thresholding (rrtarget mode)')
 
-    rrtarget_value_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/value_low_limit', 135,
+    rrtarget_value_low_limit = ntproperty('/SmartDashboard/vision/rrtarget/value_low_limit', 75,
                                           doc='Value low limit for thresholding (rrtarget mode)')
     rrtarget_value_high_limit = ntproperty('/SmartDashboard/vision/rrtarget/value_high_limit', 255,
                                            doc='Value high limit for thresholding (rrtarget mode)')
