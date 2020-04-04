@@ -6,10 +6,16 @@ DIR=/home/odroid/VisionServer/server
 
 SCRIPT=visionserver2020.py
 
-# For running standalone (not alongside a RoboRio), add the "--test" option
-# For serious debugging, add the "--verbose" option, but it is very noisy
+# For running standalone (not alongside a RoboRio), set TEST_MODE=1
+TEST_MODE=1
 
+# For serious debugging, add the "--verbose" option, but it is very noisy
 ARGS="--calib_dir ../data/calibration"
+[ $TEST_MODE = 1 ] && ARGS="$ARGS --test"
+
+# Turn on web server
+WEB_SERVER=1
+WEB_ARGS="-p 80"
 
 LOG_DIR="logs"
 LOG_BASE="visionserver"
@@ -106,9 +112,22 @@ set_cpu_performance() {
     done
 }
 
+start_webserver() {
+    if [ $TEST_MODE = 1 ]; then
+        WEB_ARGS="$WEB_ARGS --robot=localhost"
+    else
+        WEB_ARGS="$WEB_ARGS --robot=10.28.77.12"
+    fi
+    (
+        cd ../webControls
+        python3 -m pynetworktables2js $WEB_ARGS > /dev/null 2>&1 < /dev/null &
+    )
+}
+
 case "$1" in
     stop)
 	pkill -f $SCRIPT
+        # TODO: stop web server
 	;;
 
     start)
@@ -135,6 +154,8 @@ case "$1" in
         # Start the server, but limit the CPU to #4-7, which are the fast ones
         echo '' >> $LOG_FILE
         taskset -c 4-7 python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
+
+        test $WEB_SERVER = 1 && start_webserver
 	;;
 
     restart)
