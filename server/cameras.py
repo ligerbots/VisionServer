@@ -213,3 +213,9 @@ class PSEye(Camera):
         self.camera.setPixelFormat(cscore.VideoMode.PixelFormat.kYUYV)
 
         return
+
+    def load_calibration(self, calibration_dir):
+        '''Find the correct calibration file and load it'''
+
+        # nothing yet
+        return
