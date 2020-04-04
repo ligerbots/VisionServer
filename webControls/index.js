@@ -1,6 +1,6 @@
 $(() => {
   loadCameraOnConnect({
-    host: "192.168.122.36",
+    host: "odroid-black.local",
     container: '#cam-frame',
     port: 1190,
     image_url: '/stream.mjpg',

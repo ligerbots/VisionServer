@@ -127,7 +127,7 @@ start_webserver() {
 case "$1" in
     stop)
 	pkill -f $SCRIPT
-        # TODO: stop web server
+	pkill -f pynetworktables2js
 	;;
 
     start)
