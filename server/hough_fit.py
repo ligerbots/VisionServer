@@ -27,7 +27,7 @@ pi_by_2 = pi / 2.0
 # hough_threshold is the threshold used in the call to HoughLines. It is essentially
 #  the number of points on the input contour which lie along the given line.
 #  This should be tuned based on the size/resolution of the image and length of lines.
-#  Too low, you won't find all the lines; too high wastes time.
+#  Too high, you won't find all the lines; too low wastes time.
 #
 # boundbox_padding is used in _find_sides(). Look for intersections which are close to the bounding
 #  rectangle of the original contour. This parameter defines how many pixels
