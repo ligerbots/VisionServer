@@ -164,7 +164,7 @@ def time_processing(cube_processor, input_files):
 def main(finder_type):
     '''Main routine for testing this Finder'''
     import argparse
-    import cameras
+    import camerautil
 
     parser = argparse.ArgumentParser(description='2019 rrtarget finder')
     parser.add_argument('--output_dir', help='Output directory for processed images')
@@ -176,7 +176,7 @@ def main(finder_type):
     args = parser.parse_args()
 
     rot = 90 if args.rotate_calib else 0
-    calib_matrix, dist_matrix = cameras.Camera.load_calibration_file(args.calib_file, rotation=rot)
+    calib_matrix, dist_matrix = camerautil.load_calibration_file(args.calib_file, rotation=rot)
     # print('calib', calib_matrix)
     # print('dist', dist_matrix)
     finder = finder_type(calib_matrix, dist_matrix)

@@ -10,7 +10,7 @@ import json
 import os.path
 from threading import Thread
 from time import time, sleep
-
+from camerautil import load_calibration_file
 
 class Camera:
     '''Wrapper for camera related functionality.
@@ -91,28 +91,6 @@ class Camera:
 
         return
 
-    # use static method so it can easily be called from outside if needed
-    @staticmethod
-    def load_calibration_file(calib_file, rotation):
-        '''Load calibration information from the specified file'''
-
-        logging.info(f'Loading calibration from {calib_file}')
-        try:
-            with open(calib_file) as f:
-                json_data = json.load(f)
-                cal_matrix = array(json_data["camera_matrix"])
-                dist_matrix = array(json_data["distortion"])
-
-            if abs(rotation) == 90:
-                # swap the x,y values
-                cal_matrix[1, 1], cal_matrix[0, 0] = cal_matrix[0, 0], cal_matrix[1, 1]
-                cal_matrix[1, 2], cal_matrix[0, 2] = cal_matrix[0, 2], cal_matrix[1, 2]
-                dist_matrix[0, 3], dist_matrix[0, 2] = dist_matrix[0, 2], dist_matrix[0, 3]
-
-            return cal_matrix, dist_matrix
-        except Exception as e:
-            logging.warn("Error loading calibration file:", e)
-        return None, None
 
     def start(self):
         '''Start the thread to read frames from the video stream'''
@@ -197,7 +175,7 @@ class LogitechC930e(Camera):
 
         filename = f'c930e_{self.width}x{self.height}_calib.json'
         fullname = os.path.join(calibration_dir, filename)
-        self.calibration_matrix, self.distortion_matrix = self.load_calibration_file(fullname, self.rot90_count*90)
+        self.calibration_matrix, self.distortion_matrix = load_calibration_file(fullname, self.rot90_count*90)
         return
 
 
