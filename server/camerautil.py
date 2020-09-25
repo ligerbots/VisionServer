@@ -1,6 +1,12 @@
+#!/usr/bin/python3
+
+# Utility routines for cameras.
+# Keep these separate from the Camera classes so that we don't import cscore
+
 import logging
 import json
 from numpy import array
+
 
 def load_calibration_file(calib_file, rotation):
     '''Load calibration information from the specified file'''

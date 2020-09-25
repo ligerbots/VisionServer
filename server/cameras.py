@@ -5,12 +5,12 @@
 
 import cscore
 import logging
-from numpy import array, rot90
-import json
+from numpy import rot90
 import os.path
 from threading import Thread
 from time import time, sleep
 from camerautil import load_calibration_file
+
 
 class Camera:
     '''Wrapper for camera related functionality.
@@ -90,7 +90,6 @@ class Camera:
             logging.warn("Unable to set property '{}': {}".format(name, e))
 
         return
-
 
     def start(self):
         '''Start the thread to read frames from the video stream'''

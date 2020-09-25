@@ -162,11 +162,11 @@ def time_processing(cube_processor, input_files):
 
 
 def main(finder_type):
-    '''Main routine for testing this Finder'''
+    '''Main routine for testing a Finder'''
     import argparse
     import camerautil
 
-    parser = argparse.ArgumentParser(description='2019 rrtarget finder')
+    parser = argparse.ArgumentParser(description='finder test routine')
     parser.add_argument('--output_dir', help='Output directory for processed images')
     parser.add_argument('--time', action='store_true', help='Loop over files and time it')
     parser.add_argument('--calib_file', help='Calibration file')
