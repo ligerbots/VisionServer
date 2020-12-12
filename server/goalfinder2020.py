@@ -98,9 +98,13 @@ class GoalFinder2020(GenericFinder):
         self.threshold_frame = cv2.inRange(self.hsv_frame, self.low_limit_hsv, self.high_limit_hsv,
                                            dst=self.threshold_frame)
 
-        # OpenCV 3 returns 3 parameters!
+        # OpenCV 3 returns 3 parameters, OpenCV 4 returns 2!
         # Only need the contours variable
-        _, contours, _ = cv2.findContours(self.threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        res = cv2.findContours(self.threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if len(res) == 2:
+            contours = res[0]
+        else:
+            contours = res[1]
 
         contour_list = []
         for c in contours:

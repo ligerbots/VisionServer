@@ -174,11 +174,15 @@ def main(finder_type):
     parser.add_argument('input_files', nargs='+', help='input files')
 
     args = parser.parse_args()
+    calib_matrix = None
+    dist_matrix = None
 
     rot = 90 if args.rotate_calib else 0
-    calib_matrix, dist_matrix = camerautil.load_calibration_file(args.calib_file, rotation=rot)
-    # print('calib', calib_matrix)
-    # print('dist', dist_matrix)
+    if args.calib_file:
+        calib_matrix, dist_matrix = camerautil.load_calibration_file(args.calib_file, rotation=rot)
+        # print('calib', calib_matrix)
+        # print('dist', dist_matrix)
+
     finder = finder_type(calib_matrix, dist_matrix)
 
     if sys.platform == "win32":

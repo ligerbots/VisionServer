@@ -135,9 +135,13 @@ class BallFinder2020(GenericFinder):
         # else:
         #     erode_frame = threshold_frame
 
-        # OpenCV 3 returns 3 parameters!
+        # OpenCV 3 returns 3 parameters, OpenCV 4 returns 2!
         # Only need the contours variable
-        _, contours, _ = cv2.findContours(threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        res = cv2.findContours(threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if len(res) == 2:
+            contours = res[0]
+        else:
+            contours = res[1]
 
         contour_list = []
         for c in contours:

@@ -275,7 +275,11 @@ class CubeFinder2018(object):
 
         # OpenCV 3 returns 3 parameters!
         # Only need the contours variable
-        _, contours, _ = cv2.findContours(erode_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        res = cv2.findContours(erode_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if len(res) == 2:
+            contours = res[0]
+        else:
+            contours = res[1]
 
         contour_list = []
         for c in contours:
