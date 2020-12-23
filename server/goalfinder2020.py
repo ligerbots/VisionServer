@@ -15,7 +15,7 @@ class GoalFinder2020(GenericFinder):
     # real world dimensions of the goal target
     # These are the full dimensions around both strips
     TARGET_STRIP_LENGTH = 19.625    # inches
-    TARGET_HEIGHT = 17.0            # inches@!
+    TARGET_HEIGHT = 17.0            # inches
     TARGET_TOP_WIDTH = 39.25        # inches
     TARGET_BOTTOM_WIDTH = TARGET_TOP_WIDTH - 2*TARGET_STRIP_LENGTH*math.cos(math.radians(60))
 
@@ -27,6 +27,11 @@ class GoalFinder2020(GenericFinder):
         [TARGET_BOTTOM_WIDTH / 2, -TARGET_HEIGHT / 2, 0.0],
         [TARGET_TOP_WIDTH / 2, TARGET_HEIGHT / 2, 0.0]
     ])
+
+    # camera offsets and tilt angles
+    CAMERA_TILT = math.radians(25.0)
+    CAMERA_OFFSET_X = -7.5
+    CAMERA_OFFSET_Z = 0.0
 
     def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('goalfinder', camera='shooter', finder_id=1.0, exposure=1)
@@ -42,11 +47,13 @@ class GoalFinder2020(GenericFinder):
         self.min_dim_ratio = 1
         self.max_area_ratio = 0.25
 
-        # camera mount angle (radians)
-        # NOTE: not sure if this should be positive or negative
-        self.tilt_angle = math.radians(30.0)
+        # matrices used to correct coordinates for camera location/tilt
+        self.t_robot = numpy.array(((self.CAMERA_OFFSET_X,), (0.0,), (self.CAMERA_OFFSET_Z,)))
 
-        self.x_offset = 7.5
+        c_a = math.cos(self.CAMERA_TILT)
+        s_a = math.sin(self.CAMERA_TILT)
+        self.rot_robot = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, -s_a), (0.0, s_a, c_a)))
+        self.camera_offset_rotated = numpy.matmul(self.rot_robot.transpose(), -self.t_robot)
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -62,6 +69,24 @@ class GoalFinder2020(GenericFinder):
 
         self.outer_corners = []
         return
+
+    @staticmethod
+    def contour_diagonal_corners(contour):
+        '''Find the 4 points on the contour which are the farthest out along the Cartesian diagonals.
+        Algorithm from Robot Casserole, Team 1736'''
+
+        # find the index, within the contour, of each corner
+        top_left = (contour[:, :, 0] + contour[:, :, 1]).argmin()
+        top_right = (contour[:, :, 0] - contour[:, :, 1]).argmax()
+
+        # for bottom, look at an angle of 30deg from vertical, instead of 45
+        # tan(30) = 0.577
+        bottom_left = (0.577*contour[:, :, 0] - contour[:, :, 1]).argmin()
+        bottom_right = (0.577*contour[:, :, 0] + contour[:, :, 1]).argmax()
+
+        corners = numpy.array([contour[top_left][0], contour[top_right][0], contour[bottom_right][0], contour[bottom_left][0]])
+
+        return corners
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
@@ -181,6 +206,10 @@ class GoalFinder2020(GenericFinder):
         hull = cv2.convexHull(candidate['contour'])
         contour = self.quad_fit(hull)
 
+        # different way of finding the corners
+        # faster, pretty good, but maybe a little less stable???
+        # contour = self.contour_diagonal_corners(candidate['contour'])
+
         if contour is not None and len(contour) == 4:
             return contour
 
@@ -189,21 +218,23 @@ class GoalFinder2020(GenericFinder):
     def compute_output_values(self, rvec, tvec):
         '''Compute the necessary output distance and angles'''
 
-        # The tilt angle only affects the distance and angle1 calcs
+        x_r_w0 = numpy.matmul(self.rot_robot, tvec) + self.t_robot
+        x = x_r_w0[0][0]
+        z = x_r_w0[2][0]
 
-        x = tvec[0][0]
-        z = math.sin(self.tilt_angle) * tvec[1][0] + math.cos(self.tilt_angle) * tvec[2][0]
-
-        # distance in the horizontal plane between camera and target
+        # distance in the horizontal plane between robot center and target
         distance = math.sqrt(x**2 + z**2)
 
-        # horizontal angle between camera center line and target
+        # horizontal angle between robot center line and target
         angle1 = math.atan2(x, z)
 
         rot, _ = cv2.Rodrigues(rvec)
         rot_inv = rot.transpose()
-        pzero_world = numpy.matmul(rot_inv, -tvec)
-        angle2 = math.atan2(pzero_world[0][0], pzero_world[2][0])
+
+        # location of Robot (0,0,0) in World coordinates
+        x_w_r0 = numpy.matmul(rot_inv, self.camera_offset_rotated - tvec)
+
+        angle2 = math.atan2(x_w_r0[0][0], x_w_r0[2][0])
 
         return distance, angle1, angle2
 

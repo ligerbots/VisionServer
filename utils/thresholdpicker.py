@@ -62,7 +62,11 @@ def process_files(image_files):
 
             # maskedFrame = cv2.bitwise_and(bgr_frame, bgr_frame, mask=mask)
 
-            _, contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            res = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if len(res) == 2:
+                contours = res[0]
+            else:
+                contours = res[1]
 
             numpy.copyto(draw_frame, bgr_frame)
             cv2.drawContours(draw_frame, contours, -1, (0, 0, 255), 1)

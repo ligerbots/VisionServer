@@ -33,7 +33,8 @@ class GenericFinder:
         return (1.0, self.finder_id, 0.0, 0.0, 0.0, -1.0, -1.0)
 
     def prepare_output_image(self, input_frame):
-        '''Prepare output image for drive station. Rotate image if needed, otherwise nothing to do.'''
+        '''Prepare output image for drive station.
+        Add a guide line if that is called for.'''
 
         output_frame = input_frame.copy()
         if self.line_coords is not None:
@@ -75,6 +76,50 @@ class GenericFinder:
         return contour[numpy.argsort(angle)]
 
     @staticmethod
+    def center_cross(points):
+        """Finds the intersection of two lines given in Hesse normal form.
+
+        Returns closest integer pixel locations.
+        See https://stackoverflow.com/a/383527/5087436
+        """
+
+        rho1, theta1 = GenericFinder._hesse_form(points[0], points[2])
+        rho2, theta2 = GenericFinder._hesse_form(points[1], points[3])
+        if abs(theta1 - theta2) < 1e-6:
+            # parallel
+            return None
+
+        cos1 = math.cos(theta1)
+        sin1 = math.sin(theta1)
+        cos2 = math.cos(theta2)
+        sin2 = math.sin(theta2)
+
+        denom = cos1*sin2 - sin1*cos2
+        x = (sin2*rho1 - sin1*rho2) / denom
+        y = (cos1*rho2 - cos2*rho1) / denom
+        res = numpy.array((x, y))
+        return res
+
+    @staticmethod
+    def _hesse_form(pt1, pt2):
+        '''Compute the Hesse form for the line through the points'''
+
+        delta = pt2 - pt1
+        mag2 = delta.dot(delta)
+        vec = pt2 - pt2.dot(delta) * delta / mag2
+
+        rho = math.sqrt(vec.dot(vec))
+        if abs(rho) < 1e-6:
+            # through 0. Need to compute theta differently
+            theta = math.atan2(delta[1], delta[0]) + pi_by_2
+            if theta > two_pi:
+                theta -= two_pi
+        else:
+            theta = math.atan2(vec[1], vec[0])
+
+        return rho, theta
+
+    @staticmethod
     def major_minor_axes(moments):
         '''Compute the major/minor axes and orientation of an object from the moments'''
 
@@ -99,6 +144,38 @@ class GenericFinder:
 
         return major, minor, angle
 
+    @staticmethod
+    def distance_angle_from_point(point, height_diff, camera_matrix, distortion_matrix, tilt_angle=0.0):
+        '''Calculate the angle and distance from the camera to the center point of the robot
+        This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
+
+        # use the distortion and camera arrays to correct the location of the center point
+        # got this from
+        #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
+
+        ptlist = numpy.array([[point]])
+        out_pt = cv2.undistortPoints(ptlist, camera_matrix, distortion_matrix, P=camera_matrix)
+        undist_center = out_pt[0, 0]
+
+        x_prime = (undist_center[0] - camera_matrix[0, 2]) / camera_matrix[0, 0]
+        y_prime = -(undist_center[1] - camera_matrix[1, 2]) / camera_matrix[1, 1]
+
+        # now have all pieces to convert to angle:
+        ax = math.atan2(x_prime, 1.0)     # horizontal angle
+
+        # naive expression
+        # ay = math.atan2(y_prime, 1.0)     # vertical angle
+
+        # corrected expression.
+        # As horizontal angle gets larger, real vertical angle gets a little smaller
+        ay = math.atan2(y_prime * math.cos(ax), 1.0)     # vertical angle
+        # print("ax, ay", math.degrees(ax), math.degrees(ay))
+
+        # now use the x and y angles to calculate the distance to the target:
+        d = height_diff / math.tan(tilt_angle + ay)    # distance to the target
+
+        return d, ax    # return distance and horizontal angle
+
 
 # --------------------------------------------------------------------------------
 # Main routines, used for running the finder by itself for debugging and timing
@@ -106,7 +183,9 @@ class GenericFinder:
 def process_files(line_finder, input_files, output_dir):
     '''Process the files and output the marked up image'''
     import os.path
+    import re
 
+    print('File,Success,Mode,Distance1,RobotAngle1,TargetAngle1,Distance2,RobotAngle2')
     for image_file in input_files:
         # print()
         # print(image_file)
@@ -115,11 +194,13 @@ def process_files(line_finder, input_files, output_dir):
         result = line_finder.process_image(bgr_frame)
         print(image_file, result[0], result[1], round(result[2], 1),
               round(math.degrees(result[3]), 1), round(math.degrees(result[4]), 1),
-              round(result[5], 1), round(math.degrees(result[6]), 1))
+              round(result[5], 1), round(math.degrees(result[6]), 1), sep=',')
 
         bgr_frame = line_finder.prepare_output_image(bgr_frame)
 
         outfile = os.path.join(output_dir, os.path.basename(image_file))
+        # output as PNG, because that does not do compression
+        outfile = re.sub(r'\.jpg$', '.png', outfile, re.IGNORECASE)
         # print('{} -> {}'.format(image_file, outfile))
         cv2.imwrite(outfile, bgr_frame)
 
