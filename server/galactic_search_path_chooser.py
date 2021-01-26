@@ -12,27 +12,21 @@ class GalacticSearchPathChooser(GenericFinder):
 
     BALL_DIAMETER = 7            # inches
 
-    HFOV = 64.0                  # horizontal angle of the field of view
-    VFOV = 52.0                  # vertical angle of the field of view
 
-    # create imaginary view plane on 3d coords to get height and width
-    # place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
-    VP_HALF_WIDTH = math.tan(math.radians(HFOV)/2.0)  # view plane 1/2 height
-    VP_HALF_HEIGHT = math.tan(math.radians(VFOV)/2.0)  # view plane 1/2 width
-
-    def __init__(self, calib_matrix=None, dist_matrix=None):
-        super().__init__('ballfinder', camera='intake', finder_id=2.0, exposure=0)
+    def __init__(self, calib_matrix=None, dist_matrix=None, result_ntproperty="", path_hint_ntproperty=""):
+        super().__init__('galactic_search_path_chooser', camera='intake', finder_id=6.0, exposure=0)
 
         # individual properties
-        self.low_limit_hsv = numpy.array((23, 128, 161), dtype=numpy.uint8)
-        self.high_limit_hsv = numpy.array((27, 238, 255), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((20, 128, 171), dtype=numpy.uint8)
+        self.high_limit_hsv = numpy.array((30, 255, 255), dtype=numpy.uint8)
 
         self.paths_points={
-            "a-blue": numpy.array([[690.6518792359827, 505.81792975970427], [259.26403508771926, 508.4675438596491], [391.60912698412693, 485.3095238095238]]),
-            "a-red": numpy.array([[397.7219017654256, 627.8941327273786], [578.3780487804878, 531.2745934959349], [89.57725402169847, 523.7800224466891]]),
-            "b-blue": numpy.array([[544.5913218970736, 512.0871173898419], [290.23853211009174, 494.0132517838939], [480.55112474437624, 473.2065439672801]]),
-            "b-red": numpy.array([[59.9161622079021, 636.4458113649678], [587.659868729489, 534.20839193624], [269.375166002656, 507.242363877822]]),
+            "a-blue": self.make_relative_points(numpy.array([[690, 505], [259, 508], [391, 485]])),
+            "a-red": self.make_relative_points(numpy.array([[397, 627], [578, 531], [89, 523]])),
+            "b-blue": self.make_relative_points(numpy.array([[544, 512], [290, 494], [480, 473]])),
+            "b-red": self.make_relative_points(numpy.array([[59, 636], [587, 534], [269, 507]])),
         }
+
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
@@ -51,79 +45,16 @@ class GalacticSearchPathChooser(GenericFinder):
         self.camera_height = 20.5              # height of camera off the ground (inches)
         self.target_height = 3.5               # height of target off the ground (inches)
 
-        return
+        self.result_ntproperty=result_ntproperty # color (red or blue)
+        self.path_hint_ntproperty=path_hint_ntproperty # Path a or b
 
+        return
+    def make_relative_points(self,points):
+        return(points-numpy.amin(points,axis=0))
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
         return
-
-    def get_ball_values(self, center, shape):
-        '''Calculate the angle and distance from the camera to the center point of the robot
-        This routine uses the FOV numbers and the default center to convert to normalized coordinates'''
-
-        # center is in pixel coordinates, 0,0 is the upper-left, positive down and to the right
-        # (nx,ny) = normalized pixel coordinates, 0,0 is the center, positive right and up
-        # WARNING: shape is (h, w, nbytes) not (w,h,...)
-        image_w = shape[1] / 2.0
-        image_h = shape[0] / 2.0
-
-        # NOTE: the 0.5 is to place the location in the center of the pixel
-        # print("center", center, "shape", shape)
-        nx = (center[0] - image_w + 0.5) / image_w
-        ny = (image_h - 0.5 - center[1]) / image_h
-
-        # convert normal pixel coords to pixel coords
-        x = BallFinder2020.VP_HALF_WIDTH * nx
-        y = BallFinder2020.VP_HALF_HEIGHT * ny
-        # print("values", center[0], center[1], nx, ny, x, y)
-
-        # now have all pieces to convert to angle:
-        ax = math.atan2(x, 1.0)     # horizontal angle
-
-        # naive expression
-        # ay = math.atan2(y, 1.0)     # vertical angle
-
-        # corrected expression.
-        # As horizontal angle gets larger, real vertical angle gets a little smaller
-        ay = math.atan2(y * math.cos(ax), 1.0)     # vertical angle
-        # print("ax, ay", math.degrees(ax), math.degrees(ay))
-
-        # now use the x and y angles to calculate the distance to the target:
-        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
-
-        return ax, d    # return horizontal angle and distance
-
-    def get_ball_values_calib(self, center):
-        '''Calculate the angle and distance from the camera to the center point of the robot
-        This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
-
-        # use the distortion and camera arrays to correct the location of the center point
-        # got this from
-        #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
-
-        ptlist = numpy.array([[center]])
-        out_pt = cv2.undistortPoints(ptlist, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
-        undist_center = out_pt[0, 0]
-
-        x_prime = (undist_center[0] - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
-        y_prime = -(undist_center[1] - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
-
-        # now have all pieces to convert to angle:
-        ax = math.atan2(x_prime, 1.0)     # horizontal angle
-
-        # naive expression
-        # ay = math.atan2(y_prime, 1.0)     # vertical angle
-
-        # corrected expression.
-        # As horizontal angle gets larger, real vertical angle gets a little smaller
-        ay = math.atan2(y_prime * math.cos(ax), 1.0)     # vertical angle
-        # print("ax, ay", math.degrees(ax), math.degrees(ay))
-
-        # now use the x and y angles to calculate the distance to the target:
-        d = (self.target_height - self.camera_height) / math.tan(self.tilt_angle + ay)    # distance to the target
-
-        return ax, d    # return horizontal angle and distance
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -152,6 +83,7 @@ class GalacticSearchPathChooser(GenericFinder):
                 contour_list.append({'contour': c, 'center': center, 'widths': widths, 'area': area})
 
         self.top_contours = [cnt['contour'] for cnt in contour_list]
+
         # Sort the list of contours from largest area to smallest area
         contour_list.sort(key=lambda c: c['area'], reverse=True)
 
@@ -172,28 +104,37 @@ class GalacticSearchPathChooser(GenericFinder):
                 if len(self.center_points) >= 3:
                     break
 
-        print("Found points: "+json.dumps([list(itm) for itm in self.center_points]))
-        # done with the contours. Pick two centers to return
-
-        # return values: (success, finder_id, distance1, robot_angle1, target_angle1, distance2, robot_angle2)
         if len(self.center_points) < 3:
             return (0.0, self.finder_id, 0.0, 0.0, 0.0, 0.0)
+
+        if self.path_hint_ntproperty == "a":
+            search_path_names=["a-red","a-blue"]
+        elif self.path_hint_ntproperty == "b":
+            search_path_names=["b-red","b-blue"]
+        else:
+            search_path_names=["a-red","a-blue","b-red","b-blue"]
+
 
         path_score_min=None
         path_score_min_name=None
 
-        for path_name in self.paths_points:
+        relative_center_points=self.make_relative_points(numpy.array(self.center_points))
+
+        for path_name in search_path_names:
             target_positions=self.paths_points[path_name]
+
             diff_squared_total=0
-            for point in self.center_points:
+            for point in relative_center_points:
                 diffs=[numpy.linalg.norm(point-target_position) for target_position in target_positions]
                 min_diff=min(diffs)
                 diff_squared_total+=min_diff*min_diff
+
             if(path_score_min_name is None or diff_squared_total<path_score_min):
                 path_score_min=diff_squared_total
                 path_score_min_name=path_name
 
-        print("Found path type: "+path_score_min_name)
+        self.result_ntproperty=path_score_min_name
+
         return (1.0, self.finder_id, 0, 0, 0.0, 0, 0)
 
     def test_candidate_contour(self, contour_entry):
