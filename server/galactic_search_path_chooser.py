@@ -8,10 +8,7 @@ from genericfinder import GenericFinder, main
 
 
 class GalacticSearchPathChooser(GenericFinder):
-    '''Ball finder for Infinite Recharge 2020'''
-
-    BALL_DIAMETER = 7            # inches
-
+    '''Path chooser for galactic search skill challenge'''
 
     def __init__(self, calib_matrix=None, dist_matrix=None, result_ntproperty="", path_hint_ntproperty=""):
         super().__init__('galactic_search_path_chooser', camera='intake', finder_id=6.0, exposure=0)
@@ -30,27 +27,20 @@ class GalacticSearchPathChooser(GenericFinder):
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
 
-        # self.erode_kernel = numpy.ones((3, 3), numpy.uint8)
-        # self.erode_iterations = 0
 
         # some variables to save results for drawing
         self.top_contours = []
         self.found_contours = []
         self.center_points = []
 
-        self.cameraMatrix = calib_matrix
-        self.distortionMatrix = dist_matrix
-
-        self.tilt_angle = math.radians(-20.0)  # camera mount angle (radians)
-        self.camera_height = 20.5              # height of camera off the ground (inches)
-        self.target_height = 3.5               # height of target off the ground (inches)
-
         self.result_ntproperty=result_ntproperty # color (red or blue)
         self.path_hint_ntproperty=path_hint_ntproperty # Path a or b
 
         return
+
     def make_relative_points(self,points):
         return(points-numpy.amin(points,axis=0))
+
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
         self.low_limit_hsv = numpy.array((hue_low, sat_low, val_low), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((hue_high, sat_high, val_high), dtype=numpy.uint8)
@@ -116,7 +106,7 @@ class GalacticSearchPathChooser(GenericFinder):
 
 
         path_score_min=None
-        path_score_min_name=None
+        path_score_min_name=""
 
         relative_center_points=self.make_relative_points(numpy.array(self.center_points))
 
@@ -129,7 +119,7 @@ class GalacticSearchPathChooser(GenericFinder):
                 min_diff=min(diffs)
                 diff_squared_total+=min_diff*min_diff
 
-            if(path_score_min_name is None or diff_squared_total<path_score_min):
+            if(path_score_min is None or diff_squared_total<path_score_min):
                 path_score_min=diff_squared_total
                 path_score_min_name=path_name
 
