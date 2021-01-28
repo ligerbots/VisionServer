@@ -36,7 +36,6 @@ class VisionServer2020(VisionServer):
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     galactic_search_path_chooser_result = ntproperty('/SmartDashboard/vision/galactic_search_path_chooser/result', "", doc='Galactic search path chooser result')
-    galactic_search_path_chooser_path_hint = ntproperty('/SmartDashboard/vision/galactic_search_path_chooser/path_hint', "", doc='Hint for galactic search path chooser (a/b)')
 
     def __init__(self, calib_dir, test_mode=False):
         super().__init__(initial_mode='intake', test_mode=test_mode)
@@ -62,7 +61,7 @@ class VisionServer2020(VisionServer):
         self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
 
-        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, galactic_search_path_chooser_result, galactic_search_path_chooser_path_hint)
+        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, galactic_search_path_chooser_result)
         self.add_target_finder(self.galactic_search_path_chooser)
 
         self.update_parameters()

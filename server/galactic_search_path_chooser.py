@@ -10,7 +10,7 @@ from genericfinder import GenericFinder, main
 class GalacticSearchPathChooser(GenericFinder):
     '''Path chooser for galactic search skill challenge'''
 
-    def __init__(self, calib_matrix=None, dist_matrix=None, result_ntproperty="", path_hint_ntproperty=""):
+    def __init__(self, calib_matrix=None, dist_matrix=None, result_ntproperty=""):
         super().__init__('galactic_search_path_chooser', camera='intake', finder_id=6.0, exposure=0)
 
         # individual properties
@@ -34,7 +34,6 @@ class GalacticSearchPathChooser(GenericFinder):
         self.center_points = []
 
         self.result_ntproperty=result_ntproperty # color (red or blue)
-        self.path_hint_ntproperty=path_hint_ntproperty # Path a or b
 
         return
 
@@ -97,12 +96,6 @@ class GalacticSearchPathChooser(GenericFinder):
         if len(self.center_points) < 3:
             return (0.0, self.finder_id, 0.0, 0.0, 0.0, 0.0)
 
-        if self.path_hint_ntproperty == "a":
-            search_path_names=["a-red","a-blue"]
-        elif self.path_hint_ntproperty == "b":
-            search_path_names=["b-red","b-blue"]
-        else:
-            search_path_names=["a-red","a-blue","b-red","b-blue"]
 
 
         path_score_min=None
@@ -110,7 +103,7 @@ class GalacticSearchPathChooser(GenericFinder):
 
         relative_center_points=self.make_relative_points(numpy.array(self.center_points))
 
-        for path_name in search_path_names:
+        for path_name in self.paths_points:
             target_positions=self.paths_points[path_name]
 
             diff_squared_total=0
