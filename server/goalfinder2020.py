@@ -29,7 +29,7 @@ class GoalFinder2020(GenericFinder):
     ])
 
     # camera offsets and tilt angles
-    CAMERA_TILT = math.radians(25.0)
+    CAMERA_TILT = math.radians(30.0)
     CAMERA_OFFSET_X = -7.5
     CAMERA_OFFSET_Z = 0.0
 
