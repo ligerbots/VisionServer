@@ -17,6 +17,7 @@ class GalacticSearchPathChooser(GenericFinder):
         self.low_limit_hsv = numpy.array((20, 128, 171), dtype=numpy.uint8)
         self.high_limit_hsv = numpy.array((30, 255, 255), dtype=numpy.uint8)
 
+        # Old method
         self.paths_points={
             "a-blue": self.make_relative_points(numpy.array([[690, 505], [259, 508], [391, 485]])),
             "a-red": self.make_relative_points(numpy.array([[397, 627], [578, 531], [89, 523]])),
@@ -85,7 +86,9 @@ class GalacticSearchPathChooser(GenericFinder):
                 img_moments = cv2.moments(result_cnt)
                 center = numpy.array((img_moments['m10']/img_moments['m00'], img_moments['m01']/img_moments['m00']))
 
-                if(image_height-center[1]<377): # filter out the wheels near the bottom of the robot
+                if(image_height-center[1]<237): # filter out the wheels near the bottom of the robot
+                    continue
+                if(image_height-center[1]>640): # filter out the ladder
                     continue
 
                 self.center_points.append(center)
@@ -93,11 +96,8 @@ class GalacticSearchPathChooser(GenericFinder):
                 if len(self.center_points) >= 3:
                     break
 
-        if len(self.center_points) < 3:
-            return (0.0, self.finder_id, 0.0, 0.0, 0.0, 0.0)
-
-
-
+        # Old method
+        '''
         path_score_min=None
         path_score_min_name=""
 
@@ -115,8 +115,77 @@ class GalacticSearchPathChooser(GenericFinder):
             if(path_score_min is None or diff_squared_total<path_score_min):
                 path_score_min=diff_squared_total
                 path_score_min_name=path_name
+        '''
 
-        self.result_ntproperty=path_score_min_name
+        # code uses coordinates with 0,0 at bottom left
+        center_points_mapped = [(x, image_height-y) for (x,y) in self.center_points]
+        # sort from bottom to top
+        center_points_mapped.sort(key=lambda p: p[1])
+
+        if(len(center_points_mapped)<2):
+            print("fail-points")
+
+            return (0.0, self.finder_id, 0, 0, 0.0, 0, 0)
+
+        BLUE_FAR_Y=490 # min y value of far ball for path to be blue
+        RED_CLOSE_Y= 450 # max y value of close ball for path to be red
+        chosen_path=None
+        if(center_points_mapped[0][1]<RED_CLOSE_Y): # is the path red?
+            if(len(center_points_mapped)==2): # there are two balls
+                # couldn't figure a way to differentiate a from b since both could
+                # look the same (in both the robot could be turned slightly clockwise
+                # leaving out the far left ball)
+                # in red b the robot could be pointing straight and the right ball is gone
+                # although you could prob diff. by distance in this case
+                chosen_path = "b-red" # assume b-red, need fix later
+            else:
+                # there are three balls
+                # both can be far, close, middle (left to right)
+                # if its close, far, middle it must be B
+
+                # if the path is A the close and middle should be closer in x than close and far
+                # if the path is B the close and far should be closer in x than close and middle
+
+                if(center_points_mapped[0][0]<center_points_mapped[2][0] and center_points_mapped[2][0]<center_points_mapped[1][0]):
+                    chosen_path = "b-red"
+                elif(center_points_mapped[2][0]<center_points_mapped[0][0] and center_points_mapped[0][0]<center_points_mapped[1][0]):
+                    if(center_points_mapped[1][0]-center_points_mapped[0][0]<center_points_mapped[0][0]-center_points_mapped[2][0]):
+                        chosen_path = "a-red"
+                    else:
+                        chosen_path = "b-red"
+                else:
+                    print("fail-red")
+        elif(center_points_mapped[-1][1]>BLUE_FAR_Y): #is the path blue?
+            if(len(center_points_mapped)==2): # there are two balls
+                # if the path is blue the robot is probably at the right side (for optimal path)
+                # therefore if one of the balls is gone its probably the one to the left
+                # if the path is B, the far ball should be to the right of the close ball
+                # since the robot is probually to the right of the D row (for optimal path)
+                # if the path is A, the far ball should be to the left of the close ball
+                if(center_points_mapped[-1][0]>center_points_mapped[-1][0]):# B
+                    chosen_path = "b-blue"
+                else:#A
+                    chosen_path = "a-blue"
+            else: # there are three balls
+                # if the path is A the order should be (left to right) middle, far, close
+                # if the path is B the order should be (left to right) middle, close, far
+                # since the robot is probually to the right of the D row for optimal path
+
+                # add 30 to far because if they are lined up it counts as B
+                if(center_points_mapped[1][0]<center_points_mapped[2][0]+30 and center_points_mapped[2][0]+30<center_points_mapped[0][0]): #A
+                    chosen_path = "a-blue"
+                elif(center_points_mapped[1][0]<center_points_mapped[0][0] and center_points_mapped[0][0]<center_points_mapped[2][0]+30): #B
+                    chosen_path = "b-blue"
+                else:
+                    print("fail-blue")
+        else:
+            print("fail-color")
+
+        if(chosen_path is None):
+            return (0.0, self.finder_id, 0, 0, 0.0, 0, 0)
+
+        print("picked "+str(chosen_path))
+        self.result_ntproperty=chosen_path
 
         return (1.0, self.finder_id, 0, 0, 0.0, 0, 0)
 
