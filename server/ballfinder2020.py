@@ -12,8 +12,8 @@ class BallFinder2020(GenericFinder):
 
     BALL_DIAMETER = 7            # inches
 
-    HFOV = 64.0                  # horizontal angle of the field of view
-    VFOV = 52.0                  # vertical angle of the field of view
+    HFOV = 50.0                  # horizontal angle of the field of view
+    VFOV = 79.5                  # vertical angle of the field of view
 
     # create imaginary view plane on 3d coords to get height and width
     # place the view place on 3d coordinate plane 1.0 unit away from (0, 0) for simplicity
