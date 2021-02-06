@@ -23,13 +23,15 @@ class VisionServer:
     # this will be under /SmartDashboard, but the SendableChooser code does not allow full paths
     ACTIVE_MODE_KEY = "vision/active_mode"
 
-    # frame rate is pretty variable, so set this a fair bit higher than what you really want
+    # frame rate is pretty variable, so set this a fair bit higher than what you really want.
     # using a large number for no limit
     output_fps_limit = ntproperty('/SmartDashboard/vision/output_fps_limit', 60,
                                   doc='FPS limit of frames sent to MJPEG server')
 
     # default "compression" on output stream. This is actually quality, so low is high compression, poor picture
-    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 30,
+    # NOTE: this should be about "30" for competition on a real field
+    # Setting this high (good quality) for At Home runs in the shed
+    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 80,
                                      doc='Default compression of output stream')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
