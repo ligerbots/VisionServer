@@ -96,26 +96,6 @@ class GalacticSearchPathChooser(GenericFinder):
                 if len(self.center_points) >= 3:
                     break
 
-        # Old method
-        '''
-        path_score_min=None
-        path_score_min_name=""
-
-        relative_center_points=self.make_relative_points(numpy.array(self.center_points))
-
-        for path_name in self.paths_points:
-            target_positions=self.paths_points[path_name]
-
-            diff_squared_total=0
-            for point in relative_center_points:
-                diffs=[numpy.linalg.norm(point-target_position) for target_position in target_positions]
-                min_diff=min(diffs)
-                diff_squared_total+=min_diff*min_diff
-
-            if(path_score_min is None or diff_squared_total<path_score_min):
-                path_score_min=diff_squared_total
-                path_score_min_name=path_name
-        '''
 
         # code uses coordinates with 0,0 at bottom left
         center_points_mapped = [(x, image_height-y) for (x,y) in self.center_points]
@@ -123,63 +103,26 @@ class GalacticSearchPathChooser(GenericFinder):
         center_points_mapped.sort(key=lambda p: p[1])
 
         if(len(center_points_mapped)<2):
-            print("fail-points")
+            self.result_ntproperty="Fail - Not enough balls"
 
             return (0.0, self.finder_id, 0, 0, 0.0, 0, 0)
 
-        BLUE_FAR_Y=490 # min y value of far ball for path to be blue
-        RED_CLOSE_Y= 450 # max y value of close ball for path to be red
+        RED_CLOSE_Y= 440 # max y value of close ball for path to be red
+
         chosen_path=None
-        if(center_points_mapped[0][1]<RED_CLOSE_Y): # is the path red?
-            if(len(center_points_mapped)==2): # there are two balls
-                # couldn't figure a way to differentiate a from b since both could
-                # look the same (in both the robot could be turned slightly clockwise
-                # leaving out the far left ball)
-                # in red b the robot could be pointing straight and the right ball is gone
-                # although you could prob diff. by distance in this case
-                chosen_path = "b-red" # assume b-red, need fix later
+
+        if center_points_mapped[0][1]< RED_CLOSE_Y: # is the path red?
+            b1_b2_distance = numpy.linalg.norm(numpy.array(center_points_mapped[0])-center_points_mapped[1])
+
+            if b1_b2_distance > 160:
+                chosen_path = "a-red"
             else:
-                # there are three balls
-                # both can be far, close, middle (left to right)
-                # if its close, far, middle it must be B
-
-                # if the path is A the close and middle should be closer in x than close and far
-                # if the path is B the close and far should be closer in x than close and middle
-
-                if(center_points_mapped[0][0]<center_points_mapped[2][0] and center_points_mapped[2][0]<center_points_mapped[1][0]):
-                    chosen_path = "b-red"
-                elif(center_points_mapped[2][0]<center_points_mapped[0][0] and center_points_mapped[0][0]<center_points_mapped[1][0]):
-                    if(center_points_mapped[1][0]-center_points_mapped[0][0]<center_points_mapped[0][0]-center_points_mapped[2][0]):
-                        chosen_path = "a-red"
-                    else:
-                        chosen_path = "b-red"
-                else:
-                    print("fail-red")
-        elif(center_points_mapped[-1][1]>BLUE_FAR_Y): #is the path blue?
-            if(len(center_points_mapped)==2): # there are two balls
-                # if the path is blue the robot is probably at the right side (for optimal path)
-                # therefore if one of the balls is gone its probably the one to the left
-                # if the path is B, the far ball should be to the right of the close ball
-                # since the robot is probually to the right of the D row (for optimal path)
-                # if the path is A, the far ball should be to the left of the close ball
-                if(center_points_mapped[-1][0]>center_points_mapped[-1][0]):# B
-                    chosen_path = "b-blue"
-                else:#A
-                    chosen_path = "a-blue"
-            else: # there are three balls
-                # if the path is A the order should be (left to right) middle, far, close
-                # if the path is B the order should be (left to right) middle, close, far
-                # since the robot is probually to the right of the D row for optimal path
-
-                # add 30 to far because if they are lined up it counts as B
-                if(center_points_mapped[1][0]<center_points_mapped[2][0]+30 and center_points_mapped[2][0]+30<center_points_mapped[0][0]): #A
-                    chosen_path = "a-blue"
-                elif(center_points_mapped[1][0]<center_points_mapped[0][0] and center_points_mapped[0][0]<center_points_mapped[2][0]+30): #B
-                    chosen_path = "b-blue"
-                else:
-                    print("fail-blue")
-        else:
-            print("fail-color")
+                chosen_path = "b-red"
+        else: #is the path blue?
+            if(center_points_mapped[0][0]-50>center_points_mapped[-1][0]):
+                chosen_path = "a-blue"
+            else:
+                chosen_path = "b-blue"
 
         if(chosen_path is None):
             return (0.0, self.finder_id, 0, 0, 0.0, 0, 0)
