@@ -102,7 +102,7 @@ class GalacticSearchPathChooser(GenericFinder):
         # sort from bottom to top
         center_points_mapped.sort(key=lambda p: p[1])
 
-        if(len(center_points_mapped)<2):
+        if len(center_points_mapped)<2:
             self.result_ntproperty="Fail - Not enough balls"
 
             return (0.0, self.finder_id, 0, 0, 0.0, 0, 0)
@@ -127,7 +127,7 @@ class GalacticSearchPathChooser(GenericFinder):
         if(chosen_path is None):
             return (0.0, self.finder_id, 0, 0, 0.0, 0, 0)
 
-        print("picked "+str(chosen_path))
+        print("picked ", chosen_path)
         self.result_ntproperty=chosen_path
 
         return (1.0, self.finder_id, 0, 0, 0.0, 0, 0)
