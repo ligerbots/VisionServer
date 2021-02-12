@@ -10,7 +10,7 @@ from genericfinder import GenericFinder
 from goalfinder2020 import GoalFinder2020
 from ballfinder2020 import BallFinder2020
 from hopperfinder2020 import HopperFinder2020
-
+from galactic_search_path_chooser import GalacticSearchPathChooser
 
 
 class VisionServer2020(VisionServer):
@@ -35,6 +35,8 @@ class VisionServer2020(VisionServer):
 
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
+    galactic_search_path_chooser_result = ntproperty('/SmartDashboard/vision/galactic_search_path_chooser/result', "", doc='Galactic search path chooser result')
+
     def __init__(self, calib_dir, test_mode=False):
         super().__init__(initial_mode='intake', test_mode=test_mode)
 
@@ -58,6 +60,9 @@ class VisionServer2020(VisionServer):
 
         self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
+
+        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, galactic_search_path_chooser_result)
+        self.add_target_finder(self.galactic_search_path_chooser)
 
         self.update_parameters()
 
