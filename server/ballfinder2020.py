@@ -41,9 +41,9 @@ class BallFinder2020(GenericFinder):
         self.cameraMatrix = calib_matrix
         self.distortionMatrix = dist_matrix
 
-        self.tilt_angle = math.radians(-20.0)  # camera mount angle (radians)
+        self.tilt_angle = math.radians(-15.0)  # camera mount angle (radians)
         self.camera_height = 20.5              # height of camera off the ground (inches)
-        self.target_height = 3.5               # height of target off the ground (inches)
+        self.target_height = 3.5               # height of target (the ball) off the ground (inches)
 
         return
 
