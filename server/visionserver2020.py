@@ -40,7 +40,7 @@ class VisionServer2020(VisionServer):
         super().__init__(initial_mode='intake', test_mode=test_mode)
 
         self.camera_device_shooter = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
-        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_70E19A9E-video-index0'
+        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e-video-index0'
         self.add_cameras(calib_dir)
 
         self.generic_finder = GenericFinder("shooter", "shooter", finder_id=4.0)
