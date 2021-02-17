@@ -3,6 +3,7 @@
 '''Vision server for 2020 Infinite Recharge'''
 
 from networktables.util import ntproperty
+from networktables import NetworkTables
 
 from visionserver import VisionServer, main
 import cameras
@@ -35,8 +36,6 @@ class VisionServer2020(VisionServer):
 
     rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
-    galactic_search_path = ntproperty('/SmartDashboard/vision/galactic_search_path_chooser/result', "", doc='Galactic search path')
-
     def __init__(self, calib_dir, test_mode=False):
         super().__init__(initial_mode='intake', test_mode=test_mode)
 
@@ -61,7 +60,7 @@ class VisionServer2020(VisionServer):
         self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
 
-        self.galactic_search_path_chooser = GalacticSearchPathChooser(self.galactic_search_path, cam.calibration_matrix, cam.distortion_matrix)
+        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, result_nt_entry=NetworkTables.getTable("SmartDashboard").getEntry("vision/galactic_search_path_chooser/result"))
         self.add_target_finder(self.galactic_search_path_chooser)
 
         self.update_parameters()
