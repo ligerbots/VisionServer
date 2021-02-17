@@ -3,19 +3,19 @@
 import cv2
 import numpy
 from genericfinder import GenericFinder, main
-
+import math
 
 class GalacticSearchPathChooser(GenericFinder):
     '''Path chooser for galactic search skill challenge'''
 
     RED_CLOSE_Y = 440  # max y value of close ball for path to be red
 
-    def __init__(self, calib_matrix=None, dist_matrix=None, result_ntproperty=""):
+    def __init__(self, result_ntproperty, calib_matrix=None, dist_matrix=None):
         super().__init__('galactic_search_path_chooser', camera='intake', finder_id=6.0, exposure=0)
 
         # individual properties
-        self.low_limit_hsv = numpy.array((20, 125, 170), dtype=numpy.uint8)
-        self.high_limit_hsv = numpy.array((40, 255, 255), dtype=numpy.uint8)
+        self.low_limit_hsv = numpy.array((25, 50, 39), dtype=numpy.uint8)
+        self.high_limit_hsv = numpy.array((33, 255, 255), dtype=numpy.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
@@ -98,6 +98,7 @@ class GalacticSearchPathChooser(GenericFinder):
 
         if center_points_mapped[0][1] < self.RED_CLOSE_Y:  # is the path red?
             b1_b2_distance = numpy.linalg.norm(numpy.array(center_points_mapped[0]) - center_points_mapped[1])
+            print(b1_b2_distance)
             if b1_b2_distance > 160:
                 chosen_path = "a-red"
             else:
@@ -118,26 +119,29 @@ class GalacticSearchPathChooser(GenericFinder):
 
     def test_candidate_contour(self, contour_entry):
         cnt = contour_entry['contour']
-
-        # contours not clean, don't filter anything for now
-
-        # real_area = cv2.contourArea(cnt)
-        # print('areas:', real_area, contour_entry['area'], real_area / contour_entry['area'])
-        # print("ratio"+str(contour_entry['widths'][1] / contour_entry['widths'][0] ))
+        rect_area = contour_entry['area']
+        real_area = cv2.contourArea(cnt)
 
         # contour_entry['widths'][1] is the height
         # contour_entry['widths'][0] is the width
-        # ratio = contour_entry['widths'][1] / contour_entry['widths'][0]
+        ratio = contour_entry['widths'][1] / contour_entry['widths'][0]
         # TODO if balls cut out at bottom of screen it returns none,
-        #   so might want to change the lower value depending on camera location
-        # if ratio < 0.8 or ratio > 3.1:
-        #    print("not ratio")
-        #    return None
+        # so might want to change the lower value depending on camera location
+        if ratio < 0.8 or ratio > 3.1:
+            #print("Contour at",contour_entry["center"], "rejected due to bad w/h ratio")
+            #print("w/h ratio:", str(contour_entry['widths'][1] / contour_entry['widths'][0]))
 
-        # ratio = cv2.contourArea(cnt) / contour_entry['area']
-        # if ratio < (math.pi / 4) - 0.1 or ratio > (math.pi / 4) + 0.1:  # TODO refine the 0.1 error range
-        #    print("not ratio2")
-        #    return None
+            return None
+
+        ratio = real_area / contour_entry['area']
+        expected_real_rect_ratio = math.pi / 4
+
+
+        if rect_area*expected_real_rect_ratio*.9 - 20 > real_area or rect_area*expected_real_rect_ratio*1.1 + 20 < real_area:  # allow for greater varation in smaller contours
+            #print("Contour at", contour_entry["center"], "rejected due to bad rect/real area ratio")
+
+            #print("rect_area:", rect_area, "real_area:", real_area, "rect/real area ratio:", real_area / rect_area)
+            return None
 
         return cnt
 

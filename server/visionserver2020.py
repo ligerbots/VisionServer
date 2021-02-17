@@ -61,7 +61,7 @@ class VisionServer2020(VisionServer):
         self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
 
-        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, self.galactic_search_path)
+        self.galactic_search_path_chooser = GalacticSearchPathChooser(self.galactic_search_path, cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.galactic_search_path_chooser)
 
         self.update_parameters()
