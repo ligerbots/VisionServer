@@ -104,7 +104,7 @@ if __name__ == '__main__':
         infiles = []
         for f in args.input_files:
             infiles.extend(glob.glob(f))
-            args.input_files = infiles
+        args.input_files = infiles
 
     calibrate = CameraCalibration()
     calibrate.checkerboard_width = args.width
@@ -117,6 +117,7 @@ if __name__ == '__main__':
     print('reprojection error =', ret)
     print('image center = ({:.2f}, {:.2f})'.format(mtx[0][2], mtx[1][2]))
 
+    # TODO: use cv2.calibrationMatrixValues
     fov_x = math.degrees(2.0 * math.atan(calibrate.shape[1] / 2.0 / mtx[0][0]))
     fov_y = math.degrees(2.0 * math.atan(calibrate.shape[0] / 2.0 / mtx[1][1]))
     print('FOV = ({:.2f}, {:.2f}) degrees'.format(fov_x, fov_y))

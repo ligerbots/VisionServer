@@ -29,9 +29,10 @@ class GoalFinder2020(GenericFinder):
     ])
 
     # camera offsets and tilt angles
-    CAMERA_TILT = math.radians(30.0)
+    CAMERA_TILT = math.radians(30.0)  # 29.6
     CAMERA_OFFSET_X = -7.5
     CAMERA_OFFSET_Z = 0.0
+    CAMERA_TWIST = math.radians(0.0)  # -1.7
 
     def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('goalfinder', camera='shooter', finder_id=1.0, exposure=1)
@@ -52,7 +53,13 @@ class GoalFinder2020(GenericFinder):
 
         c_a = math.cos(self.CAMERA_TILT)
         s_a = math.sin(self.CAMERA_TILT)
-        self.rot_robot = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, -s_a), (0.0, s_a, c_a)))
+        r_tilt = numpy.array(((1.0, 0.0, 0.0), (0.0, c_a, -s_a), (0.0, s_a, c_a)))
+
+        c_a = math.cos(self.CAMERA_TWIST)
+        s_a = math.sin(self.CAMERA_TWIST)
+        r_twist = numpy.array(((c_a, 0.0, -s_a), (0.0, 1.0, 0.0), (s_a, 0.0, c_a)))
+
+        self.rot_robot = numpy.matmul(r_twist, r_tilt)
         self.camera_offset_rotated = numpy.matmul(self.rot_robot.transpose(), -self.t_robot)
 
         self.hsv_frame = None
