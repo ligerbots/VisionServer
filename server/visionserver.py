@@ -180,7 +180,7 @@ class VisionServer:
         n = finder.name
         logging.info("Adding target finder '{}' id {}".format(n, finder.finder_id))
         self.target_finders[n] = finder
-        NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/options').setStringArray(self.target_finders.keys())
+        NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/options').setStringArray(list(self.target_finders.keys()))
 
         if n == self.initial_mode:
             NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/default').setString(n)
@@ -449,7 +449,7 @@ def main(server_type):
 
     if args.test:
         # FOR TESTING, set this box as the server
-        NetworkTables.enableVerboseLogging()
+        # NetworkTables.enableVerboseLogging()
         NetworkTables.startServer()
     else:
         if args.verbose:
