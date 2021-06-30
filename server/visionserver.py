@@ -104,7 +104,7 @@ class VisionServer:
         # images are saved under the directory 'saved_images' in the current directory
         #  (ie current directory when the server is started)
         self.image_writer = ImageWriter(location_root='./saved_images',
-                                        capture_period=0.5, image_format='jpg')
+                                        capture_period=0.5, image_format='png')
 
         return
 
