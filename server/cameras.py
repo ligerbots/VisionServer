@@ -17,10 +17,12 @@ class Camera:
     Makes handling different camera models easier
     Includes a threaded reader, so you can grab a frame without waiting, if needed'''
 
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0,
-                 threaded=False):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0, threaded=True):
         '''Create a USB camera and configure it.
-        Note: rotation is an angle: 0, 90, 180, -90'''
+        Note: rotation is an angle: 0, 90, 180, -90
+
+        Cameras use threading for reading the image to make sure it get each one.
+        Otherwise, we are likely to skip every other one, and get only 15fps.'''
 
         self.width = int(width)
         self.height = int(height)
@@ -44,7 +46,9 @@ class Camera:
                      mode.pixelFormat, mode.width, mode.height, mode.fps)
 
         # Variables for the threaded read loop
+        # TODO: this seems to freeze occasionally. 
         self.sink = camera_server.getVideo(camera=self.camera)
+        logging.info('sink was created')
 
         self.calibration_matrix = None
         self.distortion_matrix = None
@@ -116,7 +120,7 @@ class Camera:
             if self.frame_number % 150 == 0:
                 endt = time()
                 dt = endt - fps_startt
-                logging.info("threadedcamera: 150 frames in {0:.3f} seconds = {1:.2f} FPS".format(dt, 150.0 / dt))
+                logging.info("threadedcamera '{0}': 150 frames in {1:.3f} seconds = {2:.2f} FPS".format(self.get_name(), dt, 150.0 / dt))
                 fps_startt = endt
         return
 
@@ -157,7 +161,7 @@ class Camera:
 
 
 class LogitechC930e(Camera):
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=False):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=True):
         if not width:
             width = 424 if height == 240 else 848
 
@@ -179,7 +183,7 @@ class LogitechC930e(Camera):
 
 
 class PSEye(Camera):
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=False):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=True):
         if not width:
             width = 320 if height == 240 else 640
 

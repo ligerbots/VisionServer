@@ -285,6 +285,7 @@ class VisionServer:
         fps_count = 0
         fps_startt = time()
         imgproc_nettime = 0
+        framedt_nettime = 0
 
         while True:
             try:
@@ -306,6 +307,7 @@ class VisionServer:
                 frame_num += 1
 
                 imgproc_startt = time()
+                framedt_nettime += imgproc_startt - 1e-6*frametime
 
                 if frametime == 0:
                     # ERROR!!
@@ -327,9 +329,9 @@ class VisionServer:
                     if self.image_writer_state:
                         self.image_writer.setImage(self.camera_frame)
 
-                    # frametime = time() * 1e8  (ie in 1/100 microseconds)
+                    # frametime = time() * 1e6  (ie microseconds)
                     # convert frametime to seconds to use as the heartbeat sent to the RoboRio
-                    target_res = [1e-8 * frametime, ]
+                    target_res = [1e-6 * frametime, ]
 
                     proc_result = self.process_image()
                     target_res.extend(proc_result)
@@ -351,6 +353,7 @@ class VisionServer:
                 min_deltat = 1.0 / self.output_fps_limit
                 if deltat >= min_deltat:
                     self.prepare_output_image()
+                    # TODO: this is pretty slow. Why?
                     self.output_stream.putFrame(self.output_frame)
                     self.previous_output_time = now
 
@@ -360,15 +363,17 @@ class VisionServer:
                     self.switch_mode(self.initial_mode)
 
                 fps_count += 1
-                imgproc_nettime += now - imgproc_startt
+                imgproc_nettime += time() - imgproc_startt
                 if fps_count >= 150:
                     endt = time()
                     dt = endt - fps_startt
                     logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
                     logging.info("Image processing time = {0:.2f} msec/frame".format(1000.0 * imgproc_nettime / fps_count))
+                    logging.info("Frame delta time = {0:.2f} msec/frame".format(1000.0 * framedt_nettime / fps_count))
                     fps_count = 0
                     fps_startt = endt
                     imgproc_nettime = 0
+                    framedt_nettime = 0
 
             except Exception as e:
                 # major exception. Try to keep going
