@@ -42,10 +42,9 @@ class Camera:
         self.set_property('focus_absolute', 0)
 
         mode = self.camera.getVideoMode()
-        logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
-                     mode.pixelFormat, mode.width, mode.height, mode.fps)
+        logging.info(f"Camera '{name}': pixel format = {mode.pixelFormat}, {mode.width}x{mode.height}, {mode.fps}FPS")
         if threaded:
-            logging.info("Camera '%s': using threaded reader")
+            logging.info(f"Camera '{name}': using threaded reader")
 
         # Variables for the threaded read loop
         # TODO: this seems to freeze occasionally. 
@@ -57,6 +56,7 @@ class Camera:
 
         self.threaded = threaded
         self.frametime = None
+        self.temp_frame = None
         self.camera_frame = None
         self.stopped = False
         self.frame_number = 0
@@ -147,12 +147,17 @@ class Camera:
         return self.frametime, self.camera_frame
 
     def _read_one_frame(self):
-        self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
-        self.frame_number += 1
+        ft, self.temp_frame = self.sink.grabFrame(self.temp_frame)
 
-        if self.rot90_count and self.frametime > 0:
+        if self.rot90_count and ft > 0:
             # Numpy is *much* faster than the OpenCV routine
-            self.camera_frame = rot90(self.camera_frame, self.rot90_count)
+            self.temp_frame = rot90(self.temp_frame, self.rot90_count)
+
+        # Don't update camera_frame and frame_number until done all processing
+        # this prevents the client from fetching it before it is ready
+        self.camera_frame = self.temp_frame
+        self.frametime = ft
+        self.frame_number += 1
         return
 
     def stop(self):
