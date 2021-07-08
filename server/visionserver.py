@@ -31,7 +31,7 @@ class VisionServer:
     # default "compression" on output stream. This is actually quality, so low is high compression, poor picture
     # NOTE: this should be about "30" for competition on a real field
     # Setting this high (good quality) for At Home runs in the shed
-    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 80,
+    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 30,
                                      doc='Default compression of output stream')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -42,7 +42,7 @@ class VisionServer:
     tuning = ntproperty('/SmartDashboard/vision/tuning', False, writeDefault=True,
                         doc='Tuning mode. Reads processing parameters each time.')
 
-    # Logitech c930 are wide-screen cameras, so 320x180 has the biggest FOV
+    # Logitech c930 are wide-screen cameras, so 424x240 is the correct proportion
     image_width = ntproperty('/SmartDashboard/vision/width', 424, writeDefault=False, doc='Image width')
     image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
@@ -285,7 +285,6 @@ class VisionServer:
         fps_count = 0
         fps_startt = time()
         imgproc_nettime = 0
-        framedt_nettime = 0
 
         while True:
             try:
@@ -307,7 +306,6 @@ class VisionServer:
                 frame_num += 1
 
                 imgproc_startt = time()
-                framedt_nettime += imgproc_startt - 1e-6*frametime
 
                 if frametime == 0:
                     # ERROR!!
@@ -369,11 +367,9 @@ class VisionServer:
                     dt = endt - fps_startt
                     logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
                     logging.info("Image processing time = {0:.2f} msec/frame".format(1000.0 * imgproc_nettime / fps_count))
-                    logging.info("Frame delta time = {0:.2f} msec/frame".format(1000.0 * framedt_nettime / fps_count))
                     fps_count = 0
                     fps_startt = endt
                     imgproc_nettime = 0
-                    framedt_nettime = 0
 
             except Exception as e:
                 # major exception. Try to keep going

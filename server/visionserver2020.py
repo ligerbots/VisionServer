@@ -87,7 +87,7 @@ class VisionServer2020(VisionServer):
         cam.load_calibration(calib_dir)
         self.add_camera(cam, True)
 
-        cam = cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=480, rotation=90)
+        cam = cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=240, rotation=90)
         cam.load_calibration(calib_dir)
         self.add_camera(cam, False)
         return

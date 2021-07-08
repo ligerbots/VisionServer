@@ -145,4 +145,4 @@ if __name__ == '__main__':
     if args.cscore:
         cscore_time(args.camera[0], width=args.width, height=args.height)
     else:
-        opencv_time(args.camera[0])
+        opencv_time(args.camera[0], width=args.width, height=args.height)

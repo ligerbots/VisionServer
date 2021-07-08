@@ -44,6 +44,8 @@ class Camera:
         mode = self.camera.getVideoMode()
         logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
                      mode.pixelFormat, mode.width, mode.height, mode.fps)
+        if threaded:
+            logging.info("Camera '%s': using threaded reader")
 
         # Variables for the threaded read loop
         # TODO: this seems to freeze occasionally. 
@@ -107,7 +109,7 @@ class Camera:
     def update(self):
         '''Threaded read loop'''
 
-        fps_startt = time()
+        # fps_startt = time()
 
         while True:
             # if the thread indicator variable is set, stop the thread
@@ -117,11 +119,11 @@ class Camera:
             # otherwise, read the next frame from the stream
             self._read_one_frame()
 
-            if self.frame_number % 150 == 0:
-                endt = time()
-                dt = endt - fps_startt
-                logging.info("threadedcamera '{0}': 150 frames in {1:.3f} seconds = {2:.2f} FPS".format(self.get_name(), dt, 150.0 / dt))
-                fps_startt = endt
+            # if self.frame_number % 150 == 0:
+            #     endt = time()
+            #     dt = endt - fps_startt
+            #     logging.info("threadedcamera '{0}': 150 frames in {1:.3f} seconds = {2:.2f} FPS".format(self.get_name(), dt, 150.0 / dt))
+            #     fps_startt = endt
         return
 
     def next_frame(self):
@@ -156,7 +158,7 @@ class Camera:
     def stop(self):
         # indicate that the thread should be stopped
         self.stopped = True
-        sleep(0.3)         # time for thread to stop (proper way???)
+        # sleep(0.3)         # time for thread to stop (proper way???)
         return
 
 
