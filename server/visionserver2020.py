@@ -11,7 +11,7 @@ from genericfinder import GenericFinder
 from goalfinder2020 import GoalFinder2020
 from ballfinder2020 import BallFinder2020
 from hopperfinder2020 import HopperFinder2020
-from galactic_search_path_chooser import GalacticSearchPathChooser
+# from galactic_search_path_chooser import GalacticSearchPathChooser
 
 
 class VisionServer2020(VisionServer):
@@ -60,8 +60,8 @@ class VisionServer2020(VisionServer):
         self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
 
-        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, result_nt_entry=NetworkTables.getTable("SmartDashboard").getEntry("vision/galactic_search_path_chooser/result"))
-        self.add_target_finder(self.galactic_search_path_chooser)
+        # self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, result_nt_entry=NetworkTables.getTable("SmartDashboard").getEntry("vision/galactic_search_path_chooser/result"))
+        # self.add_target_finder(self.galactic_search_path_chooser)
 
         self.update_parameters()
 
