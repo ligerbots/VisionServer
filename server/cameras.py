@@ -17,12 +17,12 @@ class Camera:
     Makes handling different camera models easier
     Includes a threaded reader, so you can grab a frame without waiting, if needed'''
 
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0, threaded=True):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0, threaded=False):
         '''Create a USB camera and configure it.
         Note: rotation is an angle: 0, 90, 180, -90
 
-        Cameras use threading for reading the image to make sure it get each one.
-        Otherwise, we are likely to skip every other one, and get only 15fps.'''
+        You can use threading for reading the image to make sure it get each one.
+        Otherwise, when processing is long, we might skip every other one, and get only 15fps.'''
 
         self.width = int(width)
         self.height = int(height)
@@ -168,7 +168,7 @@ class Camera:
 
 
 class LogitechC930e(Camera):
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=True):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=False):
         if not width:
             width = 424 if height == 240 else 848
 
@@ -190,7 +190,7 @@ class LogitechC930e(Camera):
 
 
 class PSEye(Camera):
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=True):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=None, rotation=0, threaded=False):
         if not width:
             width = 320 if height == 240 else 640
 

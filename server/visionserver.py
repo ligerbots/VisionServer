@@ -3,7 +3,7 @@
 '''Defines a class for which each year's subclass vision server inherits from'''
 
 # import sys
-from time import time
+from time import time, sleep
 import cv2
 import numpy
 import logging
@@ -399,7 +399,7 @@ class VisionServer:
             self.output_stream.putFrame(self.output_frame)
             # probably don't want to use sleep. Want something thread-compatible
             # for _ in range(4):
-            time.sleep(0.5)
+            sleep(0.5)
 
             file_index = (file_index + 1) % len(file_list)
         return
@@ -419,7 +419,7 @@ def wait_on_nt_connect(max_delay=10):
 
         if cnt > 0 and cnt % 5 == 0:
             logging.warning("Still waiting to connect to NT (%d sec)", cnt)
-        time.sleep(1)
+        sleep(1)
         cnt += 1
 
     logging.warning("Failed to connect to NetworkTables after %d seconds. Continuing", cnt)

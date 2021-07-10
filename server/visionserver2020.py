@@ -83,10 +83,13 @@ class VisionServer2020(VisionServer):
     def add_cameras(self, calib_dir):
         '''Add the cameras'''
 
-        cam = cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90)
+        # Use threading for the shooter camera.
+        # The high res image slows the processing so we need all the time we can get
+        cam = cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90, threaded=True)
         cam.load_calibration(calib_dir)
         self.add_camera(cam, True)
 
+        # do not need high res image for this, so also no threaded reader.
         cam = cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=240, rotation=90)
         cam.load_calibration(calib_dir)
         self.add_camera(cam, False)
