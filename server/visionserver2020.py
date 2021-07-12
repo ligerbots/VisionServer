@@ -11,7 +11,7 @@ from genericfinder import GenericFinder
 from goalfinder2020 import GoalFinder2020
 from ballfinder2020 import BallFinder2020
 from hopperfinder2020 import HopperFinder2020
-from galactic_search_path_chooser import GalacticSearchPathChooser
+# from galactic_search_path_chooser import GalacticSearchPathChooser
 
 
 class VisionServer2020(VisionServer):
@@ -60,8 +60,8 @@ class VisionServer2020(VisionServer):
         self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hopper_finder)
 
-        self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, result_nt_entry=NetworkTables.getTable("SmartDashboard").getEntry("vision/galactic_search_path_chooser/result"))
-        self.add_target_finder(self.galactic_search_path_chooser)
+        # self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, result_nt_entry=NetworkTables.getTable("SmartDashboard").getEntry("vision/galactic_search_path_chooser/result"))
+        # self.add_target_finder(self.galactic_search_path_chooser)
 
         self.update_parameters()
 
@@ -83,11 +83,14 @@ class VisionServer2020(VisionServer):
     def add_cameras(self, calib_dir):
         '''Add the cameras'''
 
-        cam = cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90)
+        # Use threading for the shooter camera.
+        # The high res image slows the processing so we need all the time we can get
+        cam = cameras.LogitechC930e(self.camera_server, 'shooter', self.camera_device_shooter, height=480, rotation=90, threaded=True)
         cam.load_calibration(calib_dir)
         self.add_camera(cam, True)
 
-        cam = cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=480, rotation=90)
+        # do not need high res image for this, so also no threaded reader.
+        cam = cameras.LogitechC930e(self.camera_server, 'intake', self.camera_device_intake, height=240, rotation=90)
         cam.load_calibration(calib_dir)
         self.add_camera(cam, False)
         return

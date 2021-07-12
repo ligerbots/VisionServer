@@ -17,10 +17,12 @@ class Camera:
     Makes handling different camera models easier
     Includes a threaded reader, so you can grab a frame without waiting, if needed'''
 
-    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0,
-                 threaded=False):
+    def __init__(self, camera_server, name, device, height=240, fps=30, width=320, rotation=0, threaded=False):
         '''Create a USB camera and configure it.
-        Note: rotation is an angle: 0, 90, 180, -90'''
+        Note: rotation is an angle: 0, 90, 180, -90
+
+        You can use threading for reading the image to make sure it get each one.
+        Otherwise, when processing is long, we might skip every other one, and get only 15fps.'''
 
         self.width = int(width)
         self.height = int(height)
@@ -40,17 +42,21 @@ class Camera:
         self.set_property('focus_absolute', 0)
 
         mode = self.camera.getVideoMode()
-        logging.info("camera '%s' pixel format = %s, %dx%d, %dFPS", name,
-                     mode.pixelFormat, mode.width, mode.height, mode.fps)
+        logging.info(f"Camera '{name}': pixel format = {mode.pixelFormat}, {mode.width}x{mode.height}, {mode.fps}FPS")
+        if threaded:
+            logging.info(f"Camera '{name}': using threaded reader")
 
         # Variables for the threaded read loop
+        # TODO: this seems to freeze occasionally. 
         self.sink = camera_server.getVideo(camera=self.camera)
+        logging.info('sink was created')
 
         self.calibration_matrix = None
         self.distortion_matrix = None
 
         self.threaded = threaded
         self.frametime = None
+        self.temp_frame = None
         self.camera_frame = None
         self.stopped = False
         self.frame_number = 0
@@ -103,7 +109,7 @@ class Camera:
     def update(self):
         '''Threaded read loop'''
 
-        fps_startt = time()
+        # fps_startt = time()
 
         while True:
             # if the thread indicator variable is set, stop the thread
@@ -113,11 +119,11 @@ class Camera:
             # otherwise, read the next frame from the stream
             self._read_one_frame()
 
-            if self.frame_number % 150 == 0:
-                endt = time()
-                dt = endt - fps_startt
-                logging.info("threadedcamera: 150 frames in {0:.3f} seconds = {1:.2f} FPS".format(dt, 150.0 / dt))
-                fps_startt = endt
+            # if self.frame_number % 150 == 0:
+            #     endt = time()
+            #     dt = endt - fps_startt
+            #     logging.info("threadedcamera '{0}': 150 frames in {1:.3f} seconds = {2:.2f} FPS".format(self.get_name(), dt, 150.0 / dt))
+            #     fps_startt = endt
         return
 
     def next_frame(self):
@@ -141,18 +147,23 @@ class Camera:
         return self.frametime, self.camera_frame
 
     def _read_one_frame(self):
-        self.frametime, self.camera_frame = self.sink.grabFrame(self.camera_frame)
-        self.frame_number += 1
+        ft, self.temp_frame = self.sink.grabFrame(self.temp_frame)
 
-        if self.rot90_count and self.frametime > 0:
+        if self.rot90_count and ft > 0:
             # Numpy is *much* faster than the OpenCV routine
-            self.camera_frame = rot90(self.camera_frame, self.rot90_count)
+            self.temp_frame = rot90(self.temp_frame, self.rot90_count)
+
+        # Don't update camera_frame and frame_number until done all processing
+        # this prevents the client from fetching it before it is ready
+        self.camera_frame = self.temp_frame
+        self.frametime = ft
+        self.frame_number += 1
         return
 
     def stop(self):
         # indicate that the thread should be stopped
         self.stopped = True
-        sleep(0.3)         # time for thread to stop (proper way???)
+        # sleep(0.3)         # time for thread to stop (proper way???)
         return
 
 

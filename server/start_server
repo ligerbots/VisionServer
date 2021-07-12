@@ -155,7 +155,9 @@ case "$1" in
         echo '' >> $LOG_FILE
         taskset -c 4-7 python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
 
-        test $WEB_SERVER = 1 && start_webserver
+        if [ $WEB_SERVER = 1 ]; then
+           start_webserver
+        fi
 	;;
 
     restart)

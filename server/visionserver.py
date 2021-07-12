@@ -3,7 +3,7 @@
 '''Defines a class for which each year's subclass vision server inherits from'''
 
 # import sys
-from time import time
+from time import time, sleep
 import cv2
 import numpy
 import logging
@@ -31,7 +31,7 @@ class VisionServer:
     # default "compression" on output stream. This is actually quality, so low is high compression, poor picture
     # NOTE: this should be about "30" for competition on a real field
     # Setting this high (good quality) for At Home runs in the shed
-    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 80,
+    default_compression = ntproperty('/SmartDashboard/vision/default_compression', 30,
                                      doc='Default compression of output stream')
 
     # fix the TCP port for the main video, so it does not change with multiple cameras
@@ -42,7 +42,7 @@ class VisionServer:
     tuning = ntproperty('/SmartDashboard/vision/tuning', False, writeDefault=True,
                         doc='Tuning mode. Reads processing parameters each time.')
 
-    # Logitech c930 are wide-screen cameras, so 320x180 has the biggest FOV
+    # Logitech c930 are wide-screen cameras, so 424x240 is the correct proportion
     image_width = ntproperty('/SmartDashboard/vision/width', 424, writeDefault=False, doc='Image width')
     image_height = ntproperty('/SmartDashboard/vision/height', 240, writeDefault=False, doc='Image height')
     camera_fps = ntproperty('/SmartDashboard/vision/fps', 30, writeDefault=False, doc='FPS from camera')
@@ -104,7 +104,7 @@ class VisionServer:
         # images are saved under the directory 'saved_images' in the current directory
         #  (ie current directory when the server is started)
         self.image_writer = ImageWriter(location_root='./saved_images',
-                                        capture_period=0.5, image_format='jpg')
+                                        capture_period=0.5, image_format='png')
 
         return
 
@@ -180,7 +180,7 @@ class VisionServer:
         n = finder.name
         logging.info("Adding target finder '{}' id {}".format(n, finder.finder_id))
         self.target_finders[n] = finder
-        NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/options').setStringArray(self.target_finders.keys())
+        NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/options').setStringArray(list(self.target_finders.keys()))
 
         if n == self.initial_mode:
             NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/default').setString(n)
@@ -327,9 +327,9 @@ class VisionServer:
                     if self.image_writer_state:
                         self.image_writer.setImage(self.camera_frame)
 
-                    # frametime = time() * 1e8  (ie in 1/100 microseconds)
+                    # frametime = time() * 1e6  (ie microseconds)
                     # convert frametime to seconds to use as the heartbeat sent to the RoboRio
-                    target_res = [1e-8 * frametime, ]
+                    target_res = [1e-6 * frametime, ]
 
                     proc_result = self.process_image()
                     target_res.extend(proc_result)
@@ -351,6 +351,7 @@ class VisionServer:
                 min_deltat = 1.0 / self.output_fps_limit
                 if deltat >= min_deltat:
                     self.prepare_output_image()
+                    # TODO: this is pretty slow. Why?
                     self.output_stream.putFrame(self.output_frame)
                     self.previous_output_time = now
 
@@ -360,7 +361,7 @@ class VisionServer:
                     self.switch_mode(self.initial_mode)
 
                 fps_count += 1
-                imgproc_nettime += now - imgproc_startt
+                imgproc_nettime += time() - imgproc_startt
                 if fps_count >= 150:
                     endt = time()
                     dt = endt - fps_startt
@@ -398,7 +399,7 @@ class VisionServer:
             self.output_stream.putFrame(self.output_frame)
             # probably don't want to use sleep. Want something thread-compatible
             # for _ in range(4):
-            time.sleep(0.5)
+            sleep(0.5)
 
             file_index = (file_index + 1) % len(file_list)
         return
@@ -418,7 +419,7 @@ def wait_on_nt_connect(max_delay=10):
 
         if cnt > 0 and cnt % 5 == 0:
             logging.warning("Still waiting to connect to NT (%d sec)", cnt)
-        time.sleep(1)
+        sleep(1)
         cnt += 1
 
     logging.warning("Failed to connect to NetworkTables after %d seconds. Continuing", cnt)
@@ -449,7 +450,7 @@ def main(server_type):
 
     if args.test:
         # FOR TESTING, set this box as the server
-        NetworkTables.enableVerboseLogging()
+        # NetworkTables.enableVerboseLogging()
         NetworkTables.startServer()
     else:
         if args.verbose:
