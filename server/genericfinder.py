@@ -187,8 +187,8 @@ def process_files(line_finder, input_files, output_dir):
 
     print('File,Success,Mode,Distance1,RobotAngle1,TargetAngle1,Distance2,RobotAngle2')
     for image_file in input_files:
-        # print()
-        # print(image_file)
+        print()
+        print(image_file)
         bgr_frame = cv2.imread(image_file)
 
         result = line_finder.process_image(bgr_frame)
