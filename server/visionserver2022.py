@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-'''Vision server for 2022 Infinite Recharge'''
+'''Vision server for 2022 Rapid React'''
 
 from networktables.util import ntproperty
 from networktables import NetworkTables
@@ -8,10 +8,10 @@ from networktables import NetworkTables
 from visionserver import VisionServer, main
 import cameras
 from genericfinder import GenericFinder
-# from galactic_search_path_chooser import GalacticSearchPathChooser
+from hubfinder2022 import HubFinder2022
 
 
-class VisionServer2020(VisionServer):
+class VisionServer2022(VisionServer):
 
     # Retro-reflective target finding parameters
 
@@ -47,18 +47,8 @@ class VisionServer2020(VisionServer):
         self.add_target_finder(self.generic_finder_intake)
 
         cam = self.cameras['shooter']
-        self.goal_finder = GoalFinder2020(cam.calibration_matrix, cam.distortion_matrix)
-        self.add_target_finder(self.goal_finder)
-
-        cam = self.cameras['intake']
-        self.ball_finder = BallFinder2020(cam.calibration_matrix, cam.distortion_matrix)
-        self.add_target_finder(self.ball_finder)
-
-        self.hopper_finder = HopperFinder2020(cam.calibration_matrix, cam.distortion_matrix)
-        self.add_target_finder(self.hopper_finder)
-
-        # self.galactic_search_path_chooser = GalacticSearchPathChooser(cam.calibration_matrix, cam.distortion_matrix, result_nt_entry=NetworkTables.getTable("SmartDashboard").getEntry("vision/galactic_search_path_chooser/result"))
-        # self.add_target_finder(self.galactic_search_path_chooser)
+        self.hub_finder = HubFinder2022(cam.calibration_matrix, cam.distortion_matrix)
+        self.add_target_finder(self.hub_finder)
 
         self.update_parameters()
 
@@ -72,9 +62,6 @@ class VisionServer2020(VisionServer):
 
         # Make sure to add any additional created properties which should be changeable
 
-        self.goal_finder.set_color_thresholds(self.rrtarget_hue_low_limit, self.rrtarget_hue_high_limit,
-                                              self.rrtarget_saturation_low_limit, self.rrtarget_saturation_high_limit,
-                                              self.rrtarget_value_low_limit, self.rrtarget_value_high_limit)
         return
 
     def add_cameras(self, calib_dir):
