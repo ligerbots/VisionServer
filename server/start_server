@@ -4,7 +4,7 @@
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2020.py
+SCRIPT=visionserver2022.py
 
 # For running standalone (not alongside a RoboRio), set TEST_MODE=1
 TEST_MODE=0

@@ -10,7 +10,7 @@ import math
 from genericfinder import GenericFinder, main
 
 
-@nb.njit(nb.float64[:](nb.float64[:, :]))
+@nb.njit(nb.float32[:](nb.float32[:, :]))
 def fit_ACDE(points):
 
     # solving Ax^2 + Cy^2 + Dx + Ey = 1
@@ -21,10 +21,10 @@ def fit_ACDE(points):
     for (i, (x, y)) in enumerate(points):
         N[i] = [x**2, y**2, x, y]
     M = np.linalg.pinv(N) @ np.ones((len(points),))
-    return M
+    return M.astype(np.float32)
 
 
-@nb.njit(nb.float64[:](nb.float64[:]))
+@nb.njit(nb.float32[:](nb.float32[:]))
 def canonical(M):
     # compute canoical form of ellipse, given ACDE
     A, C, D, E = M
@@ -34,10 +34,10 @@ def canonical(M):
     a = np.sqrt(m/A)
     b = np.sqrt(m/C)
 
-    return(np.array([h, k, a, b], dtype=np.float64))
+    return(np.array([h, k, a, b], dtype=np.float32))
 
-
-@nb.njit(nb.float64(nb.float64, nb.float64, nb.float64, nb.float64))
+'''
+@nb.njit(nb.float32(nb.float32, nb.float32, nb.float32, nb.float32))
 def ellipse_distance(a, b, px, py):
     # credit: https://stackoverflow.com/a/46007540/5771000
 
@@ -70,8 +70,8 @@ def ellipse_distance(a, b, px, py):
 
     return(math.hypot(a * tx, b * ty))
 
-
-@nb.njit(nb.types.Tuple([nb.types.ListType(nb.types.Array(nb.int64, 1, "C")), nb.optional(nb.types.Array(nb.float64, 1, "A")), nb.optional(nb.types.Array(nb.float64, 1, "A"))])(nb.types.ListType(nb.types.Array(nb.int32, 3, "C")), nb.int64, nb.int64))
+'''
+@nb.njit(nb.types.Tuple([nb.types.ListType(nb.types.Array(nb.int32, 1, "C")), nb.optional(nb.types.Array(nb.float32, 1, "A")), nb.optional(nb.types.Array(nb.float32, 1, "A"))])(nb.types.ListType(nb.types.Array(nb.int32, 3, "C")), nb.int32, nb.int32))
 def process_contours(contours, width, height):
     # first compute "midline": center lines of each contour
     top_y = np.empty((width,), dtype=np.int32)
@@ -97,8 +97,10 @@ def process_contours(contours, width, height):
         for x in range(min_x, max_x+1):
             if(top_y[x] != -1 and bottom_y[x] != -1):
                 midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2]))
+    if len(midline_points) == 0:
+        return (midline_points, None, None)
 
-    midline_points_np = np.empty((len(midline_points), 2), dtype=np.float64)
+    midline_points_np = np.empty((len(midline_points), 2), dtype=np.float32)
     for i in range(len(midline_points)):
         midline_points_np[i] = midline_points[i]
 
@@ -106,27 +108,30 @@ def process_contours(contours, width, height):
     M = fit_ACDE(midline_points_np)
 
     std = canonical(M)
+
     if(np.any(np.isnan(std))):
         return midline_points, None, None
 
     toppoint = np.array([std[0], std[1] - std[3]])
     return (midline_points, std, toppoint)
 
+test_vals = np.array([[[1,1]], [[1,2]], [[2,2]]], dtype = np.int32)
+process_contours(nb.typed.List([test_vals]), 10, 10)
+
 
 class HubFinder2022(GenericFinder):
     '''Find hub ring for 2022 game'''
     # inches
-    CAMERA_HEIGHT = 12
-    CAMERA_ANGLE = math.radians(32)
+    CAMERA_HEIGHT = 32.5
+    CAMERA_ANGLE = math.radians(35)
     HUB_HEIGHT = 103
-    HUB_INSET = 26.7  # radius of hub circle
 
     def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = np.array((75, 120, 100), dtype=np.uint8)
-        self.high_limit_hsv = np.array((90, 255, 255), dtype=np.uint8)
+        self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
+        self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
@@ -146,6 +151,8 @@ class HubFinder2022(GenericFinder):
         self.distortionMatrix = dist_matrix
 
         self.outer_corners = []
+
+        self.filter_box = None
         return
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
@@ -182,7 +189,6 @@ class HubFinder2022(GenericFinder):
         self.hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV, dst=self.hsv_frame)
         self.threshold_frame = cv2.inRange(self.hsv_frame, self.low_limit_hsv, self.high_limit_hsv,
                                            dst=self.threshold_frame)
-
         # OpenCV 3 returns 3 parameters, OpenCV 4 returns 2!
         # Only need the contours variable
         start = timer()
@@ -193,16 +199,41 @@ class HubFinder2022(GenericFinder):
         else:
             contours = res[1]
 
+        max_area = 0
+
         filtered_contours = []
         for contour in contours:
-            if cv2.contourArea(contour) < 100:
+            area = cv2.contourArea(contour)
+            x, y, w, h = cv2.boundingRect(contour)
+            if area < shape[0] * shape[1] * 2.5e-5:
                 continue
+
+            if area / (w*h) < 0.4:
+                continue
+            if w/h < 1.2:
+                continue
+            if w/h > 4:
+                continue
+
+            if(max_area < area):
+                max_area = area
+                cx, cy = x+w/2 , y+h/2
+                dx, dy = w*10, h*5
+                self.filter_box = [cx-dx, cy-dy, cx+dx, cy+dy]
             filtered_contours.append(contour)
 
-        self.top_contours = filtered_contours
+        position_filtered_contours = []
         if len(filtered_contours):
+            for contour in filtered_contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                cx, cy = x+w/2, y+h/2
+                if (self.filter_box[0] <= cx <= self.filter_box[2]) and (self.filter_box[1] <= cy <= self.filter_box[3]):
+                    position_filtered_contours.append(contour)
+        self.top_contours = position_filtered_contours
+        if len(position_filtered_contours):
+
             self.midline_points, self.ellipse_coeffs, self.top_point = process_contours(
-                nb.typed.List(filtered_contours), self.threshold_frame.shape[1], self.threshold_frame.shape[0])
+                nb.typed.List(position_filtered_contours), self.threshold_frame.shape[1], self.threshold_frame.shape[0])
         else:
             self.midline_points, self.ellipse_coeffs, self.top_point = None, None, None
 
@@ -229,7 +260,6 @@ class HubFinder2022(GenericFinder):
         out_pt = cv2.undistortPoints(ptlist, self.cameraMatrix,
                                      self.distortionMatrix, P=self.cameraMatrix)
         undist_center = out_pt[0, 0]
-
         x_prime = (undist_center[0] - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
         y_prime = -(undist_center[1] - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
 
@@ -272,8 +302,11 @@ class HubFinder2022(GenericFinder):
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
                 cv2.drawMarker(output_frame, pt, (0, 0, 255), cv2.MARKER_CROSS, 15, 2)
 
+        if self.filter_box is not None:
+            cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])), (255,0,0), 2)
+
         cv2.putText(output_frame, f"{int(self.processing_time*10)/10}ms", (20,
-                    output_frame.shape[0]-20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), thickness=1)
+                    output_frame.shape[0]-60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), thickness=2)
 
         return output_frame
 

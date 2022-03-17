@@ -18,11 +18,12 @@ def load_calibration_file(calib_file, rotation):
             cal_matrix = array(json_data["camera_matrix"])
             dist_matrix = array(json_data["distortion"])
 
-        if abs(rotation) == 90:
+        if abs(rotation) == 90 or abs(rotation) == 270:
             # swap the x,y values
             cal_matrix[1, 1], cal_matrix[0, 0] = cal_matrix[0, 0], cal_matrix[1, 1]
             cal_matrix[1, 2], cal_matrix[0, 2] = cal_matrix[0, 2], cal_matrix[1, 2]
             dist_matrix[0, 3], dist_matrix[0, 2] = dist_matrix[0, 2], dist_matrix[0, 3]
+
 
         return cal_matrix, dist_matrix
     except Exception as e:
