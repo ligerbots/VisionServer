@@ -63,15 +63,11 @@ class FastFinder2022(GenericFinder):
         self.hsv_frame = None
         self.threshold_frame = None
 
-        # DEBUG values
         self.top_contours = None
-        # output results
-        self.target_contour = None
 
         self.cameraMatrix = calib_matrix
         self.distortionMatrix = dist_matrix
 
-        self.outer_corners = []
         return
 
     def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
@@ -121,11 +117,8 @@ class FastFinder2022(GenericFinder):
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
-        self.target_contour = None
 
-        # DEBUG values; clear any values from previous image
         self.top_contours = None
-        self.outer_corners = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
