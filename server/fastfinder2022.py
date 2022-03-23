@@ -145,16 +145,41 @@ class FastFinder2022(GenericFinder):
         else:
             contours = res[1]
 
+        max_area = 0
         filtered_contours = []
+        size_cut = shape[0] * shape[1] * 2.5e-5
         for contour in contours:
-            if cv2.contourArea(contour) < 100:
+            area = cv2.contourArea(contour)
+            x, y, w, h = cv2.boundingRect(contour)
+            if area < size_cut:
                 continue
+            if area / (w * h) < 0.4:
+                continue
+            ratio = w / h
+            if ratio < 1.2 or ratio > 4:
+                continue
+
             filtered_contours.append(contour)
 
-        self.top_contours = filtered_contours
+            if max_area < area:
+                max_area = area
+                cx, cy = x + w/2, y + h/2
+                dx = 7 * w
+                # the biggest contour should be at the top of the set, so use an asymmetric region in y
+                # remember that y increases going down in the image
+                self.filter_box = [cx - dx, cy - 3*h, cx + dx, cy + 6*h]
 
-        if filtered_contours:
-            self.top_point = self.process_contours(filtered_contours)
+        # we defined a large box where all valid regions should be, based on the biggest contour
+        # filter against that box
+        self.top_contours = []
+        for contour in filtered_contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            cx, cy = x+w/2, y+h/2
+            if (self.filter_box[0] <= cx <= self.filter_box[2]) and (self.filter_box[1] <= cy <= self.filter_box[3]):
+                self.top_contours.append(contour)
+
+        if self.top_contours:
+            self.top_point = self.process_contours(self.top_contours)
         else:
             self.top_point = None
 
@@ -210,6 +235,10 @@ class FastFinder2022(GenericFinder):
             pt = tuple(self.top_point.astype(int))
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
                 cv2.drawMarker(output_frame, pt, (255, 0, 0), cv2.MARKER_CROSS, 15, 2)
+
+        if self.filter_box is not None:
+            cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])),
+                          (255, 0, 0), 2)
 
         # if self.circle:
         #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)
