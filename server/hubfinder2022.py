@@ -8,8 +8,9 @@ import numba as nb
 from timeit import default_timer as timer
 import math
 from genericfinder import GenericFinder, main
+import matplotlib.pyplot as plt
 
-
+'''
 @nb.njit(nb.float32[:](nb.float32[:, :]))
 def fit_ACDE(points):
 
@@ -36,43 +37,53 @@ def canonical(M):
 
     return(np.array([h, k, a, b], dtype=np.float32))
 
+@nb.njit(nb.float32[:](nb.float32[:], nb.float32, nb.float32, nb.float32[:,:], , nb.float32[:]))
+def project_hubplane(point, hub_height, camera_height, calib_matrix, dist_matrix):
 '''
-@nb.njit(nb.float32(nb.float32, nb.float32, nb.float32, nb.float32))
-def ellipse_distance(a, b, px, py):
-    # credit: https://stackoverflow.com/a/46007540/5771000
+@nb.njit(nb.float32[:](nb.float32, nb.float32, nb.float32, nb.float32))
+def transform_hubplane(x_prime, y_prime, theta, h):
+    sin_theta = np.sin(theta)
+    cos_theta = np.cos(theta)
+    return(np.array([x_prime*h/(sin_theta + y_prime * cos_theta), (cos_theta - y_prime * sin_theta) * h / (sin_theta + y_prime * cos_theta)], dtype = np.float32))
 
-    px, py = abs(px), abs(py)
+def fit_circle(pts, radius):
+    # https://stackoverflow.com/a/44668482
+    lhs = np.zeros((3,3), dtype = np.float32)
+    rhs = np.zeros((3,1), dtype = np.float32)
+    if len(pts) < 3:
+        return None
 
-    tx = 0.707
-    ty = 0.707
+    for pt in pts:
+        x1 = pt[0]
+        x2 = pt[0] ** 2
+        x3 = pt[0] ** 3
 
-    for _ in range(0, 3):
-        x = a * tx
-        y = b * ty
+        y1 = pt[1]
+        y2 = pt[1] ** 2
+        y3 = pt[1] ** 3
 
-        ex = (a*a - b*b) * tx**3 / a
-        ey = (b*b - a*a) * ty**3 / b
+        lhs[0, 0] += 2 * x2
+        lhs[0, 1] += 2 * x1 * y1
+        lhs[0, 2] += 2 * x1
 
-        rx = x - ex
-        ry = y - ey
+        rhs[0, 0] -= 2 * x3 + 2 * x1 * y2
 
-        qx = px - ex
-        qy = py - ey
+        lhs[1, 0] += 2 * x1 * y1
+        lhs[1, 1] += 2 * y2
+        lhs[1, 2] += 2 * y1
 
-        r = math.hypot(ry, rx)
-        q = math.hypot(qy, qx)
+        rhs[1, 0] -= 2 * y3 + 2 * x2 * y1
 
-        tx = min(1, max(0, (qx * r / q + ex) / a))
-        ty = min(1, max(0, (qy * r / q + ey) / b))
-        t = math.hypot(ty, tx)
-        tx /= t
-        ty /= t
+        lhs[2, 0] += 2 * x1
+        lhs[2, 1] += 2 * y1
+        lhs[2, 2] += 2
 
-    return(math.hypot(a * tx, b * ty))
+        rhs[2, 0] -= 2 * y2 + 2 * x2
+    solution, _, _, _ = np.linalg.lstsq(lhs, rhs, rcond=-1)
 
-'''
-@nb.njit(nb.types.Tuple([nb.types.ListType(nb.types.Array(nb.int32, 1, "C")), nb.optional(nb.types.Array(nb.float32, 1, "A")), nb.optional(nb.types.Array(nb.float32, 1, "A"))])(nb.types.ListType(nb.types.Array(nb.int32, 3, "C")), nb.int32, nb.int32))
-def process_contours(contours, width, height):
+
+@nb.njit(nb.types.ListType(nb.types.Array(nb.int32, 1, "C"))(nb.types.ListType(nb.types.Array(nb.int32, 3, "C")), nb.int32, nb.int32))
+def compute_midline(contours, width, height):
     # first compute "midline": center lines of each contour
     top_y = np.empty((width,), dtype=np.int32)
     bottom_y = np.empty((width,), dtype=np.int32)
@@ -96,27 +107,13 @@ def process_contours(contours, width, height):
 
         for x in range(min_x, max_x+1):
             if(top_y[x] != -1 and bottom_y[x] != -1):
-                midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2]))
-    if len(midline_points) == 0:
-        return (midline_points, None, None)
+                midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2], dtype=np.int32))
+    return midline_points
 
-    midline_points_np = np.empty((len(midline_points), 2), dtype=np.float32)
-    for i in range(len(midline_points)):
-        midline_points_np[i] = midline_points[i]
 
-    # fit to ellipse
-    M = fit_ACDE(midline_points_np)
-
-    std = canonical(M)
-
-    if(np.any(np.isnan(std))):
-        return midline_points, None, None
-
-    toppoint = np.array([std[0], std[1] - std[3]])
-    return (midline_points, std, toppoint)
 
 test_vals = np.array([[[1,1]], [[1,2]], [[2,2]]], dtype = np.int32)
-process_contours(nb.typed.List([test_vals]), 10, 10)
+compute_midline(nb.typed.List([test_vals]), 10, 10)
 
 
 class HubFinder2022(GenericFinder):
@@ -232,8 +229,20 @@ class HubFinder2022(GenericFinder):
         self.top_contours = position_filtered_contours
         if len(position_filtered_contours):
 
-            self.midline_points, self.ellipse_coeffs, self.top_point = process_contours(
+            self.midline_points = compute_midline(
                 nb.typed.List(position_filtered_contours), self.threshold_frame.shape[1], self.threshold_frame.shape[0])
+            midline_cv2 = np.array(self.midline_points, dtype=np.float32)[:,np.newaxis,:]
+            midline_undistort_cv2 = cv2.undistortPoints(midline_cv2, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
+            midline_undistort = midline_undistort_cv2[:, 0, :]
+            midline_prime_x = (midline_undistort[:, 0]  - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
+            midline_prime_y = (midline_undistort[:, 1]  - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
+            hubplane_points = []
+            for (x,y) in zip(midline_prime_x, midline_prime_y):
+                hubplane_points.append(transform_hubplane(x, y, HubFinder2022.CAMERA_ANGLE, HubFinder2022.HUB_HEIGHT - HubFinder2022.CAMERA_HEIGHT))
+            #plt.scatter(*(np.array(hubplane_points).T))
+            #plt.axis('equal')
+            #plt.show()
+            self.ellipse_coeffs, self.top_point = None, None
         else:
             self.midline_points, self.ellipse_coeffs, self.top_point = None, None, None
 
