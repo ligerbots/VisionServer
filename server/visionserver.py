@@ -285,6 +285,7 @@ class VisionServer:
         fps_count = 0
         fps_startt = time()
         imgproc_nettime = 0
+        fps_success = 0
 
         while True:
             try:
@@ -362,12 +363,16 @@ class VisionServer:
 
                 fps_count += 1
                 imgproc_nettime += time() - imgproc_startt
+                if self.target_info[1] > 0.5:
+                    fps_success += 1
+
                 if fps_count >= 150:
                     endt = time()
                     dt = endt - fps_startt
-                    logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS".format(fps_count, dt, fps_count/dt))
+                    logging.info("{0} frames in {1:.3f} seconds = {2:.2f} FPS, {3} successful".format(fps_count, dt, fps_count/dt, fps_success))
                     logging.info("Image processing time = {0:.2f} msec/frame".format(1000.0 * imgproc_nettime / fps_count))
                     fps_count = 0
+                    fps_success = 0
                     fps_startt = endt
                     imgproc_nettime = 0
 
