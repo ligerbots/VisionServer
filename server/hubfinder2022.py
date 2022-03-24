@@ -383,7 +383,7 @@ class HubFinder2022(GenericFinder):
         if(self.top_point is not None):
             pt = tuple(self.top_point.astype(int))
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
-                cv2.drawMarker(output_frame, pt, (0, 255, 255), cv2.MARKER_CROSS, 15, 2)
+                cv2.drawMarker(output_frame, pt, (255, 255, 255), cv2.MARKER_CROSS, 15, 2)
 
         if self.filter_box is not None:
             cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])), (255,0,0), 2)
