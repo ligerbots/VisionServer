@@ -3,12 +3,12 @@
 '''Vision server for 2022 Rapid React'''
 
 from networktables.util import ntproperty
-from networktables import NetworkTables
 
 from visionserver import VisionServer, main
 import cameras
 from genericfinder import GenericFinder
-from hubfinder2022 import HubFinder2022
+# from hubfinder2022 import HubFinder2022
+from fastfinder2022 import FastFinder2022 as HubFinder2022
 
 
 class VisionServer2022(VisionServer):
@@ -17,27 +17,27 @@ class VisionServer2022(VisionServer):
 
     # Color threshold values, in HSV space
     hub_hue_low_limit = ntproperty('/SmartDashboard/vision/hub/hue_low_limit', 65,
-                                        doc='Hue low limit for thresholding (rrtarget mode)')
+                                   doc='Hue low limit for thresholding (rrtarget mode)')
     hub_hue_high_limit = ntproperty('/SmartDashboard/vision/hub/hue_high_limit', 100,
-                                         doc='Hue high limit for thresholding (rrtarget mode)')
+                                    doc='Hue high limit for thresholding (rrtarget mode)')
 
     hub_saturation_low_limit = ntproperty('/SmartDashboard/vision/hub/saturation_low_limit', 75,
-                                               doc='Saturation low limit for thresholding (rrtarget mode)')
+                                          doc='Saturation low limit for thresholding (rrtarget mode)')
     hub_saturation_high_limit = ntproperty('/SmartDashboard/vision/hub/saturation_high_limit', 255,
-                                                doc='Saturation high limit for thresholding (rrtarget mode)')
+                                           doc='Saturation high limit for thresholding (rrtarget mode)')
 
     hub_value_low_limit = ntproperty('/SmartDashboard/vision/hub/value_low_limit', 75,
-                                          doc='Value low limit for thresholding (rrtarget mode)')
+                                     doc='Value low limit for thresholding (rrtarget mode)')
     hub_value_high_limit = ntproperty('/SmartDashboard/vision/hub/value_high_limit', 255,
-                                           doc='Value high limit for thresholding (rrtarget mode)')
+                                      doc='Value high limit for thresholding (rrtarget mode)')
 
     # rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     def __init__(self, calib_dir, test_mode=False):
         super().__init__(initial_mode='intake', test_mode=test_mode)
 
-        self.camera_device_shooter = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
-        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e-video-index0'
+        self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
+        self.camera_device_shooter = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e-video-index0'
         self.add_cameras(calib_dir)
 
         self.generic_finder = GenericFinder("shooter", "shooter", finder_id=4.0)

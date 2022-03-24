@@ -241,9 +241,6 @@ class FastFinder2022(GenericFinder):
         # if self.circle:
         #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)
 
-        # cv2.putText(output_frame, f"{round(self.processing_time[0],1)} {round(self.processing_time[1],1)} ms",
-        #             (20, output_frame.shape[0]-20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), thickness=1)
-
         return output_frame
 
 
