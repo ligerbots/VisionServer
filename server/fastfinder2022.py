@@ -46,8 +46,8 @@ class FastFinder2022(GenericFinder):
     '''Find hub ring for 2022 game using a fast circle fit'''
 
     # inches
-    CAMERA_HEIGHT = 32.5
-    CAMERA_ANGLE = math.radians(35)
+    CAMERA_HEIGHT = 33
+    CAMERA_ANGLE = math.radians(31)
     HUB_HEIGHT = 103
 
     def __init__(self, calib_matrix=None, dist_matrix=None):
@@ -64,6 +64,8 @@ class FastFinder2022(GenericFinder):
         self.threshold_frame = None
 
         self.top_contours = None
+        self.filter_box = None
+        self.circle = None
 
         self.cameraMatrix = calib_matrix
         self.distortionMatrix = dist_matrix
@@ -119,6 +121,8 @@ class FastFinder2022(GenericFinder):
         '''Main image processing routine'''
 
         self.top_contours = None
+        self.filter_box = None
+        self.circle = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -140,10 +144,11 @@ class FastFinder2022(GenericFinder):
 
         max_area = 0
         filtered_contours = []
-        size_cut = shape[0] * shape[1] * 2.5e-5
+        size_cut = shape[0] * shape[1] * 5.0e-5
         for contour in contours:
             area = cv2.contourArea(contour)
             x, y, w, h = cv2.boundingRect(contour)
+
             if area < size_cut:
                 continue
             if area / (w * h) < 0.4:
@@ -229,9 +234,9 @@ class FastFinder2022(GenericFinder):
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
                 cv2.drawMarker(output_frame, pt, (255, 0, 0), cv2.MARKER_CROSS, 15, 2)
 
-        if self.filter_box is not None:
-            cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])),
-                          (255, 0, 0), 2)
+        # if self.filter_box is not None:
+        #     cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])),
+        #                   (255, 0, 0), 2)
 
         # if self.circle:
         #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)

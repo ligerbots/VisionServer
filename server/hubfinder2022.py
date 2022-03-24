@@ -96,7 +96,7 @@ def process_contours(contours, width, height):
 
         for x in range(min_x, max_x+1):
             if(top_y[x] != -1 and bottom_y[x] != -1):
-                midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2]))
+                midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2], dtype=np.int32))
     if len(midline_points) == 0:
         return (midline_points, None, None)
 
@@ -122,8 +122,8 @@ process_contours(nb.typed.List([test_vals]), 10, 10)
 class HubFinder2022(GenericFinder):
     '''Find hub ring for 2022 game'''
     # inches
-    CAMERA_HEIGHT = 32.5
-    CAMERA_ANGLE = math.radians(35)
+    CAMERA_HEIGHT = 33
+    CAMERA_ANGLE = math.radians(31)
     HUB_HEIGHT = 103
 
     def __init__(self, calib_matrix=None, dist_matrix=None):
