@@ -231,7 +231,8 @@ class HubFinder2022(GenericFinder):
             contours = res[1]
 
         max_area = 0
-
+        mcx = 0
+        mcy = 0
         filtered_contours = []
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -250,6 +251,7 @@ class HubFinder2022(GenericFinder):
                 max_area = area
                 cx, cy = x+w/2 , y+h/2
                 dx, dy = w*10, h*5
+                mcx, mcy = cx, cy
                 self.filter_box = [cx-dx, cy-dy, cx+dx, cy+dy]
             filtered_contours.append(contour)
 
