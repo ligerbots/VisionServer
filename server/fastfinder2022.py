@@ -80,6 +80,11 @@ class FastFinder2022(GenericFinder):
     CAMERA_ANGLE = math.radians(31)
     HUB_HEIGHT = 103
 
+    # cuts on Field of View
+    MIN_DISTANCE = 24.0
+    MAX_DISTANCE = 270.0        # far launchpad, plus some
+    MAX_ANGLE = 15.0
+
     def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
@@ -94,12 +99,14 @@ class FastFinder2022(GenericFinder):
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 40
         self.contour_max_area = 1000
+        self.max_2nd_region_dist = 50
+        self.contour_min_fill = 0.25
+
+        # FOV cuts. Do not know the values until we know the image size
         self.minimum_x = 0
         self.maximum_x = 10000
         self.minimum_y = 0
         self.maximum_y = 10000
-        self.max_2nd_region_dist = 50
-        self.contour_min_fill = 0.25
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -131,6 +138,21 @@ class FastFinder2022(GenericFinder):
         self.hsv_frame = np.empty(shape=shape, dtype=np.uint8)
         # threshold_fame is grey, so only 2 dimensions
         self.threshold_frame = np.empty(shape=shape[:2], dtype=np.uint8)
+
+        # translate FOV limits into pixels
+        xp = math.tan(math.radians(self.MAX_ANGLE))
+        self.minimum_x = self.cameraMatrix[0, 2] - xp * self.cameraMatrix[0, 0]
+        self.maximum_x = self.cameraMatrix[0, 2] + xp * self.cameraMatrix[0, 0]
+
+        angley = math.atan((self.HUB_HEIGHT - self.CAMERA_HEIGHT) / self.MIN_DISTANCE) - self.CAMERA_ANGLE
+        yp = math.tan(angley)
+        self.minimum_y = max(0, self.cameraMatrix[1, 2] - yp * self.cameraMatrix[1, 1])
+
+        angley = math.atan((self.HUB_HEIGHT - self.CAMERA_HEIGHT) / self.MAX_DISTANCE) - self.CAMERA_ANGLE
+        yp = math.tan(angley)
+        self.maximum_y = self.cameraMatrix[1, 2] - yp * self.cameraMatrix[1, 1]
+
+        # print('fov', self.minimum_x, self.maximum_x, self.minimum_y, self.maximum_y)
         return
 
     def process_contours(self, contour_list):
@@ -358,6 +380,11 @@ class FastFinder2022(GenericFinder):
 
         # if self.circle:
         #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)
+
+        cv2.line(output_frame, (int(self.minimum_x), 0), (int(self.minimum_x), input_frame.shape[0]), (255, 255, 255), 1)
+        cv2.line(output_frame, (int(self.maximum_x), 0), (int(self.maximum_x), input_frame.shape[0]), (255, 255, 255), 1)
+        cv2.line(output_frame, (0, int(self.minimum_y)), (input_frame.shape[1], int(self.minimum_y)), (255, 255, 255), 1)
+        cv2.line(output_frame, (0, int(self.maximum_y)), (input_frame.shape[1], int(self.maximum_y)), (255, 255, 255), 1)
 
         return output_frame
 
