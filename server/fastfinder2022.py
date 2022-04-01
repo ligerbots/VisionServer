@@ -363,16 +363,16 @@ class FastFinder2022(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours is not None:
-            cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 255), 2)
+        # if self.top_contours is not None:
+        #     cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 255), 2)
 
         if self.target_contours is not None:
-            cv2.drawContours(output_frame, self.target_contours, -1, (0, 0, 255), 2)
+            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 255), 2)
 
         if self.top_point is not None:
             pt = tuple(self.top_point.astype(int))
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
-                cv2.drawMarker(output_frame, pt, (255, 0, 0), cv2.MARKER_CROSS, 15, 2)
+                cv2.drawMarker(output_frame, pt, (0, 0, 255), cv2.MARKER_CROSS, 20, 3)
 
         # if self.filter_box is not None:
         #     cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])),
@@ -381,10 +381,10 @@ class FastFinder2022(GenericFinder):
         # if self.circle:
         #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)
 
-        cv2.line(output_frame, (int(self.minimum_x), 0), (int(self.minimum_x), input_frame.shape[0]), (255, 255, 255), 1)
-        cv2.line(output_frame, (int(self.maximum_x), 0), (int(self.maximum_x), input_frame.shape[0]), (255, 255, 255), 1)
-        cv2.line(output_frame, (0, int(self.minimum_y)), (input_frame.shape[1], int(self.minimum_y)), (255, 255, 255), 1)
-        cv2.line(output_frame, (0, int(self.maximum_y)), (input_frame.shape[1], int(self.maximum_y)), (255, 255, 255), 1)
+        cv2.line(output_frame, (int(self.minimum_x), 0), (int(self.minimum_x), input_frame.shape[0]), (128, 0, 0), 1)
+        cv2.line(output_frame, (int(self.maximum_x), 0), (int(self.maximum_x), input_frame.shape[0]), (128, 0, 0), 1)
+        cv2.line(output_frame, (0, int(self.minimum_y)), (input_frame.shape[1], int(self.minimum_y)), (128, 0, 0), 1)
+        cv2.line(output_frame, (0, int(self.maximum_y)), (input_frame.shape[1], int(self.maximum_y)), (128, 0, 0), 1)
 
         return output_frame
 
