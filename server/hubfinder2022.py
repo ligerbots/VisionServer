@@ -128,6 +128,11 @@ def compute_midline(contours, width, height):
         for x in range(min_x, max_x+1):
             if(top_y[x] != -1 and bottom_y[x] != -1):
                 midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2], dtype=np.int32))
+<<<<<<< HEAD
+=======
+    if len(midline_points) == 0:
+        return (midline_points, None, None)
+>>>>>>> circle-fit
 
     midline_points_np = np.empty((len(midline_points), 2), dtype=np.float32)
     for i in range(len(midline_points)):
@@ -151,8 +156,8 @@ def solve_circle(pts, known_radius, guess):
 class HubFinder2022(GenericFinder):
     '''Find hub ring for 2022 game'''
     # inches
-    CAMERA_HEIGHT = 32.5
-    CAMERA_ANGLE = math.radians(35)
+    CAMERA_HEIGHT = 33
+    CAMERA_ANGLE = math.radians(31)
     HUB_HEIGHT = 103
     HUB_RADIUS = 26.6875
     HUB_CIRCLE = np.array([(np.cos(theta) * 26.6875, np.sin(theta) * 26.6875) for theta in np.linspace(0,2*math.pi,20,endpoint=False)])
@@ -231,7 +236,8 @@ class HubFinder2022(GenericFinder):
             contours = res[1]
 
         max_area = 0
-
+        mcx = 0
+        mcy = 0
         filtered_contours = []
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -250,6 +256,7 @@ class HubFinder2022(GenericFinder):
                 max_area = area
                 cx, cy = x+w/2 , y+h/2
                 dx, dy = w*10, h*5
+                mcx, mcy = cx, cy
                 self.filter_box = [cx-dx, cy-dy, cx+dx, cy+dy]
             filtered_contours.append(contour)
 
