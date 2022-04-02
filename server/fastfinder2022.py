@@ -42,6 +42,36 @@ def find_circle(x1, y1, x2, y2, x3, y3):
     return (-g, -f), r
 
 
+class ContourInfo:
+    '''Small class to cache info about a contour, to save repeating the calcs'''
+
+    def __init__(self, contour):
+        self.contour = contour
+        c, w = GenericFinder.contour_center_width(contour)
+        self.bb_center = c
+        self.bb_width, self.bb_height = w
+        self.bb_area = self.bb_width * self.bb_height
+
+        # delay this calc
+        self._moments = None
+        return
+
+    def __getattr__(self, attr):
+        if attr in ('moments', 'centroid', 'con_area'):
+            if self._moments is None:
+                self._moments = cv2.moments(self.contour)
+
+            if attr == 'moments':
+                return self._moments
+            elif attr == 'con_area':
+                return self._moments['m00']
+            else:
+                w = self._moments['m00']
+                return (self._moments['m10']/w, self._moments['m01']/w)
+
+        raise AttributeError
+
+
 class FastFinder2022(GenericFinder):
     '''Find hub ring for 2022 game using a fast circle fit'''
 
@@ -50,6 +80,11 @@ class FastFinder2022(GenericFinder):
     CAMERA_ANGLE = math.radians(31)
     HUB_HEIGHT = 103
 
+    # cuts on Field of View
+    MIN_DISTANCE = 24.0
+    MAX_DISTANCE = 270.0        # far launchpad, plus some
+    MAX_ANGLE = 15.0
+
     def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
@@ -57,13 +92,27 @@ class FastFinder2022(GenericFinder):
         self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
         self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
 
+        # values for torture testing
+        # self.low_limit_hsv = np.array((55, 5, 70), dtype=np.uint8)
+        # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
+
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 80
+        self.contour_min_area = 40
+        self.contour_max_area = 1000
+        self.max_2nd_region_dist = 50
+        self.contour_min_fill = 0.25
+
+        # FOV cuts. Do not know the values until we know the image size
+        self.minimum_x = 0
+        self.maximum_x = 10000
+        self.minimum_y = 0
+        self.maximum_y = 10000
 
         self.hsv_frame = None
         self.threshold_frame = None
 
         self.top_contours = None
+        self.target_contours = None
         self.filter_box = None
         self.circle = None
 
@@ -89,40 +138,48 @@ class FastFinder2022(GenericFinder):
         self.hsv_frame = np.empty(shape=shape, dtype=np.uint8)
         # threshold_fame is grey, so only 2 dimensions
         self.threshold_frame = np.empty(shape=shape[:2], dtype=np.uint8)
+
+        # translate FOV limits into pixels
+        xp = math.tan(math.radians(self.MAX_ANGLE))
+        self.minimum_x = self.cameraMatrix[0, 2] - xp * self.cameraMatrix[0, 0]
+        self.maximum_x = self.cameraMatrix[0, 2] + xp * self.cameraMatrix[0, 0]
+
+        angley = math.atan((self.HUB_HEIGHT - self.CAMERA_HEIGHT) / self.MIN_DISTANCE) - self.CAMERA_ANGLE
+        yp = math.tan(angley)
+        self.minimum_y = max(0, self.cameraMatrix[1, 2] - yp * self.cameraMatrix[1, 1])
+
+        angley = math.atan((self.HUB_HEIGHT - self.CAMERA_HEIGHT) / self.MAX_DISTANCE) - self.CAMERA_ANGLE
+        yp = math.tan(angley)
+        self.maximum_y = self.cameraMatrix[1, 2] - yp * self.cameraMatrix[1, 1]
+
+        # print('fov', self.minimum_x, self.maximum_x, self.minimum_y, self.maximum_y)
         return
 
     def process_contours(self, contour_list):
-        sumx = 0.0
-        sumy = 0.0
-        sumw = 0.0
-        pts = []
-        for c in contour_list:
-            img_moments = cv2.moments(c)
-            w = img_moments['m00']
-            sumx += img_moments['m10']
-            sumy += img_moments['m01']
-            sumw += w
-            pts.append((w, img_moments['m10']/w, img_moments['m01']/w))
-
-        xcentral = sumx/sumw
-        if len(pts) < 3:
-            return np.array((xcentral, sumy/sumw))
+        if len(contour_list) < 3:
+            return None
 
         # fit a circle to the top 3
-        pts = sorted(pts, reverse=True)
-        center, rad = find_circle(pts[0][1], pts[0][2], pts[1][1], pts[1][2], pts[2][1], pts[2][2])
+        pts = sorted([c.centroid for c in contour_list], reverse=True)
+
+        center, rad = find_circle(pts[0][0], pts[0][1], pts[1][0], pts[1][1], pts[2][0], pts[2][1])
         self.circle = (center, rad)
+
+        # center of the fit should be *below* the points (y increases down)
+        if center[1] < pts[0][1]:
+            # print('circle is in wrong direction')
+            return None
+
         # y axis increases down, so we want the smaller value
-        # ycentral = center[1] - math.sqrt(rad**2 - (xcentral - center[0])**2)
-        # return (xcentral, ycentral)
         return np.array((center[0], center[1] - rad))
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
 
         self.top_contours = None
-        self.filter_box = None
         self.circle = None
+        self.target_contours = None
+        self.top_point = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -142,44 +199,41 @@ class FastFinder2022(GenericFinder):
         else:
             contours = res[1]
 
-        max_area = 0
-        filtered_contours = []
-        size_cut = shape[0] * shape[1] * 5.0e-5
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            x, y, w, h = cv2.boundingRect(contour)
+        contour_list = []
+        for c in contours:
+            c_info = ContourInfo(c)
 
-            if area < size_cut:
-                continue
-            if area / (w * h) < 0.4:
-                continue
-            ratio = w / h
-            if ratio < 1.2 or ratio > 4:
+            bb_area = c_info.bb_area
+            if bb_area < self.contour_min_area or bb_area > self.contour_max_area:
                 continue
 
-            filtered_contours.append(contour)
+            ratio = c_info.bb_width / c_info.bb_height
+            # print('c', c_info.bb_center, bb_area, ratio, c_info.con_area / bb_area)
+            if ratio < 0.8 or ratio > 4.0:
+                continue
 
-            if max_area < area:
-                max_area = area
-                cx, cy = x + w/2, y + h/2
-                dx = 7 * w
-                # the biggest contour should be at the top of the set, so use an asymmetric region in y
-                # remember that y increases going down in the image
-                self.filter_box = [cx - dx, cy - 3*h, cx + dx, cy + 6*h]
+            if c_info.con_area / bb_area < self.contour_min_fill:
+                continue
 
-        # we defined a large box where all valid regions should be, based on the biggest contour
-        # filter against that box
-        self.top_contours = []
-        for contour in filtered_contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            cx, cy = x+w/2, y+h/2
-            if (self.filter_box[0] <= cx <= self.filter_box[2]) and (self.filter_box[1] <= cy <= self.filter_box[3]):
-                self.top_contours.append(contour)
+            # print('center', center, 'area', area)
+            contour_list.append(c_info)
 
-        if self.top_contours:
-            self.top_point = self.process_contours(self.top_contours)
-        else:
-            self.top_point = None
+        # Sort the list of contours from biggest area to smallest
+        contour_list.sort(key=lambda c: c.bb_area, reverse=True)
+
+        # DEBUG
+        self.top_contours = [x.contour for x in contour_list]
+
+        # try the 5 biggest contours as the anchor
+        for candidate_index in range(min(5, len(contour_list))):
+            # shape[0] is height, shape[1] is the width
+            matched_contours = self.test_candidate_contour(contour_list[candidate_index:])
+            if matched_contours is not None:
+                # try to fit it to a circle
+                self.top_point = self.process_contours(matched_contours)
+                if self.top_point is not None:
+                    self.target_contours = [c.contour for c in matched_contours]
+                    break
 
         if self.top_point is not None:
             angle, distance = self.calculate_angle_distance(self.top_point)
@@ -189,6 +243,89 @@ class FastFinder2022(GenericFinder):
             result = np.array([0.0, self.finder_id, 0.0, 0.0, 0.0, 0.0, 0.0])
 
         return result
+
+    def test_candidate_contour(self, contour_list):
+        '''Given a contour as the candidate for the closest (unobscured) target region,
+        try to find 1 or 2 other regions which makes up the other side of the target (due to the
+        possible splitting of the target by cables lifting the elevator)
+
+        In any test over the list of contours, start *after* cand_index. Those above it have
+        been rejected.
+        '''
+
+        candidate = contour_list[0]
+
+        # Test that the rough angle and distance are sensible
+        # Test this on the biggest contour. Smaller ones can be further out
+        center = candidate.centroid
+        if center[0] < self.minimum_x or center[0] > self.maximum_x:
+            return None
+        # Test that the rough distance is sensible
+        if center[1] < self.minimum_y or center[1] > self.maximum_y:
+            return None
+
+        # OK, might be a candidate. Start a list
+        results = [0, ]
+
+        # guess at the offset between regions. Refine it with the first pair
+        delta_region = (2.0 * candidate.bb_width, 0.25 * candidate.bb_height)
+
+        # Look for a matching regions to the left
+        curr_index = 0
+        while True:
+            curr_index = self.find_adjacent_contour(contour_list[curr_index], delta_region, contour_list, results, -1)
+            if curr_index is not None:
+                results.append(curr_index)
+            else:
+                break
+
+            if len(results) == 2:
+                # fix the delta based on this pair
+                delta_region = (abs(center[0] - contour_list[curr_index].centroid[0]), abs(center[1] - contour_list[curr_index].centroid[1]))
+
+        # Look for a matching regions to the right
+        curr_index = 0
+        while True:
+            curr_index = self.find_adjacent_contour(contour_list[curr_index], delta_region, contour_list, results, 1)
+            if curr_index is not None:
+                results.append(curr_index)
+            else:
+                break
+
+            if len(results) == 2:
+                # fix the delta based on this pair
+                delta_region = (abs(center[0] - contour_list[curr_index].centroid[0]), abs(center[1] - contour_list[curr_index].centroid[1]))
+
+        if len(results) > 2:
+            return [contour_list[x] for x in results]
+        return None
+
+    def find_adjacent_contour(self, curr_ref, offset, contour_list, used_contours, direction):
+        '''Look for a matching contour to one side of current candidate'''
+
+        center = curr_ref.centroid
+        test_loc = (center[0] + direction * offset[0], center[1] + offset[1])
+        # print('test_loc', test_loc)
+
+        minD = 100000
+        minIndex = None
+        for cindex in range(1, len(contour_list)):
+            # skip anything already sed
+            if cindex in used_contours:
+                continue
+
+            # negative is outside. I want the other sign
+            dist = -cv2.pointPolygonTest(contour_list[cindex].contour, test_loc, measureDist=True)
+            # print('testing', direction, cindex, test_loc, 'against', contour_list[cindex].bb_center, '  --> distance =', dist)
+            if dist < self.max_2nd_region_dist and dist < minD:
+                # print("  matched. dist =", dist)
+                minD = dist
+                minIndex = cindex
+            if minD < 0:
+                break
+
+        # print('minD', minD, ' len(results)', len(results))
+        return minIndex
 
     def calculate_angle_distance(self, center):
         '''Calculate the angle and distance from the camera to the center point of the robot
@@ -226,13 +363,16 @@ class FastFinder2022(GenericFinder):
 
         output_frame = input_frame.copy()
 
-        if self.top_contours is not None:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 2)
+        # if self.top_contours is not None:
+        #     cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 255), 2)
+
+        if self.target_contours is not None:
+            cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 255), 2)
 
         if self.top_point is not None:
             pt = tuple(self.top_point.astype(int))
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
-                cv2.drawMarker(output_frame, pt, (255, 0, 0), cv2.MARKER_CROSS, 15, 2)
+                cv2.drawMarker(output_frame, pt, (0, 0, 255), cv2.MARKER_CROSS, 20, 3)
 
         # if self.filter_box is not None:
         #     cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])),
@@ -240,6 +380,11 @@ class FastFinder2022(GenericFinder):
 
         # if self.circle:
         #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)
+
+        cv2.line(output_frame, (int(self.minimum_x), 0), (int(self.minimum_x), input_frame.shape[0]), (128, 0, 0), 1)
+        cv2.line(output_frame, (int(self.maximum_x), 0), (int(self.maximum_x), input_frame.shape[0]), (128, 0, 0), 1)
+        cv2.line(output_frame, (0, int(self.minimum_y)), (input_frame.shape[1], int(self.minimum_y)), (128, 0, 0), 1)
+        cv2.line(output_frame, (0, int(self.maximum_y)), (input_frame.shape[1], int(self.maximum_y)), (128, 0, 0), 1)
 
         return output_frame
 
