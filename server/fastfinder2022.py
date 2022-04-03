@@ -89,12 +89,12 @@ class FastFinder2022(GenericFinder):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
-        self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
+        # self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
+        # self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
 
         # values for torture testing
-        # self.low_limit_hsv = np.array((55, 5, 70), dtype=np.uint8)
-        # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
+        self.low_limit_hsv = np.array((55, 5, 70), dtype=np.uint8)
+        self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 40

@@ -124,15 +124,11 @@ def compute_midline(contours, width, height):
                 top_y[this_p[0]] = this_p[1]
             elif(d_p < 0 and d_n < 0):
                 bottom_y[this_p[0]] = this_p[1]
+        for x in np.linspace(min_x, max_x, 5).astype(np.int32):
 
-        for x in range(min_x, max_x+1):
             if(top_y[x] != -1 and bottom_y[x] != -1):
                 midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2], dtype=np.int32))
-<<<<<<< HEAD
-=======
-    if len(midline_points) == 0:
-        return (midline_points, None, None)
->>>>>>> circle-fit
+
 
     midline_points_np = np.empty((len(midline_points), 2), dtype=np.float32)
     for i in range(len(midline_points)):
@@ -153,6 +149,37 @@ def solve_circle(pts, known_radius, guess):
         return center
     return None
 
+@nb.njit(nb.int32[:](nb.float32, nb.float32[:]))
+def slide_window(window_width, sorted_xs):
+    max_is = 0
+    max_start = 0
+    max_end = 0
+    window_end_i = 0
+    for window_start_i in range(len(sorted_xs)):
+        window_start = sorted_xs[window_start_i]
+        window_end = window_start + window_width
+        while window_end_i < len(sorted_xs) and sorted_xs[window_end_i] < window_end:
+            window_end_i+=1
+        if(window_end_i - window_start_i > max_is):
+            max_is = window_end_i - window_start_i
+            max_start = window_start_i
+            max_end = window_end_i
+    return(np.array([max_start, max_end], dtype=np.int32))
+
+@nb.njit(nb.float32[:, :](nb.float32[:, :], nb.float32, nb.float32))
+def yboundxbound(points, y_b, x_b):
+    y_sorted_is = np.argsort(points[:,1])
+    y_sorted = points[y_sorted_is]
+    y_inrange_start, y_inrange_end = slide_window(y_b, y_sorted[:,1])
+    y_inrange = y_sorted[y_inrange_start : y_inrange_end]
+
+    x_sorted_is = np.argsort(y_inrange[:,0])
+    x_sorted = y_inrange[x_sorted_is]
+    x_inrange_start, x_inrange_end = slide_window(x_b, x_sorted[:,0])
+    x_inrange = x_sorted[x_inrange_start : x_inrange_end]
+    return(x_inrange)
+
+print(yboundxbound(np.array([[1,1],[3,3], [4,4]], dtype=np.float32),2,2))
 class HubFinder2022(GenericFinder):
     '''Find hub ring for 2022 game'''
     # inches
@@ -166,8 +193,12 @@ class HubFinder2022(GenericFinder):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
-        self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
+        # self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
+        # self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
+
+        # torture testing
+        self.low_limit_hsv = np.array((55, 5, 70), dtype=np.uint8)
+        self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
@@ -235,9 +266,7 @@ class HubFinder2022(GenericFinder):
         else:
             contours = res[1]
 
-        max_area = 0
-        mcx = 0
-        mcy = 0
+
         filtered_contours = []
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -252,26 +281,14 @@ class HubFinder2022(GenericFinder):
             if w/h > 4:
                 continue
 
-            if(max_area < area):
-                max_area = area
-                cx, cy = x+w/2 , y+h/2
-                dx, dy = w*10, h*5
-                mcx, mcy = cx, cy
-                self.filter_box = [cx-dx, cy-dy, cx+dx, cy+dy]
             filtered_contours.append(contour)
 
-        position_filtered_contours = []
-        if len(filtered_contours):
-            for contour in filtered_contours:
-                x, y, w, h = cv2.boundingRect(contour)
-                cx, cy = x+w/2, y+h/2
-                if (self.filter_box[0] <= cx <= self.filter_box[2]) and (self.filter_box[1] <= cy <= self.filter_box[3]):
-                    position_filtered_contours.append(contour)
-        self.top_contours = position_filtered_contours
-        if len(position_filtered_contours):
+
+        self.top_contours = filtered_contours
+        if len(self.top_contours) > 1:
 
             self.midline_points = compute_midline(
-                nb.typed.List(position_filtered_contours), self.threshold_frame.shape[1], self.threshold_frame.shape[0])
+                nb.typed.List(self.top_contours), self.threshold_frame.shape[1], self.threshold_frame.shape[0])
             midline_cv2 = np.array(self.midline_points, dtype=np.float32)[:,np.newaxis,:]
             midline_undistort_cv2 = cv2.undistortPoints(midline_cv2, self.cameraMatrix, self.distortionMatrix, P=self.cameraMatrix)
             midline_undistort = midline_undistort_cv2[:, 0, :]
@@ -279,6 +296,9 @@ class HubFinder2022(GenericFinder):
             midline_prime_x = (midline_undistort[:, 0]  - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
             midline_prime_y = -(midline_undistort[:, 1]  - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
             hubplane_points = transform_hubplane_many(np.vstack([midline_prime_x, midline_prime_y]).T, HubFinder2022.CAMERA_ANGLE, HubFinder2022.HUB_HEIGHT - HubFinder2022.CAMERA_HEIGHT)
+
+            hubplane_points = yboundxbound(hubplane_points, HubFinder2022.HUB_RADIUS*0.8,  HubFinder2022.HUB_RADIUS*0.8 * 2)
+
             middle_guess = np.mean(hubplane_points, axis = 0)
             middle_guess[1] += HubFinder2022.HUB_RADIUS
 
@@ -286,7 +306,7 @@ class HubFinder2022(GenericFinder):
 
             if middle is None:
                 self.ellipse, self.top_point, self.hub_point = None, None, None
-                print("failed circle fit")
+                #print("failed circle fit")
 
             else:
                 top_point_hubplane = np.array(middle)
@@ -295,6 +315,11 @@ class HubFinder2022(GenericFinder):
                 '''
                 plt.plot(*middle_guess, marker="o")
                 plt.plot(*middle, marker="o")
+                plt.plot(0,0, marker="o")
+                plt.axline((0, 0), middle, c="green")
+                plt.axline((0, 0), top_point_hubplane, c="red")
+                plt.axline((0, 0), (0,1))
+
                 plt.plot(*top_point_hubplane, marker="o")
                 plt.scatter(*hubplane_points.T)
                 plt.axis('equal')
@@ -312,10 +337,10 @@ class HubFinder2022(GenericFinder):
 
                 self.top_point = transformed_image[0]
                 self.ellipse = transformed_image[1:]
-                self.hub_point = top_point_hubplane
-                print("success")
+                self.hub_point = middle
+                #print("success")
         else:
-            print("failed no. contours")
+            #print("failed no. contours")
 
             self.midline_points, self.ellipse, self.top_point, self.hub_point = None, None, None, None
 
@@ -323,7 +348,7 @@ class HubFinder2022(GenericFinder):
         if self.hub_point is not None:
 
             angle = np.arctan2(self.hub_point[0], self.hub_point[1])
-            distance = np.hypot(self.hub_point[1], self.hub_point[0])
+            distance = np.hypot(self.hub_point[1], self.hub_point[0]) - HubFinder2022.HUB_RADIUS
 
             result = np.array([1.0, self.finder_id, distance, angle, 0.0, 0.0, 0.0])
         else:
@@ -332,7 +357,7 @@ class HubFinder2022(GenericFinder):
         end = timer()
 
         self.processing_time = (end - start)*1000
-        print(self.processing_time)
+        #print(self.processing_time)
         return result
 
     def calculate_angle_distance(self, center):
@@ -381,8 +406,7 @@ class HubFinder2022(GenericFinder):
         if self.midline_points is not None:
             for pt in self.midline_points:
                 cv2.drawMarker(output_frame, tuple(pt.astype(int)),
-                               (0, 255, 255), cv2.MARKER_CROSS, 15, 2)
-
+                               (0, 255, 255), cv2.MARKER_CROSS, 5, 2)
         if(self.ellipse_coeffs is not None and not np.any(np.isnan(self.ellipse_coeffs))):
             cv2.ellipse(output_frame, (int(self.ellipse_coeffs[0]), int(self.ellipse_coeffs[1])), (int(self.ellipse_coeffs[2]), int(self.ellipse_coeffs[3])),
                         0, 0, 360, (255, 0, 0), 3)
