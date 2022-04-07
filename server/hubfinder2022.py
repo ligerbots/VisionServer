@@ -11,48 +11,28 @@ from genericfinder import GenericFinder, main
 import matplotlib.pyplot as plt
 from scipy import optimize
 
-'''
-@nb.njit(nb.float32[:](nb.float32[:, :]))
-def fit_ACDE(points):
-
-    # solving Ax^2 + Cy^2 + Dx + Ey = 1
-    # given: points (x1, y1), (x2, y2), .. (xn, yn)
-    # NM = P
-
-    N = np.empty((len(points), 4))
-    for (i, (x, y)) in enumerate(points):
-        N[i] = [x**2, y**2, x, y]
-    M = np.linalg.pinv(N) @ np.ones((len(points),))
-    return M.astype(np.float32)
-
-
-@nb.njit(nb.float32[:](nb.float32[:]))
-def canonical(M):
-    # compute canoical form of ellipse, given ACDE
-    A, C, D, E = M
-    h = -D/(2*A)
-    k = -E/(2*C)
-    m = D*D/(4*A) + E*E/(4*C) + 1
-    a = np.sqrt(m/A)
-    b = np.sqrt(m/C)
-
-    return(np.array([h, k, a, b], dtype=np.float32))
-
-@nb.njit(nb.float32[:](nb.float32[:], nb.float32, nb.float32, nb.float32[:,:], , nb.float32[:]))
-def project_hubplane(point, hub_height, camera_height, calib_matrix, dist_matrix):
-'''
 @nb.njit(nb.float32[:](nb.float32, nb.float32, nb.float32, nb.float32, nb.float32))
 def transform_hubplane(x_prime, y_prime, sin_theta, cos_theta, h):
+    '''
+    Transform a point in camera space to the hub plane (tilt of camera = theta, height of hub = h)
+    Sine and cosine of theta cashed
+    '''
     return(np.array([x_prime*h/(sin_theta + y_prime * cos_theta), (cos_theta - y_prime * sin_theta) * h / (sin_theta + y_prime * cos_theta)], dtype = np.float32))
 
 @nb.njit(nb.float32[:](nb.float32, nb.float32, nb.float32, nb.float32, nb.float32))
 def transform_camera(x, y, sin_theta, cos_theta, h):
+    '''
+    Transform a point in the hub plane to camera space (tilt of camera = theta, height of hub = h)
+    Sine and cosine of theta cashed
+    '''
     return(np.array([x/(y*cos_theta + h*sin_theta), (-y*sin_theta + h*cos_theta) / (y*cos_theta + h*sin_theta)], dtype = np.float32))
 
 
 @nb.njit(nb.float32[:,:](nb.float32[:,:], nb.float32, nb.float32))
 def transform_hubplane_many(pts, theta, h):
-
+    '''
+    Transform many points with transform_hubplane
+    '''
     sin_theta = np.sin(theta)
     cos_theta = np.cos(theta)
 
@@ -63,7 +43,9 @@ def transform_hubplane_many(pts, theta, h):
 
 @nb.njit(nb.float32[:,:](nb.float32[:,:], nb.float32, nb.float32))
 def transform_camera_many(pts, theta, h):
-
+    '''
+    Transform many points with transform_camera
+    '''
     sin_theta = np.sin(theta)
     cos_theta = np.cos(theta)
 
@@ -74,6 +56,9 @@ def transform_camera_many(pts, theta, h):
 
 @nb.njit(nb.float32[:](nb.float32[:], nb.float32[:]))
 def redistort(pt, dist_matrix):
+    '''
+    Redistort a point that was undistorted with cv2.undistortPoints()
+    '''
     x, y = pt
     k1, k2, p1, p2, k3 = dist_matrix
     r2 = x*x + y*y
@@ -87,7 +72,9 @@ def redistort(pt, dist_matrix):
 
 @nb.njit(nb.float32[:,:](nb.float32[:,:], nb.float32[:]))
 def redistort_many(pts, dist_matrix):
-
+    '''
+    Redistort many points with redistort
+    '''
     res = np.empty_like(pts)
     for i in range(len(pts)):
         res[i] = redistort(pts[i],dist_matrix)
@@ -95,6 +82,10 @@ def redistort_many(pts, dist_matrix):
     return(res)
 
 def test():
+    '''
+    Ensure transform_hubplane_many is the inverse of transform_camera_many
+    Also forces numba to compile the functions
+    '''
     x = np.array([[1.,2.],[3.,4.]], dtype = np.float32)
     camera = transform_hubplane_many(x, 1., 1.)
     hub = transform_camera_many(camera, 1., 1.)
@@ -104,7 +95,18 @@ test()
 
 @nb.njit(nb.types.Array(nb.float32, 2, "C")(nb.types.ListType(nb.types.Array(nb.int32, 3, "C")), nb.int32, nb.int32))
 def compute_midline(contours, width, height):
-    # first compute "midline": center lines of each contour
+    """
+    Takes an array of contours and computes a midline:
+            **************
+     *******              *********
+    *                     _________**
+    * ----____________----         -*
+    *                     ***********
+    ******            *****
+          ************
+    Midline will have at most 5 points
+    contour must be computed with CHAIN_APPROX_NONE
+    """
     top_y = np.empty((width,), dtype=np.int32)
     bottom_y = np.empty((width,), dtype=np.int32)
 
@@ -124,8 +126,8 @@ def compute_midline(contours, width, height):
                 top_y[this_p[0]] = this_p[1]
             elif(d_p < 0 and d_n < 0):
                 bottom_y[this_p[0]] = this_p[1]
-        for x in np.linspace(min_x, max_x, 5).astype(np.int32):
 
+        for x in np.linspace(min_x, max_x, 5).astype(np.int32):
             if(top_y[x] != -1 and bottom_y[x] != -1):
                 midline_points.append(np.array([x, (top_y[x] + bottom_y[x])//2], dtype=np.int32))
 
@@ -138,19 +140,31 @@ def compute_midline(contours, width, height):
 test_vals = np.array([[[1,1]], [[1,2]], [[2,2]]], dtype = np.int32)
 compute_midline(nb.typed.List([test_vals]), 10, 10)
 
-def solve_circle(pts, known_radius, guess):
+def solve_circle(pts, known_radius, guess, max_error_accepted):
+    """
+    Fit a circle to a set of points (max error = merror)
+    """
     x, y = pts.T
     def error(c):
         xc, yc = c
         return np.sqrt((x-xc)**2 + (y-yc)**2)-known_radius
 
-    center, ier = optimize.leastsq(error, guess, maxfev=50)
+    center, ier = optimize.leastsq(error, guess, maxfev=50) # maxfev limits the number of iterations
     if ier in [1,2,3,4]:
+        errs = error(center)
+        max_err = np.amax(np.abs(errs))
+        if max_err > max_error_accepted:
+            return None
         return center
     return None
 
 @nb.njit(nb.int32[:](nb.float32, nb.float32[:]))
 def slide_window(window_width, sorted_xs):
+    '''
+    maximizes the number of points that can fit in a 1d window
+    paramater: sorted list of xs and the size of the window
+    returns: the first index and the last index of sorted_xs in the window
+    '''
     max_is = 0
     max_start = 0
     max_end = 0
@@ -168,6 +182,10 @@ def slide_window(window_width, sorted_xs):
 
 @nb.njit(nb.float32[:, :](nb.float32[:, :], nb.float32, nb.float32))
 def yboundxbound(points, y_b, x_b):
+    '''
+    slides window in the y direction, then the x direction
+    returns a list of points in the window
+    '''
     y_sorted_is = np.argsort(points[:,1])
     y_sorted = points[y_sorted_is]
     y_inrange_start, y_inrange_end = slide_window(y_b, y_sorted[:,1])
@@ -179,7 +197,8 @@ def yboundxbound(points, y_b, x_b):
     x_inrange = x_sorted[x_inrange_start : x_inrange_end]
     return(x_inrange)
 
-print(yboundxbound(np.array([[1,1],[3,3], [4,4]], dtype=np.float32),2,2))
+yboundxbound(np.array([[1,1],[3,3], [4,4]], dtype=np.float32),2,2)
+
 class HubFinder2022(GenericFinder):
     '''Find hub ring for 2022 game'''
     # inches
@@ -188,7 +207,7 @@ class HubFinder2022(GenericFinder):
     HUB_HEIGHT = 103
     HUB_RADIUS = 26.6875
     HUB_CIRCLE = np.array([(np.cos(theta) * 26.6875, np.sin(theta) * 26.6875) for theta in np.linspace(0,2*math.pi,20,endpoint=False)])
-
+    MAX_FIT_ERROR = 1.5 #
     def __init__(self, calib_matrix=None, dist_matrix=None):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
@@ -217,8 +236,6 @@ class HubFinder2022(GenericFinder):
         self.cameraMatrix = calib_matrix
         self.distortionMatrix = dist_matrix
 
-        self.outer_corners = []
-
         self.filter_box = None
         return
 
@@ -226,12 +243,6 @@ class HubFinder2022(GenericFinder):
         self.low_limit_hsv = np.array((hue_low, sat_low, val_low), dtype=np.uint8)
         self.high_limit_hsv = np.array((hue_high, sat_high, val_high), dtype=np.uint8)
         return
-
-    @staticmethod
-    def get_outer_corners(cnt):
-        '''Return the outer four corners of a contour'''
-
-        return GenericFinder.sort_corners(cnt)  # Sort by x value of cnr in increasing value
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -247,7 +258,6 @@ class HubFinder2022(GenericFinder):
 
         # DEBUG values; clear any values from previous image
         self.top_contours = None
-        self.outer_corners = None
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -271,13 +281,16 @@ class HubFinder2022(GenericFinder):
         for contour in contours:
             area = cv2.contourArea(contour)
             x, y, w, h = cv2.boundingRect(contour)
+
             if area < shape[0] * shape[1] * 2.5e-5:
                 continue
 
             if area / (w*h) < 0.4:
                 continue
+
             if w/h < 1.2:
                 continue
+
             if w/h > 4:
                 continue
 
@@ -286,7 +299,6 @@ class HubFinder2022(GenericFinder):
 
         self.top_contours = filtered_contours
         if len(self.top_contours) > 1:
-
             self.midline_points = compute_midline(
                 nb.typed.List(self.top_contours), self.threshold_frame.shape[1], self.threshold_frame.shape[0])
             midline_cv2 = np.array(self.midline_points, dtype=np.float32)[:,np.newaxis,:]
@@ -302,7 +314,7 @@ class HubFinder2022(GenericFinder):
             middle_guess = np.mean(hubplane_points, axis = 0)
             middle_guess[1] += HubFinder2022.HUB_RADIUS
 
-            middle = solve_circle(hubplane_points,HubFinder2022.HUB_RADIUS, middle_guess)
+            middle = solve_circle(hubplane_points,HubFinder2022.HUB_RADIUS, middle_guess, HubFinder2022.MAX_FIT_ERROR)
 
             if middle is None:
                 self.ellipse, self.top_point, self.hub_point = None, None, None
@@ -346,7 +358,6 @@ class HubFinder2022(GenericFinder):
 
 
         if self.hub_point is not None:
-
             angle = np.arctan2(self.hub_point[0], self.hub_point[1])
             distance = np.hypot(self.hub_point[1], self.hub_point[0]) - HubFinder2022.HUB_RADIUS
 
@@ -359,38 +370,6 @@ class HubFinder2022(GenericFinder):
         self.processing_time = (end - start)*1000
         #print(self.processing_time)
         return result
-
-    def calculate_angle_distance(self, center):
-        '''Calculate the angle and distance from the camera to the center point of the robot
-        This routine uses the cameraMatrix from the calibration to convert to normalized coordinates'''
-
-        # use the distortion and camera arrays to correct the location of the center point
-        # got this from
-        #  https://stackoverflow.com/questions/8499984/how-to-undistort-points-in-camera-shot-coordinates-and-obtain-corresponding-undi
-
-        ptlist = np.array([[center]])
-        out_pt = cv2.undistortPoints(ptlist, self.cameraMatrix,
-                                     self.distortionMatrix, P=self.cameraMatrix)
-        undist_center = out_pt[0, 0]
-        x_prime = (undist_center[0] - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
-        y_prime = -(undist_center[1] - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
-
-        # now have all pieces to convert to angle:
-        ax = math.atan2(x_prime, 1.0)     # horizontal angle
-
-        # naive expression
-        # ay = math.atan2(y_prime, 1.0)     # vertical angle
-
-        # corrected expression.
-        # As horizontal angle gets larger, real vertical angle gets a little smaller
-        ay = math.atan2(y_prime * math.cos(ax), 1.0)     # vertical angle
-        # print("ax, ay", math.degrees(ax), math.degrees(ay))
-
-        # now use the x and y angles to calculate the distance to the target:
-        d = (HubFinder2022.HUB_HEIGHT - HubFinder2022.CAMERA_HEIGHT) / \
-            math.tan(HubFinder2022.CAMERA_ANGLE + ay)    # distance to the target
-
-        return ax, d    # return horizontal angle and distance
 
     def prepare_output_image(self, input_frame):
         '''Prepare output image for drive station. Draw the found target contour.'''

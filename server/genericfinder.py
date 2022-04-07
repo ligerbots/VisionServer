@@ -386,7 +386,7 @@ def testutil(finders, annotated_files, metrics, output_dir):
         rows.append([finder_name, median, th95, th99, max])
     print()
     print(tabulate(rows, headers=headers))
-
+    merr = 0
     for metric in metrics:
         headers = ["file", "annotated"]
         rows = []
