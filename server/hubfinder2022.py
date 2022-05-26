@@ -8,7 +8,7 @@ import numba as nb
 from timeit import default_timer as timer
 import math
 from genericfinder import GenericFinder, main
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from scipy import optimize
 
 @nb.njit(nb.float32[:](nb.float32, nb.float32, nb.float32, nb.float32, nb.float32))
@@ -144,6 +144,10 @@ def solve_circle(pts, known_radius, guess, max_error_accepted):
     """
     Fit a circle to a set of points (max error = merror)
     """
+
+    if len(pts) < 2:
+        return None
+
     x, y = pts.T
     def error(c):
         xc, yc = c
@@ -212,12 +216,12 @@ class HubFinder2022(GenericFinder):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        # self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
-        # self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
+        self.low_limit_hsv = np.array((65, 35, 80), dtype=np.uint8)  # s was 100
+        self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
 
         # torture testing
-        self.low_limit_hsv = np.array((55, 5, 70), dtype=np.uint8)
-        self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
+        # self.low_limit_hsv = np.array((55, 5, 30), dtype=np.uint8)
+        # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 80
@@ -307,9 +311,9 @@ class HubFinder2022(GenericFinder):
 
             midline_prime_x = (midline_undistort[:, 0]  - self.cameraMatrix[0, 2]) / self.cameraMatrix[0, 0]
             midline_prime_y = -(midline_undistort[:, 1]  - self.cameraMatrix[1, 2]) / self.cameraMatrix[1, 1]
-            hubplane_points = transform_hubplane_many(np.vstack([midline_prime_x, midline_prime_y]).T, HubFinder2022.CAMERA_ANGLE, HubFinder2022.HUB_HEIGHT - HubFinder2022.CAMERA_HEIGHT)
+            hubplane_points_all = transform_hubplane_many(np.vstack([midline_prime_x, midline_prime_y]).T, HubFinder2022.CAMERA_ANGLE, HubFinder2022.HUB_HEIGHT - HubFinder2022.CAMERA_HEIGHT)
 
-            hubplane_points = yboundxbound(hubplane_points, HubFinder2022.HUB_RADIUS*0.8,  HubFinder2022.HUB_RADIUS*0.8 * 2)
+            hubplane_points = yboundxbound(hubplane_points_all, HubFinder2022.HUB_RADIUS*0.8,  HubFinder2022.HUB_RADIUS*0.8 * 2)
 
             middle_guess = np.mean(hubplane_points, axis = 0)
             middle_guess[1] += HubFinder2022.HUB_RADIUS
@@ -333,7 +337,7 @@ class HubFinder2022(GenericFinder):
                 plt.axline((0, 0), (0,1))
 
                 plt.plot(*top_point_hubplane, marker="o")
-                plt.scatter(*hubplane_points.T)
+                plt.scatter(*hubplane_points_all.T)
                 plt.axis('equal')
                 plt.gca().add_patch(plt.Circle(middle, HubFinder2022.HUB_RADIUS, color='b', fill=False))
 

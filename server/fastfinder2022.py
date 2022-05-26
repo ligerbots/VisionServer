@@ -89,12 +89,12 @@ class FastFinder2022(GenericFinder):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        # self.low_limit_hsv = np.array((65, 100, 80), dtype=np.uint8)
-        # self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
+        self.low_limit_hsv = np.array((65, 35, 80), dtype=np.uint8)  # s was 100
+        self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
 
         # values for torture testing
-        self.low_limit_hsv = np.array((55, 5, 70), dtype=np.uint8)
-        self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
+        # self.low_limit_hsv = np.array((55, 5, 30), dtype=np.uint8)
+        # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 40
@@ -115,6 +115,7 @@ class FastFinder2022(GenericFinder):
         self.target_contours = None
         self.filter_box = None
         self.circle = None
+        self.test_locations = None
 
         self.cameraMatrix = calib_matrix
         self.distortionMatrix = dist_matrix
@@ -160,18 +161,31 @@ class FastFinder2022(GenericFinder):
             return None
 
         # fit a circle to the top 3
-        pts = sorted([c.centroid for c in contour_list], reverse=True)
+        pts = [c.centroid for c in sorted(contour_list, key=lambda x: x.con_area, reverse=True)]
 
         center, rad = find_circle(pts[0][0], pts[0][1], pts[1][0], pts[1][1], pts[2][0], pts[2][1])
-        self.circle = (center, rad)
+        self.circle = (center, rad)   # for debugging display
 
         # center of the fit should be *below* the points (y increases down)
         if center[1] < pts[0][1]:
             # print('circle is in wrong direction')
             return None
 
+        if rad < 50.0 or rad > 400.0:
+            # print(f'circle radius = {rad} is bad')
+            return None
+
+        # test the the found point is reasonably within the main part of the image
+        if center[0] < self.minimum_x or center[0] > self.maximum_x:
+            return None
+
         # y axis increases down, so we want the smaller value
-        return np.array((center[0], center[1] - rad))
+        y = center[1] - rad
+        # Test that the rough distance is sensible
+        if y < self.minimum_y or y > self.maximum_y:
+            return None
+
+        return np.array((center[0], y))
 
     def process_image(self, camera_frame):
         '''Main image processing routine'''
@@ -180,6 +194,7 @@ class FastFinder2022(GenericFinder):
         self.circle = None
         self.target_contours = None
         self.top_point = None
+        self.test_locations = []
 
         shape = camera_frame.shape
         if self.hsv_frame is None or self.hsv_frame.shape != shape:
@@ -219,7 +234,7 @@ class FastFinder2022(GenericFinder):
             contour_list.append(c_info)
 
         # Sort the list of contours from biggest area to smallest
-        contour_list.sort(key=lambda c: c.bb_area, reverse=True)
+        contour_list.sort(key=lambda c: c.con_area, reverse=True)
 
         # DEBUG
         self.top_contours = [x.contour for x in contour_list]
@@ -254,47 +269,30 @@ class FastFinder2022(GenericFinder):
         '''
 
         candidate = contour_list[0]
-
-        # Test that the rough angle and distance are sensible
-        # Test this on the biggest contour. Smaller ones can be further out
-        center = candidate.centroid
-        if center[0] < self.minimum_x or center[0] > self.maximum_x:
-            return None
-        # Test that the rough distance is sensible
-        if center[1] < self.minimum_y or center[1] > self.maximum_y:
-            return None
-
-        # OK, might be a candidate. Start a list
+        # list of contour *indices* which might be the hub
         results = [0, ]
 
-        # guess at the offset between regions. Refine it with the first pair
-        delta_region = (2.0 * candidate.bb_width, 0.25 * candidate.bb_height)
+        # guess at the offset between regions
+        delta_region = (1.8 * candidate.bb_width, 0.5 * candidate.bb_height)
+        # print("delta_region =", delta_region)
 
         # Look for a matching regions to the left
         curr_index = 0
         while True:
             curr_index = self.find_adjacent_contour(contour_list[curr_index], delta_region, contour_list, results, -1)
-            if curr_index is not None:
-                results.append(curr_index)
-            else:
+            if curr_index is None:
                 break
 
-            if len(results) == 2:
-                # fix the delta based on this pair
-                delta_region = (abs(center[0] - contour_list[curr_index].centroid[0]), abs(center[1] - contour_list[curr_index].centroid[1]))
+            results.append(curr_index)
 
         # Look for a matching regions to the right
         curr_index = 0
         while True:
             curr_index = self.find_adjacent_contour(contour_list[curr_index], delta_region, contour_list, results, 1)
-            if curr_index is not None:
-                results.append(curr_index)
-            else:
+            if curr_index is None:
                 break
 
-            if len(results) == 2:
-                # fix the delta based on this pair
-                delta_region = (abs(center[0] - contour_list[curr_index].centroid[0]), abs(center[1] - contour_list[curr_index].centroid[1]))
+            results.append(curr_index)
 
         if len(results) > 2:
             return [contour_list[x] for x in results]
@@ -305,6 +303,7 @@ class FastFinder2022(GenericFinder):
 
         center = curr_ref.centroid
         test_loc = (center[0] + direction * offset[0], center[1] + offset[1])
+        self.test_locations.append((center, test_loc))
         # print('test_loc', test_loc)
 
         minD = 100000
@@ -364,7 +363,7 @@ class FastFinder2022(GenericFinder):
         output_frame = input_frame.copy()
 
         # if self.top_contours is not None:
-        #     cv2.drawContours(output_frame, self.top_contours, -1, (255, 0, 255), 2)
+        #     cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
 
         if self.target_contours is not None:
             cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 255), 2)
@@ -374,12 +373,17 @@ class FastFinder2022(GenericFinder):
             if(0 <= pt[0] < output_frame.shape[1] and 0 <= pt[1] < output_frame.shape[0]):
                 cv2.drawMarker(output_frame, pt, (0, 0, 255), cv2.MARKER_CROSS, 20, 3)
 
+        # if self.test_locations:
+        #     for tloc in self.test_locations:
+        #         cv2.line(output_frame, (int(tloc[0][0]), int(tloc[0][1])), (int(tloc[1][0]), int(tloc[1][1])), (0, 255, 255), 2)
+        #         # cv2.drawMarker(output_frame, tuple(pp), (0, 255, 255), cv2.MARKER_CROSS, 10, 2)
+
         # if self.filter_box is not None:
         #     cv2.rectangle(output_frame, (int(self.filter_box[0]), int(self.filter_box[1])), (int(self.filter_box[2]), int(self.filter_box[3])),
         #                   (255, 0, 0), 2)
 
         # if self.circle:
-        #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 2)
+        #     cv2.circle(output_frame, np.array(self.circle[0], dtype=np.int), int(self.circle[1]), (0, 255, 0), 1)
 
         cv2.line(output_frame, (int(self.minimum_x), 0), (int(self.minimum_x), input_frame.shape[0]), (128, 0, 0), 1)
         cv2.line(output_frame, (int(self.maximum_x), 0), (int(self.maximum_x), input_frame.shape[0]), (128, 0, 0), 1)
