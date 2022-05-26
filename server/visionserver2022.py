@@ -52,6 +52,9 @@ class VisionServer2022(VisionServer):
 
         self.update_parameters()
 
+        # DEBUG: capture an image every 100ms - this is too fast for normal testing
+        self.image_writer.capture_period = 0.120
+
         # start in shooter mode to get cameras going. Will switch to 'intake' after 1 sec.
         self.switch_mode('shooter')
         return
@@ -89,6 +92,16 @@ class VisionServer2022(VisionServer):
         if self.active_mode == 'intake':
             return 'shooter'
         return 'intake'
+
+    def switch_mode(self, new_mode):
+        '''Switch processing mode. new_mode is the string name'''
+
+        super().switch_mode(new_mode)
+
+        # DEBUG: for debugging of finding the hub, save images when looking for the Hub
+        self.image_writer_state = (new_mode == self.hub_finder.name)
+
+        return
 
 
 # Main routine
