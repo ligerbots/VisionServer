@@ -211,6 +211,7 @@ def process_files(line_finder, input_files, output_dir):
     return
 
 
+
 def time_processing(cube_processor, input_files):
     '''Time the processing of the test files'''
 
@@ -280,5 +281,200 @@ def main(finder_type):
         process_files(finder, args.input_files, args.output_dir)
     elif args.time:
         time_processing(finder, args.input_files)
+
+    return
+
+def testutil(finders, annotated_files, metrics, output_dir):
+    from tabulate import tabulate
+    from termcolor import colored
+    import numpy as np
+    import traceback
+    from timeit import default_timer as timer
+    import os
+
+    for file in annotated_files:
+        file["results"] = {}
+
+
+    for (finder_name, finder) in finders.items():
+        print("Testing",finder_name)
+        try:
+            os.makedirs(os.path.join(output_dir, finder_name))
+        except FileExistsError:
+            pass
+        for file in annotated_files:
+            try:
+                start = timer()
+                result_arr = finder.process_image(file['frame'])
+                end = timer()
+
+                out_frame = finder.prepare_output_image(file['frame'])
+                outfile = os.path.join(output_dir, finder_name, f"{file['time']}.png")
+                cv2.imwrite(outfile, out_frame)
+
+                result = {"success": result_arr[0] > 0.5, "time": (end - start)*1000, "error": False}
+                for metric in metrics:
+                    result[metric["name"]] = result_arr[metric["array_index"]]
+            except Exception as e:
+                print(traceback.format_exc())
+                result = {"error": True}
+            file["results"][finder_name] = result
+
+
+    # print test cases (usaco moment)
+    headers = ["file"]
+
+    for finder_name in finders:
+        headers.append(f"{finder_name}")
+
+    '''
+    for finder_name in finders:
+        for metric in metrics:
+            headers.append(f"{finder_name} {metric}")
+    '''
+
+    rows = []
+    for file in annotated_files:
+        row = [colored(file["time"], "grey")]
+        for finder_name in finders:
+            result = file["results"][finder_name]
+
+            if result["error"]:
+                row.append(colored('!', 'red'))
+            else:
+                time = f"{result['time']:0.2f}ms"
+
+                if not result["success"]:
+                    row.append(f"{colored('x', 'red')} {time}")
+                else:
+                    row.append(f"{colored('✓', 'green')} {time}")
+
+        rows.append(row)
+
+    print()
+    print(tabulate(rows, headers=headers))
+    headers = ["finder", "errors", "failures", "successes"]
+    rows = []
+    for finder_name in finders:
+        errors = 0
+        successes = 0
+        failures = 0
+        for file in annotated_files:
+            result = file["results"][finder_name]
+            if result["error"]:
+                errors += 1
+            elif not result["success"]:
+                failures += 1
+            else:
+                successes += 1
+        rows.append([finder_name, errors, failures, successes])
+    print()
+    print(tabulate(rows, headers=headers))
+
+    headers = ["finder", "median", "95th", "99th", "max"]
+    rows = []
+    for finder_name in finders:
+        times = []
+        for file in annotated_files:
+            result = file["results"][finder_name]
+            if not result["error"]:
+                times.append(result["time"])
+        median = f"{np.percentile(times, 50):0.2f}ms"
+        th95 = f"{np.percentile(times, 95):0.2f}ms"
+        th99 = f"{np.percentile(times, 99):0.2f}ms"
+        max = f"{np.amax(times):0.2f}ms"
+        rows.append([finder_name, median, th95, th99, max])
+    print()
+    print(tabulate(rows, headers=headers))
+    merr = 0
+    for metric in metrics:
+        headers = ["file", "annotated"]
+        rows = []
+        for finder_name in finders:
+            headers.append(finder_name)
+            headers.append(finder_name+" error")
+
+
+        for file in annotated_files:
+            row = [colored(file["time"], "grey")]
+            if file["annotation"] is None:
+                row.append(colored("N/A", "yellow"))
+            else:
+                row.append(colored(f"{file['annotation'][metric['name']]:0.2f}{metric['unit']}", "magenta"))
+
+            for finder_name in finders:
+                if metric['name'] in file['results'][finder_name] and file['results'][finder_name]["success"]:
+                    finder_result = file['results'][finder_name][metric['name']]
+                    if "convert" in metric:
+                        finder_result = metric['convert'](finder_result)
+                    row.append(f"{finder_result:0.2f}{metric['unit']}")
+                    if file["annotation"] is None:
+                        row.append(colored(f"N/A", "yellow"))
+                    else:
+                        row.append(colored(f"Δ {np.abs(finder_result - file['annotation'][metric['name']]):0.2f}{metric['unit']}", "magenta"))
+                else:
+                    row.append(colored(f"FAIL", "red"))
+                    row.append(colored(f"FAIL", "red"))
+            rows.append(row)
+        print()
+        print(tabulate(rows, headers=headers))
+def testutil_main(finder_types, *, output_dir = None, calib_file, rotate_calib, input_files, annotations = {}, metrics = {}):
+    '''Main routine for testing multiple Finders'''
+    import re
+    import camerautil
+    import os
+
+    calib_matrix = None
+    dist_matrix = None
+
+    rot = 90 if rotate_calib else 0
+    if calib_file:
+        calib_matrix, dist_matrix = camerautil.load_calibration_file(calib_file, rotation=rot)
+
+    finders = {finder_name: finder_type(calib_matrix, dist_matrix) for (finder_name, finder_type) in finder_types.items()}
+
+    # expand files because no shell
+    import glob
+
+    infiles = []
+    for f in input_files:
+        infiles.extend(glob.glob(f))
+    input_files = infiles
+
+    print(f"Reading {len(input_files)} files...")
+    time_matcher = re.compile("(.*)\.[\w]+")
+    annotated_files = []
+    for file in input_files:
+        match = time_matcher.fullmatch(os.path.basename(file))
+        annotated_files.append({
+            "filepath": file,
+            "frame":cv2.imread(file),
+            "time": None if match is None else match.group(1),
+            "annotation": None
+        })
+
+    annotated_files.sort(key = lambda x:x["time"])
+
+    for (filter, annotation) in annotations.items():
+        # format of annotation:
+        # time(str) : {"distance": ..., "angle": ...}
+        # [start_time, end_time] : {"distance": ..., "angle": ...}
+        # ^: None
+        used = False
+        if isinstance(filter, str):
+            for file in annotated_files:
+                if file["time"] == filter:
+                    file["annotation"] = annotation
+                    used = True
+        else:
+            for file in annotated_files:
+                if filter[0] <= file["time"] <= filter[1]:
+                    file["annotation"] = annotation
+                    used = True
+        if not used:
+            print("Warning: annotation", f"{filter} -> {annotation}", "matched no files")
+
+
+    testutil(finders, annotated_files, metrics, output_dir)
 
     return

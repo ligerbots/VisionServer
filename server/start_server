@@ -4,7 +4,10 @@
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2020.py
+SCRIPT=visionserver2022.py
+
+# For numba, used in 2022
+export PYTHONPATH=".:/usr/lib/python36.zip:/usr/lib/python3.6:/usr/lib/python3.6/lib-dynload:/home/odroid/.local/lib/python3.6/site-packages:/usr/local/lib/python3.6/dist-packages:/usr/lib/python3/dist-packages"
 
 # For running standalone (not alongside a RoboRio), set TEST_MODE=1
 TEST_MODE=0
@@ -133,15 +136,20 @@ case "$1" in
     start)
         cd $DIR
 
-        set_cpu_performance
-        
         # make sure the image save directory is always there, and read/write for everyone
         mkdir -m a=rwx -p $IMAGE_SAVE_DIR
         
         LOG_FILE=$( logfile_name )
 
-	date > $LOG_FILE
-        ls -l /dev/v4l/by-id >> $LOG_FILE
+        # Switch current program to have new pipes.
+        # Set STDIN to be /dev/null so that it is disconnect from the terminal
+        exec > $LOG_FILE 2>&1 < /dev/null
+
+	date
+        pwd
+        set_cpu_performance
+        
+        ls -l /dev/v4l/by-id
 
         # Pinging the radio seems to be needed to get the Ethernet interface up reliably.
         # Wait until radio is completely up.
@@ -152,8 +160,8 @@ case "$1" in
         ##ping $radio > /dev/null 2>&1 < /dev/null &
 
         # Start the server, but limit the CPU to #4-7, which are the fast ones
-        echo '' >> $LOG_FILE
-        taskset -c 4-7 python3 ./$SCRIPT $ARGS >> $LOG_FILE 2>&1 < /dev/null &
+        echo '' 
+        /usr/bin/taskset -c 4-7 /usr/bin/python3 ./$SCRIPT $ARGS
 
         if [ $WEB_SERVER = 1 ]; then
            start_webserver

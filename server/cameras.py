@@ -47,7 +47,7 @@ class Camera:
             logging.info(f"Camera '{name}': using threaded reader")
 
         # Variables for the threaded read loop
-        # TODO: this seems to freeze occasionally. 
+        # TODO: this seems to freeze occasionally.
         self.sink = camera_server.getVideo(camera=self.camera)
         logging.info('sink was created')
 
@@ -185,6 +185,8 @@ class LogitechC930e(Camera):
 
         filename = f'c930e_{self.width}x{self.height}_calib.json'
         fullname = os.path.join(calibration_dir, filename)
+        print("NAME",self.get_name(), self.rot90_count*90)
+        print("!!!!!!!!!!!!!!!!!!!!!")
         self.calibration_matrix, self.distortion_matrix = load_calibration_file(fullname, self.rot90_count*90)
         return
 
