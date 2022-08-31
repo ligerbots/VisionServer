@@ -16,17 +16,17 @@ class VisionServer2022(VisionServer):
     # Retro-reflective target finding parameters
 
     # Color threshold values, in HSV space
-    hub_hue_low_limit = ntproperty('/SmartDashboard/vision/hub/hue_low_limit', 65,
+    hub_hue_low_limit = ntproperty('/SmartDashboard/vision/hub/hue_low_limit', 50,
                                    doc='Hue low limit for thresholding (rrtarget mode)')
-    hub_hue_high_limit = ntproperty('/SmartDashboard/vision/hub/hue_high_limit', 100,
+    hub_hue_high_limit = ntproperty('/SmartDashboard/vision/hub/hue_high_limit', 80,
                                     doc='Hue high limit for thresholding (rrtarget mode)')
 
-    hub_saturation_low_limit = ntproperty('/SmartDashboard/vision/hub/saturation_low_limit', 75,
+    hub_saturation_low_limit = ntproperty('/SmartDashboard/vision/hub/saturation_low_limit', 110,
                                           doc='Saturation low limit for thresholding (rrtarget mode)')
     hub_saturation_high_limit = ntproperty('/SmartDashboard/vision/hub/saturation_high_limit', 255,
                                            doc='Saturation high limit for thresholding (rrtarget mode)')
 
-    hub_value_low_limit = ntproperty('/SmartDashboard/vision/hub/value_low_limit', 75,
+    hub_value_low_limit = ntproperty('/SmartDashboard/vision/hub/value_low_limit', 110,
                                      doc='Value low limit for thresholding (rrtarget mode)')
     hub_value_high_limit = ntproperty('/SmartDashboard/vision/hub/value_high_limit', 255,
                                       doc='Value high limit for thresholding (rrtarget mode)')
@@ -34,7 +34,7 @@ class VisionServer2022(VisionServer):
     # rrtarget_exposure = ntproperty('/SmartDashboard/vision/rrtarget/exposure', 0, doc='Camera exposure for rrtarget (0=auto)')
 
     def __init__(self, calib_dir, test_mode=False):
-        super().__init__(initial_mode='intake', test_mode=test_mode)
+        super().__init__(initial_mode='shooter', test_mode=test_mode)
 
         self.camera_device_intake = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device_shooter = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e-video-index0'
@@ -52,8 +52,11 @@ class VisionServer2022(VisionServer):
 
         self.update_parameters()
 
-        # start in shooter mode to get cameras going. Will switch to 'intake' after 1 sec.
-        self.switch_mode('shooter')
+        # DEBUG: capture an image every 100ms - this is too fast for normal testing
+        self.image_writer.capture_period = 0.120
+
+        # start in intake mode to get cameras going. Will switch to initial_mode after 1 sec.
+        self.switch_mode('intake')
         return
 
     def update_parameters(self):
@@ -89,6 +92,16 @@ class VisionServer2022(VisionServer):
         if self.active_mode == 'intake':
             return 'shooter'
         return 'intake'
+
+    def switch_mode(self, new_mode):
+        '''Switch processing mode. new_mode is the string name'''
+
+        super().switch_mode(new_mode)
+
+        # DEBUG: for debugging of finding the hub, save images when looking for the Hub
+        self.image_writer_state = (new_mode == self.hub_finder.name)
+
+        return
 
 
 # Main routine
