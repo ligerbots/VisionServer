@@ -90,7 +90,7 @@ class FastFinder2022(GenericFinder):
         super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = np.array((65, 35, 80), dtype=np.uint8)  # s was 100
+        self.low_limit_hsv = np.array((50, 35, 80), dtype=np.uint8)  # s was 100
         self.high_limit_hsv = np.array((100, 255, 255), dtype=np.uint8)
 
         # values for torture testing

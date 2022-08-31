@@ -385,6 +385,7 @@ class VisionServer:
     def run_files(self, file_list):
         '''Run routine to loop through a set of files and process each.
         Waits a couple seconds between each, and loops forever'''
+        from codetimer import CodeTimer
 
         self.file_mode = True
         file_index = 0
@@ -393,20 +394,25 @@ class VisionServer:
                 self.preallocate_arrays()
 
             image_file = file_list[file_index]
-            print('Processing', image_file)
-            file_frame = cv2.imread(image_file)
-            numpy.copyto(self.camera_frame, file_frame)
+            # print('Processing', image_file)
+            with CodeTimer("Read Image"):
+                self.camera_frame = cv2.imread(image_file)
 
-            self.process_image()
+            with CodeTimer("Process Image"):
+                self.process_image()
+                self.prepare_output_image()
 
-            self.prepare_output_image()
+            with CodeTimer("Put Frame"):
+                self.output_stream.putFrame(self.output_frame)
 
-            self.output_stream.putFrame(self.output_frame)
             # probably don't want to use sleep. Want something thread-compatible
             # for _ in range(4):
-            sleep(0.5)
+            # sleep(0.5)
 
             file_index = (file_index + 1) % len(file_list)
+            if file_index == 0:
+                CodeTimer.output_timers()
+
         return
 
 # -----------------------------------------------------------------------------
