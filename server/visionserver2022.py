@@ -18,7 +18,7 @@ class VisionServer2022(VisionServer):
     # Color threshold values, in HSV space
     hub_hue_low_limit = ntproperty('/SmartDashboard/vision/hub/hue_low_limit', 50,
                                    doc='Hue low limit for thresholding (rrtarget mode)')
-    hub_hue_high_limit = ntproperty('/SmartDashboard/vision/hub/hue_high_limit', 80,
+    hub_hue_high_limit = ntproperty('/SmartDashboard/vision/hub/hue_high_limit', 90,
                                     doc='Hue high limit for thresholding (rrtarget mode)')
 
     hub_saturation_low_limit = ntproperty('/SmartDashboard/vision/hub/saturation_low_limit', 110,

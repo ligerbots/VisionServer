@@ -91,7 +91,7 @@ class FastFinder2022(GenericFinder):
 
         # Color threshold values, in HSV space
         self.low_limit_hsv = np.array((50, 110, 110), dtype=np.uint8)  # s was 100
-        self.high_limit_hsv = np.array((80, 255, 255), dtype=np.uint8)
+        self.high_limit_hsv = np.array((90, 255, 255), dtype=np.uint8)
 
         # values for torture testing
         # self.low_limit_hsv = np.array((55, 5, 30), dtype=np.uint8)
