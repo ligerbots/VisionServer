@@ -2,8 +2,6 @@
 
 '''Vision server for 2022 Rapid React'''
 
-from networktables.util import ntproperty
-
 from visionserver import VisionServer, main
 import cameras
 from genericfinder import GenericFinder
@@ -28,8 +26,6 @@ class VisionServer2022(VisionServer):
         cam = self.cameras['shooter']
         self.hub_finder = HubFinder2022(cam.calibration_matrix, cam.distortion_matrix)
         self.add_target_finder(self.hub_finder)
-
-        self.update_parameters()
 
         # DEBUG: capture an image every 100ms - this is too fast for normal testing
         self.image_writer.capture_period = 0.120

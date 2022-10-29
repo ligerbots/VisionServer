@@ -77,6 +77,8 @@ class ContourInfo:
 class FastFinder2022(GenericFinder):
     '''Find hub ring for 2022 game using a fast circle fit'''
 
+    # NOTE: FastFinder is a replacement for Hubfinder, so re-use the name.
+
     # inches
     CAMERA_HEIGHT = 33
     CAMERA_ANGLE = math.radians(31)
@@ -92,23 +94,23 @@ class FastFinder2022(GenericFinder):
     # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
 
     # Color threshold values, in HSV space
-    hue_low_limit = ntproperty('/SmartDashboard/vision/fastfinder/hue_low_limit', 50,
+    hue_low_limit = ntproperty('/SmartDashboard/vision/hubfinder/hue_low_limit', 50,
                                doc='Hue low limit for thresholding')
-    hue_high_limit = ntproperty('/SmartDashboard/vision/fastfinder/hue_high_limit', 90,
+    hue_high_limit = ntproperty('/SmartDashboard/vision/hubfinder/hue_high_limit', 90,
                                 doc='Hue high limit for thresholding')
 
-    saturation_low_limit = ntproperty('/SmartDashboard/vision/fastfinder/saturation_low_limit', 110,
+    saturation_low_limit = ntproperty('/SmartDashboard/vision/hubfinder/saturation_low_limit', 110,
                                       doc='Saturation low limit for thresholding')
-    saturation_high_limit = ntproperty('/SmartDashboard/vision/fastfinder/saturation_high_limit', 255,
+    saturation_high_limit = ntproperty('/SmartDashboard/vision/hubfinder/saturation_high_limit', 255,
                                        doc='Saturation high limit for thresholding')
 
-    value_low_limit = ntproperty('/SmartDashboard/vision/fastfinder/value_low_limit', 110,
+    value_low_limit = ntproperty('/SmartDashboard/vision/hubfinder/value_low_limit', 110,
                                  doc='Value low limit for thresholding')
-    value_high_limit = ntproperty('/SmartDashboard/vision/fastfinder/value_high_limit', 255,
+    value_high_limit = ntproperty('/SmartDashboard/vision/hubfinder/value_high_limit', 255,
                                   doc='Value high limit for thresholding')
 
     def __init__(self, calib_matrix=None, dist_matrix=None):
-        super().__init__('fastfinder', camera='shooter', finder_id=1.0, exposure=1)
+        super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
         # Somewhat faster to keep the arrays around and update the values inside

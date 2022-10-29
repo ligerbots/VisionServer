@@ -7,7 +7,6 @@
 __all__ = ["ntproperty", ]
 
 try:
-    raise Exception
     from networktables.util import ntproperty
 except Exception:
     print('No WPILib ntproperty')
