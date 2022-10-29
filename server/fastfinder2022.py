@@ -7,6 +7,7 @@ import numpy as np
 import math
 import logging
 
+from ntprop_wrapper import ntproperty
 from genericfinder import GenericFinder, main
 
 
@@ -86,16 +87,33 @@ class FastFinder2022(GenericFinder):
     MAX_DISTANCE = 270.0        # far launchpad, plus some
     MAX_ANGLE = 20.0
 
+    # values for torture testing
+    # self.low_limit_hsv = np.array((55, 5, 30), dtype=np.uint8)
+    # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
+
+    # Color threshold values, in HSV space
+    hue_low_limit = ntproperty('/SmartDashboard/vision/fastfinder/hue_low_limit', 50,
+                               doc='Hue low limit for thresholding')
+    hue_high_limit = ntproperty('/SmartDashboard/vision/fastfinder/hue_high_limit', 90,
+                                doc='Hue high limit for thresholding')
+
+    saturation_low_limit = ntproperty('/SmartDashboard/vision/fastfinder/saturation_low_limit', 110,
+                                      doc='Saturation low limit for thresholding')
+    saturation_high_limit = ntproperty('/SmartDashboard/vision/fastfinder/saturation_high_limit', 255,
+                                       doc='Saturation high limit for thresholding')
+
+    value_low_limit = ntproperty('/SmartDashboard/vision/fastfinder/value_low_limit', 110,
+                                 doc='Value low limit for thresholding')
+    value_high_limit = ntproperty('/SmartDashboard/vision/fastfinder/value_high_limit', 255,
+                                  doc='Value high limit for thresholding')
+
     def __init__(self, calib_matrix=None, dist_matrix=None):
-        super().__init__('hubfinder', camera='shooter', finder_id=1.0, exposure=1)
+        super().__init__('fastfinder', camera='shooter', finder_id=1.0, exposure=1)
 
         # Color threshold values, in HSV space
-        self.low_limit_hsv = np.array((50, 110, 110), dtype=np.uint8)  # s was 100
-        self.high_limit_hsv = np.array((90, 255, 255), dtype=np.uint8)
-
-        # values for torture testing
-        # self.low_limit_hsv = np.array((55, 5, 30), dtype=np.uint8)
-        # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
+        # Somewhat faster to keep the arrays around and update the values inside
+        self.low_limit_hsv = np.zeros((3), dtype=np.uint8)
+        self.high_limit_hsv = np.zeros((3), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 40
@@ -123,16 +141,20 @@ class FastFinder2022(GenericFinder):
 
         return
 
-    def set_color_thresholds(self, hue_low, hue_high, sat_low, sat_high, val_low, val_high):
-        self.low_limit_hsv = np.array((hue_low, sat_low, val_low), dtype=np.uint8)
-        self.high_limit_hsv = np.array((hue_high, sat_high, val_high), dtype=np.uint8)
-        return
-
     @staticmethod
     def get_outer_corners(cnt):
         '''Return the outer four corners of a contour'''
 
         return GenericFinder.sort_corners(cnt)  # Sort by x value of cnr in increasing value
+
+    def update_color_thresholds(self):
+        self.low_limit_hsv[0] = int(self.hue_low_limit)
+        self.low_limit_hsv[1] = int(self.saturation_low_limit)
+        self.low_limit_hsv[2] = int(self.value_low_limit)
+        self.high_limit_hsv[0] = int(self.hue_high_limit)
+        self.high_limit_hsv[1] = int(self.saturation_high_limit)
+        self.high_limit_hsv[2] = int(self.value_high_limit)
+        return
 
     def preallocate_arrays(self, shape):
         '''Pre-allocate work arrays to save time'''
@@ -203,6 +225,7 @@ class FastFinder2022(GenericFinder):
 
         self.hsv_frame = cv2.cvtColor(camera_frame, cv2.COLOR_BGR2HSV, dst=self.hsv_frame)
 
+        self.update_color_thresholds()
         self.threshold_frame = cv2.inRange(self.hsv_frame, self.low_limit_hsv, self.high_limit_hsv,
                                            dst=self.threshold_frame)
 

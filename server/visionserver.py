@@ -443,7 +443,7 @@ def main(server_type):
 
     import argparse
     parser = argparse.ArgumentParser(description='LigerBots Vision Server')
-    parser.add_argument('--calib_dir', required=True, help='Directory for calibration files')
+    parser.add_argument('--calib-dir', required=True, help='Directory for calibration files')
     parser.add_argument('--test', action='store_true', help='Run in local test mode')
     parser.add_argument('--delay', type=int, default=0, help='Max delay trying to connect to NT server (seconds)')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose. Turn up debug messages')
