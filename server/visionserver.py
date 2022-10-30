@@ -5,7 +5,6 @@
 # import sys
 from time import time, sleep
 import cv2
-import numpy
 import logging
 
 import cscore
@@ -37,10 +36,6 @@ class VisionServer:
     # fix the TCP port for the main video, so it does not change with multiple cameras
     output_port = ntproperty('/SmartDashboard/vision/output_port', 1190,
                              doc='TCP port for main image output')
-
-    # Operation modes. Force the value on startup.
-    tuning = ntproperty('/SmartDashboard/vision/tuning', False, writeDefault=True,
-                        doc='Tuning mode. Reads processing parameters each time.')
 
     # Logitech c930 are wide-screen cameras, so 424x240 is the correct proportion
     image_width = ntproperty('/SmartDashboard/vision/width', 424, writeDefault=False, doc='Image width')
@@ -107,18 +102,6 @@ class VisionServer:
                                         capture_period=0.5, image_format='png')
 
         return
-
-    # --------------------------------------------------------------------------------
-    # Methods generally customized each year
-
-    """Methods you should/must include"""
-
-    def update_parameters(self):
-        '''Update processing parameters from NetworkTables values.
-        Only do this on startup or if "tuning" is on, for efficiency'''
-
-        # Make sure to add any additional created properties which should be changeable
-        raise NotImplementedError
 
     # --------------------------------------------------------------------------------
     # Methods which hopefully don't need to be updated
@@ -262,10 +245,6 @@ class VisionServer:
             if self.image_writer_state:
                 cv2.circle(self.output_frame, (20, 20), dotrad, (0, 0, 255), thickness=2*dotrad, lineType=8, shift=0)
 
-            # If tuning mode is on, add text to the upper left corner saying "Tuning On"
-            if self.tuning:
-                cv2.putText(self.output_frame, "TUNING ON", (60, 30), cv2.FONT_HERSHEY_SIMPLEX, fontscale, (255, 0, 0), thickness=fontthick)
-
             # If test mode (ie running the NT server), give a warning
             if self.test_mode:
                 cv2.putText(self.output_frame, "TEST MODE", (5, self.output_frame.shape[0]-5), cv2.FONT_HERSHEY_SIMPLEX,
@@ -297,9 +276,6 @@ class VisionServer:
 
                 # if self.camera_frame is None:
                 #     self.preallocate_arrays()
-
-                if self.tuning:
-                    self.update_parameters()
 
                 # Tell the CvReader to grab a frame from the camera and put it
                 # in the source image.  Frametime==0 on error
@@ -443,7 +419,7 @@ def main(server_type):
 
     import argparse
     parser = argparse.ArgumentParser(description='LigerBots Vision Server')
-    parser.add_argument('--calib_dir', required=True, help='Directory for calibration files')
+    parser.add_argument('--calib-dir', required=True, help='Directory for calibration files')
     parser.add_argument('--test', action='store_true', help='Run in local test mode')
     parser.add_argument('--delay', type=int, default=0, help='Max delay trying to connect to NT server (seconds)')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose. Turn up debug messages')

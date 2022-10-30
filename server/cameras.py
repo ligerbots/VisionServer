@@ -71,7 +71,7 @@ class Camera:
         '''Set the camera exposure. 0 means auto exposure'''
 
         logging.info(f"Setting camera exposure to '{value}'")
-        if value == 0:
+        if value <= 0:
             self.camera.setExposureAuto()
             # Logitech does not like having exposure_auto_priority on when the light is poor
             #  slows down the frame rate
