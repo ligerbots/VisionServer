@@ -274,7 +274,6 @@ def main(finder_type):
 
     finder = finder_type(calib_matrix, dist_matrix)
 
-    print("exposure", finder.exposure)
     if sys.platform == "win32":
         # windows does not expand the "*" files on the command line
         #  so we have to do it.
