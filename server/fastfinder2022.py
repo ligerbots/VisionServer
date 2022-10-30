@@ -9,6 +9,7 @@ import logging
 
 from ntprop_wrapper import ntproperty
 from genericfinder import GenericFinder, main
+from contour import Contour
 
 
 def find_circle(x1, y1, x2, y2, x3, y3):
@@ -42,36 +43,6 @@ def find_circle(x1, y1, x2, y2, x3, y3):
     r = math.sqrt(g**2 + f**2 - c)
 
     return (-g, -f), r
-
-
-class ContourInfo:
-    '''Small class to cache info about a contour, to save repeating the calcs'''
-
-    def __init__(self, contour):
-        self.contour = contour
-        c, w = GenericFinder.contour_center_width(contour)
-        self.bb_center = c
-        self.bb_width, self.bb_height = w
-        self.bb_area = self.bb_width * self.bb_height
-
-        # delay this calc
-        self._moments = None
-        return
-
-    def __getattr__(self, attr):
-        if attr in ('moments', 'centroid', 'con_area'):
-            if self._moments is None:
-                self._moments = cv2.moments(self.contour)
-
-            if attr == 'moments':
-                return self._moments
-            elif attr == 'con_area':
-                return self._moments['m00']
-            else:
-                w = self._moments['m00']
-                return (self._moments['m10']/w, self._moments['m01']/w)
-
-        raise AttributeError
 
 
 class FastFinder2022(GenericFinder):
@@ -186,7 +157,7 @@ class FastFinder2022(GenericFinder):
             return None
 
         # fit a circle to the top 3
-        pts = [c.centroid for c in sorted(contour_list, key=lambda x: x.con_area, reverse=True)]
+        pts = [c.centroid for c in sorted(contour_list, key=lambda x: x.contour_area, reverse=True)]
 
         center, rad = find_circle(pts[0][0], pts[0][1], pts[1][0], pts[1][1], pts[2][0], pts[2][1])
         self.circle = (center, rad)   # for debugging display
@@ -242,25 +213,25 @@ class FastFinder2022(GenericFinder):
 
         contour_list = []
         for c in contours:
-            c_info = ContourInfo(c)
+            c_info = Contour(c)
 
             bb_area = c_info.bb_area
             if bb_area < self.contour_min_area or bb_area > self.contour_max_area:
                 continue
 
             ratio = c_info.bb_width / c_info.bb_height
-            # print('c', c_info.bb_center, bb_area, ratio, c_info.con_area / bb_area)
+            # print('c', c_info.bb_center, bb_area, ratio, c_info.contour_area / bb_area)
             if ratio < 0.8 or ratio > 4.0:
                 continue
 
-            if c_info.con_area / bb_area < self.contour_min_fill:
+            if c_info.contour_area / bb_area < self.contour_min_fill:
                 continue
 
             # print('center', center, 'area', area)
             contour_list.append(c_info)
 
         # Sort the list of contours from biggest area to smallest
-        contour_list.sort(key=lambda c: c.con_area, reverse=True)
+        contour_list.sort(key=lambda c: c.contour_area, reverse=True)
 
         # DEBUG
         self.top_contours = [x.contour for x in contour_list]
