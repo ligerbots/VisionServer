@@ -8,10 +8,11 @@ import cv2
 import logging
 
 import cscore
-from wpilib import SmartDashboard, SendableChooser
 from cscore.imagewriter import ImageWriter
-from networktables.util import ntproperty, ChooserControl
+from networktables.util import ntproperty
 from networktables import NetworkTables
+
+from utils.lb_chooser import LB_Chooser
 
 
 class VisionServer:
@@ -78,9 +79,7 @@ class VisionServer:
         self.nt_active_mode = self.initial_mode
 
         # SendableChooser creates a dropdown chooser in ShuffleBoard
-        self.mode_chooser = SendableChooser()
-        SmartDashboard.putData(self.ACTIVE_MODE_KEY, self.mode_chooser)
-        self.mode_chooser_ctrl = ChooserControl(self.ACTIVE_MODE_KEY)
+        self.mode_chooser = LB_Chooser(self.ACTIVE_MODE_KEY)
 
         # active mode. To be compared to the value from mode_chooser to see if it has changed
         self.active_mode = None
@@ -163,11 +162,12 @@ class VisionServer:
         n = finder.name
         logging.info("Adding target finder '{}' id {}".format(n, finder.finder_id))
         self.target_finders[n] = finder
-        NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/options').setStringArray(list(self.target_finders.keys()))
+
+        self.mode_chooser.add_choice(n)
 
         if n == self.initial_mode:
-            NetworkTables.getEntry('/SmartDashboard/' + self.ACTIVE_MODE_KEY + '/default').setString(n)
-            self.mode_chooser_ctrl.setSelected(n)
+            self.mode_chooser.set_default(n)
+            self.mode_chooser.set_selected(n)
         return
 
     def switch_mode(self, new_mode):
@@ -186,7 +186,7 @@ class VisionServer:
             else:
                 logging.error("Unknown mode '%s'" % new_mode)
 
-            self.mode_chooser_ctrl.setSelected(self.active_mode)  # make sure they are in sync
+            self.mode_chooser.set_selected(self.active_mode)  # make sure they are in sync
         except Exception as e:
             logging.error('Exception when switching mode: %s', e)
 
@@ -270,7 +270,7 @@ class VisionServer:
             try:
                 # Check whether DS has asked for a different camera
                 # ntmode = self.nt_active_mode  # temp, for efficiency
-                ntmode = self.mode_chooser_ctrl.getSelected()
+                ntmode = self.mode_chooser.get_selected()
                 if ntmode != self.active_mode:
                     self.switch_mode(ntmode)
 
