@@ -329,8 +329,9 @@ class VisionServer:
                 if deltat >= min_deltat:
                     self.prepare_output_image()
                     # TODO: this is pretty slow. Why?
-                    self.output_stream.putFrame(self.output_frame)
-                    self.previous_output_time = now
+                    if self.output_frame is not None:
+                        self.output_stream.putFrame(self.output_frame)
+                        self.previous_output_time = now
 
                 if frame_num == 30:
                     # This is a bit stupid, but you need to poke the camera *after* the first

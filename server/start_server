@@ -13,7 +13,7 @@ export PYTHONPATH=".:/usr/lib/python36.zip:/usr/lib/python3.6:/usr/lib/python3.6
 TEST_MODE=0
 
 # For serious debugging, add the "--verbose" option, but it is very noisy
-ARGS="--calib_dir ../data/calibration"
+ARGS="--calib-dir ../data/calibration"
 [ $TEST_MODE = 1 ] && ARGS="$ARGS --test"
 
 # Turn on web server
