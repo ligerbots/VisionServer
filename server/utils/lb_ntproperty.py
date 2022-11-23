@@ -7,11 +7,17 @@
 __all__ = ["ntproperty", ]
 
 try:
-    from networktables import NetworkTablesInstance
+    from networktables import NetworkTablesInstance, Value
+    _has_nt = True
+except Exception:
+    print("No networktables!!")
+    _has_nt = False
+
+if _has_nt:
     NetworkTables = NetworkTablesInstance.getDefault()
 
     class _NtProperty:
-        def __init__(self, key: str, defaultValue, writeDefault: bool, persistent: bool, inst: NetworkTableIsnstance) -> None:
+        def __init__(self, key: str, defaultValue, writeDefault: bool, persistent: bool, inst: NetworkTablesInstance) -> None:
             self.inst = inst
 
             self.ntvalue = self.inst.getGlobalAutoUpdateValue(key, defaultValue, writeDefault)
@@ -29,19 +35,21 @@ try:
                 self.set = self._set_pynetworktables
             else:
                 self.set = self._set_pyntcore
-            
+            return
+
         def get(self, _):
             return self.ntvalue.value
 
         def _set_pynetworktables(self, _, value):
             self.inst._api.setEntryValueById(self.ntvalue._local_id, self.mkv(value))
+            return
 
         def _set_pyntcore(self, _, value):
             self.ntvalue.setValue(self.mkv(value))
-
+            return
 
     def ntproperty(key: str, defaultValue, writeDefault: bool = True, doc: str = None,
-                   persistent: bool = False, *, inst: NetworkTableInstance = NetworkTables) -> property:
+                   persistent: bool = False, *, inst: NetworkTablesInstance = NetworkTables) -> property:
         """
         Replacement for WPILib ntproperty to be used when NT is not loaded on the machine
 
@@ -62,8 +70,8 @@ try:
             pass  # pyntcore compat
 
         return property(fget=ntprop.get, fset=ntprop.set, doc=doc)
-
-except Exception:
+else:
+    # No network tables. Just use a wrapper against a local variable
     # print('No WPILib ntproperty')
 
     class _NtProperty:
@@ -82,7 +90,6 @@ except Exception:
             else:
                 self._value = value
             return
-
 
     def ntproperty(key: str, defaultValue, writeDefault: bool = True, doc: str = None,
                    persistent: bool = False, *, inst=None) -> property:
