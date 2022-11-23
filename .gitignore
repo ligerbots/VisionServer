@@ -16,3 +16,4 @@ data/test_images/2020/goal_known_distances/
 .venv
 data/test_images/2022/shed
 server/saved_images
+test/
