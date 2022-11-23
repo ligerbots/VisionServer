@@ -12,7 +12,7 @@ import cv2
 import numpy
 # import hough_fit
 
-from ntprop_wrapper import ntproperty
+from utils.lb_ntproperty import ntproperty
 
 two_pi = 2 * math.pi
 pi_by_2 = math.pi / 2

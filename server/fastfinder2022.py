@@ -7,7 +7,7 @@ import numpy as np
 import math
 import logging
 
-from ntprop_wrapper import ntproperty
+from utils.lb_ntproperty import ntproperty
 from genericfinder import GenericFinder, main
 from contour import Contour
 
