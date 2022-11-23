@@ -50,6 +50,7 @@ class LB_Chooser:
         entry = self._ntinst.getEntry(self.base_key + '/options')
         curr_choices = entry.getStringArray([])
         if value not in curr_choices:
+            curr_choices = list(curr_choices)
             curr_choices.append(value)
         entry.setStringArray(curr_choices)
         return

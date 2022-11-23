@@ -185,8 +185,7 @@ class LogitechC930e(Camera):
 
         filename = f'c930e_{self.width}x{self.height}_calib.json'
         fullname = os.path.join(calibration_dir, filename)
-        print("NAME",self.get_name(), self.rot90_count*90)
-        print("!!!!!!!!!!!!!!!!!!!!!")
+        logging.info(f"Camera '{self.get_name()}' loading calibration '{fullname}' rotation={self.rot90_count*90}")
         self.calibration_matrix, self.distortion_matrix = load_calibration_file(fullname, self.rot90_count*90)
         return
 
