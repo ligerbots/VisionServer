@@ -50,7 +50,7 @@ class NoteFinder2024(GenericFinder):
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
         self.contour_min_area = 250
-        self.contour_max_area = 1000000
+        self.contour_max_area = 1000000000
         self.contour_min_fill = 0.5
         self.contour_max_fill = 1.0
         self.contour_min_hw_ratio = 0.2
@@ -134,8 +134,8 @@ class NoteFinder2024(GenericFinder):
             if fill_ratio < self.contour_min_fill or fill_ratio > self.contour_max_fill:
                 continue
 
-            print('contour:', c_info.id, ratio, fill_ratio, bb_area, c_info.bb_width)
-            print('heirarchy:', heirarchy[0][ic])
+            # print('contour:', c_info.id, ratio, fill_ratio, bb_area, c_info.bb_width)
+            # print('heirarchy:', heirarchy[0][ic])
             contour_list.append(c_info)
 
         # Sort the list of contours from biggest area to smallest

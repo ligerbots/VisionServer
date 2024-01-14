@@ -1,19 +1,16 @@
-#!/bin/bash
+#!/bin/bash 
 
 # Start the vision server
 
 DIR=/home/odroid/VisionServer/server
 
-SCRIPT=visionserver2022.py
-
-# For numba, used in 2022
-export PYTHONPATH=".:/usr/lib/python36.zip:/usr/lib/python3.6:/usr/lib/python3.6/lib-dynload:/home/odroid/.local/lib/python3.6/site-packages:/usr/local/lib/python3.6/dist-packages:/usr/lib/python3/dist-packages"
+SCRIPT=visionserver2024.py
 
 # For running standalone (not alongside a RoboRio), set TEST_MODE=1
-TEST_MODE=0
+TEST_MODE=1
 
 # For serious debugging, add the "--verbose" option, but it is very noisy
-ARGS="--calib_dir ../data/calibration"
+ARGS="--calib-dir ../data/calibration"
 [ $TEST_MODE = 1 ] && ARGS="$ARGS --test"
 
 # Turn on web server
@@ -137,7 +134,7 @@ case "$1" in
         cd $DIR
 
         # make sure the image save directory is always there, and read/write for everyone
-        mkdir -m a=rwx -p $IMAGE_SAVE_DIR
+        test -d $IMAGE_SAVE_DIR || mkdir -m a=rwx -p $IMAGE_SAVE_DIR
         
         LOG_FILE=$( logfile_name )
 
