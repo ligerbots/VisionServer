@@ -53,13 +53,6 @@ class GenericFinder:
     # the routines below are not needed here, but are used by lots of Finders,
     #  so keep them in one place
 
-    @staticmethod
-    def contour_center_width(contour):
-        '''Find boundingRect of contour, but return center and width/height'''
-
-        x, y, w, h = cv2.boundingRect(contour)
-        return (x + int(w / 2), y + int(h / 2)), (w, h)
-
     # @staticmethod
     # def quad_fit(contour, image_frame=None):
     #     '''Best fit of a quadrilateral to the contour.

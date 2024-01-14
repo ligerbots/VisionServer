@@ -61,7 +61,7 @@ class VisionServer:
         # time of each frame. Sent to the RoboRio as a heartbeat
         self.image_time = 0
 
-        self.camera_server = cscore.CameraServer.getInstance()
+        self.camera_server = cscore.CameraServer
         self.camera_server.enableLogging()
 
         self.cameras = {}

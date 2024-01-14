@@ -10,18 +10,24 @@ import cv2
 class Contour:
     '''Small class to cache info about a contour, to save repeating the calcs'''
 
-    def __init__(self, contour):
+    def __init__(self, id, contour):
+        self._id = id
         self._contour = contour
 
         # this is used so much, just do it. Saves all the tests
         self._bb_rect = cv2.boundingRect(self._contour)
-                
+
         # variables to use for caching.
         # Initialize to None to indicate they have not been filled yet
         self._bb_area = None    # used often, so cache it directly
         self._moments = None
         self._convex_hull = None
         return
+
+    @property
+    def id(self):
+        '''Arbitrary identifier'''
+        return self._id
 
     @property
     def contour(self):
@@ -36,7 +42,7 @@ class Contour:
     @property
     def bb_center(self):
         '''The (x, y) center of the bounding box rectangle'''
-        return (self._bb_rect[0] + self._bb_rect[1] // 2, self._bb_rect[1] + self._bb_rect[3] // 2)    # // is integer division
+        return (self._bb_rect[0] + self._bb_rect[2] // 2, self._bb_rect[1] + self._bb_rect[3] // 2)    # // is integer division
 
     @property
     def bb_size(self):
