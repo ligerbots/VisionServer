@@ -5,7 +5,8 @@
 
 import cscore
 import logging
-from numpy import rot90
+import numpy as np
+
 import os.path
 from threading import Thread
 from time import time, sleep
@@ -31,7 +32,7 @@ class Camera:
         self.camera = cscore.UsbCamera(name, device)
         camera_server.startAutomaticCapture(camera=self.camera)
         # keep the camera open for faster switching
-        self.camera.setConnectionStrategy(cscore.VideoSource.ConnectionStrategy.kKeepOpen)
+        self.camera.setConnectionStrategy(cscore.VideoSource.ConnectionStrategy.kConnectionKeepOpen)
 
         self.camera.setResolution(self.width, self.height)
         self.camera.setFPS(int(fps))
@@ -147,11 +148,14 @@ class Camera:
         return self.frametime, self.camera_frame
 
     def _read_one_frame(self):
-        ft, self.temp_frame = self.sink.grabFrame(self.temp_frame)
+        if self.temp_frame is None:
+            self.temp_frame = np.empty((self.height, self.width, 3), dtype=np.uint8)
+
+        ft, self.temp_frame = self.sink.grabFrameNoTimeout(self.temp_frame)
 
         if self.rot90_count and ft > 0:
             # Numpy is *much* faster than the OpenCV routine
-            self.temp_frame = rot90(self.temp_frame, self.rot90_count)
+            self.temp_frame = np.rot90(self.temp_frame, self.rot90_count)
 
         # Don't update camera_frame and frame_number until done all processing
         # this prevents the client from fetching it before it is ready
