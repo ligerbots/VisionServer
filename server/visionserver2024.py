@@ -10,7 +10,7 @@ from notefinder2024 import NoteFinder2024
 
 class VisionServer2024(VisionServer):
     def __init__(self, calib_dir, test_mode=False):
-        super().__init__(initial_mode='note', test_mode=test_mode)
+        super().__init__(initial_mode='notefinder', test_mode=test_mode)
 
         # self.camera_device = '/dev/v4l/by-id/usb-046d_Logitech_Webcam_C930e_DF7AF0BE-video-index0'
         self.camera_device = '/dev/v4l/by-id/usb-Sonix_Technology_Co.__Ltd._USB_Live_camera_SN0001-video-index0'
@@ -25,7 +25,7 @@ class VisionServer2024(VisionServer):
         self.add_target_finder(self.note_finder)
 
         # DEBUG: capture an image every 100ms - this is too fast for normal testing
-        self.image_writer.capture_period = 0.120
+        # self.image_writer.capture_period = 0.120
 
         # start in intake mode to get cameras going. Will switch to initial_mode after 1 sec.
         self.switch_mode('driver')
