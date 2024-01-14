@@ -25,17 +25,17 @@ class NoteFinder2024(GenericFinder):
     # self.high_limit_hsv = np.array((160, 255, 255), dtype=np.uint8)
 
     # Color threshold values, in HSV space
-    hue_low_limit = ntproperty('/SmartDashboard/vision/notefinder/hue_low_limit', 50,
+    hue_low_limit = ntproperty('/SmartDashboard/vision/notefinder/hue_low_limit', 0,
                                doc='Hue low limit for thresholding')
-    hue_high_limit = ntproperty('/SmartDashboard/vision/notefinder/hue_high_limit', 90,
+    hue_high_limit = ntproperty('/SmartDashboard/vision/notefinder/hue_high_limit', 30,
                                 doc='Hue high limit for thresholding')
 
-    saturation_low_limit = ntproperty('/SmartDashboard/vision/notefinder/saturation_low_limit', 110,
+    saturation_low_limit = ntproperty('/SmartDashboard/vision/notefinder/saturation_low_limit', 100,
                                       doc='Saturation low limit for thresholding')
-    saturation_high_limit = ntproperty('/SmartDashboard/vision/notefinder/saturation_high_limit', 255,
+    saturation_high_limit = ntproperty('/SmartDashboard/vision/notefinder/saturation_high_limit', 170,
                                        doc='Saturation high limit for thresholding')
 
-    value_low_limit = ntproperty('/SmartDashboard/vision/notefinder/value_low_limit', 110,
+    value_low_limit = ntproperty('/SmartDashboard/vision/notefinder/value_low_limit', 155,
                                  doc='Value low limit for thresholding')
     value_high_limit = ntproperty('/SmartDashboard/vision/notefinder/value_high_limit', 255,
                                   doc='Value high limit for thresholding')
@@ -49,10 +49,12 @@ class NoteFinder2024(GenericFinder):
         self.high_limit_hsv = np.zeros((3), dtype=np.uint8)
 
         # pixel area of the bounding rectangle - just used to remove stupidly small regions
-        self.contour_min_area = 40
-        self.contour_max_area = 1000
-        self.max_2nd_region_dist = 50
-        self.contour_min_fill = 0.25
+        self.contour_min_area = 250
+        self.contour_max_area = 1000000
+        self.contour_min_fill = 0.5
+        self.contour_max_fill = 1.0
+        self.contour_min_hw_ratio = 0.2
+        self.contour_max_hw_ratio = 1.2
 
         self.hsv_frame = None
         self.threshold_frame = None
@@ -90,20 +92,6 @@ class NoteFinder2024(GenericFinder):
         # threshold_fame is grey, so only 2 dimensions
         self.threshold_frame = np.empty(shape=shape[:2], dtype=np.uint8)
 
-        # translate FOV limits into pixels
-        xp = math.tan(math.radians(self.MAX_ANGLE))
-        self.minimum_x = self.cameraMatrix[0, 2] - xp * self.cameraMatrix[0, 0]
-        self.maximum_x = self.cameraMatrix[0, 2] + xp * self.cameraMatrix[0, 0]
-
-        angley = math.atan((self.HUB_HEIGHT - self.CAMERA_HEIGHT) / self.MIN_DISTANCE) - self.CAMERA_ANGLE
-        yp = math.tan(angley)
-        self.minimum_y = max(0, self.cameraMatrix[1, 2] - yp * self.cameraMatrix[1, 1])
-
-        angley = math.atan((self.HUB_HEIGHT - self.CAMERA_HEIGHT) / self.MAX_DISTANCE) - self.CAMERA_ANGLE
-        yp = math.tan(angley)
-        self.maximum_y = self.cameraMatrix[1, 2] - yp * self.cameraMatrix[1, 1]
-
-        # print('fov', self.minimum_x, self.maximum_x, self.minimum_y, self.maximum_y)
         return
 
     def process_image(self, camera_frame):
@@ -125,39 +113,40 @@ class NoteFinder2024(GenericFinder):
         self.threshold_frame = cv2.inRange(self.hsv_frame, self.low_limit_hsv, self.high_limit_hsv,
                                            dst=self.threshold_frame)
 
-        # OpenCV 3 returns 3 parameters, OpenCV 4 returns 2!
-        # Only need the contours variable
-        res = cv2.findContours(self.threshold_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        contours = res[0]
+        contours, heirarchy = cv2.findContours(self.threshold_frame, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+        # don't know why it needs this extra level.
+        heirarchy = heirarchy[0]
 
         contour_list = []
-        for c in contours:
-            c_info = Contour(c)
+        for ic, c in enumerate(contours):
+            c_info = Contour(id=ic, contour=c)
 
             bb_area = c_info.bb_area
             if bb_area < self.contour_min_area or bb_area > self.contour_max_area:
                 continue
 
-            # ratio = c_info.bb_width / c_info.bb_height
-            # # print('c', c_info.bb_center, bb_area, ratio, c_info.contour_area / bb_area)
-            # if ratio < 0.8 or ratio > 4.0:
-            #     continue
+            ratio = c_info.bb_height / c_info.bb_width
+            if ratio < self.contour_min_hw_ratio or ratio > self.contour_max_hw_ratio:
+                continue
 
-            # if c_info.contour_area / bb_area < self.contour_min_fill:
-            #     continue
+            # note: this covers the whole inside of the contour
+            fill_ratio = c_info.contour_area / bb_area
+            if fill_ratio < self.contour_min_fill or fill_ratio > self.contour_max_fill:
+                continue
 
-            # print('center', center, 'area', area)
+            print('contour:', c_info.id, ratio, fill_ratio, bb_area, c_info.bb_width)
+            print('heirarchy:', heirarchy[0][ic])
             contour_list.append(c_info)
 
         # Sort the list of contours from biggest area to smallest
         contour_list.sort(key=lambda c: c.contour_area, reverse=True)
 
         # DEBUG
-        self.top_contours = [x.contour for x in contour_list]
+        self.top_contours = contour_list
 
         result = np.array([0.0, self.finder_id, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-        logging.info('notefinder2024: %s', result)
+        # logging.info('notefinder2024: %s', result)
         return result
 
     def calculate_angle_distance(self, center):
@@ -197,7 +186,10 @@ class NoteFinder2024(GenericFinder):
         output_frame = input_frame.copy()
 
         if self.top_contours is not None:
-            cv2.drawContours(output_frame, self.top_contours, -1, (0, 0, 255), 1)
+            for c_info in self.top_contours:
+                cv2.drawContours(output_frame, [c_info.contour], -1, (0, 0, 255), 2)
+                cv2.rectangle(output_frame, c_info.bb_rectangle, (255, 0, 0), 2)
+                cv2.putText(output_frame, str(c_info.id), c_info.bb_center, cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), thickness=2)
 
         if self.target_contours is not None:
             cv2.drawContours(output_frame, self.target_contours, -1, (255, 0, 255), 2)
